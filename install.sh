@@ -19,7 +19,7 @@ ln -s $HOME/bin/squashfs-root/usr/bin/nvim $HOME/bin/nvim
 git clone https://github.com/tmux-plugins/tmux-resurrect $HOME/tmux-resurrect
 
 # install antigen
-curl -L git.io/antigen > $HOME/antigen.zsh
+curl -L https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh > $HOME/antigen.zsh
 
 # copy over dotfiles
 rsync -av --progress --update $DIR/dotfiles/ $HOME/
