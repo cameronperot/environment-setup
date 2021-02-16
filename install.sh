@@ -21,8 +21,19 @@ git clone https://github.com/tmux-plugins/tmux-resurrect $HOME/tmux-resurrect
 # install antigen
 curl -L https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh > $HOME/antigen.zsh
 
+# edit dotfiles for remote usage
+if [ "$1" == "remote" ]; then
+    # edit init.vim to mitigate possible issues on remote
+    sed -i "s/Plug 'iamcco\/markdown-preview.nvim'/\"Plug 'iamcco\/markdown-preview.nvim'/g" $DIR/dotfiles/.config/nvim/init.vim
+    sed -i "s/\/opt\/miniconda3\/bin\/python/\/usr\/bin\/python3/g" $DIR/dotfiles/.config/nvim/init.vim
+
+    # edit .zshrc to mitigate possible issues on remote
+    sed -i "s/source <(kitty + complete setup zsh)/#source <(kitty + complete setup zsh)/g" $DIR/dotfiles/.zshrc
+    sed -i "s/antigen bundle ssh-agent/#antigen bundle ssh-agent/g" $DIR/dotfiles/.zshrc
+
+    # install python language server
+    pip3 install --user 'python-language-server[all]' black flake8 neovim
+fi
+
 # copy over dotfiles
 rsync -av --progress --update $DIR/dotfiles/ $HOME/
-
-# install python language server
-pip3 install --user 'python-language-server[all]' black flake8 neovim
