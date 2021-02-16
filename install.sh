@@ -22,7 +22,8 @@ git clone https://github.com/tmux-plugins/tmux-resurrect $HOME/tmux-resurrect
 curl -L https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh > $HOME/antigen.zsh
 
 # edit dotfiles for remote usage
-if [ "$1" == "remote" ]; then
+HOST=${1:-remote}
+if [ "$HOST" == "remote" ]; then
     # edit init.vim to mitigate possible issues on remote
     sed -i "s/Plug 'iamcco\/markdown-preview.nvim'/\"Plug 'iamcco\/markdown-preview.nvim'/g" $DIR/dotfiles/.config/nvim/init.vim
     sed -i "s/\/opt\/miniconda3\/bin\/python/\/usr\/bin\/python3/g" $DIR/dotfiles/.config/nvim/init.vim
