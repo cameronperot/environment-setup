@@ -1,7 +1,9 @@
 # initialize
 source $HOME/antigen.zsh
 source $HOME/.bash_aliases
-
+if [ -f $HOME/.backblaze.sh ]; then
+    source $HOME/.backblaze.sh
+fi
 
 # antigen config
 antigen use oh-my-zsh
@@ -13,7 +15,7 @@ antigen bundle docker
 antigen bundle docker-compose
 antigen bundle dnf
 antigen bundle rsync
-#antigen bundle ssh-agent
+antigen bundle ssh-agent
 antigen bundle pip
 antigen bundle common-aliases
 antigen bundle command-not-found
@@ -41,7 +43,7 @@ export SAVEHIST=$HISTSIZE
 export HISTCONTROL=ignorespace:ignoredups:erasedups # leading space hides commands from history
 
 # kitty complete
-#source <(kitty + complete setup zsh)
+source <(kitty + complete setup zsh)
 
 # julia specific env vars
 export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$HOME/rsync/programming/GraphEvolve.jl/src"

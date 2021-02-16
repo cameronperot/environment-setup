@@ -43,7 +43,7 @@ Plug 'plasticboy/vim-markdown'                                " Markdown
 Plug 'elzr/vim-json'                                          " JSON
 Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
-"Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
+Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
 
 call plug#end()
 
@@ -76,7 +76,7 @@ colorscheme onedark                                    " Set theme
 syntax on                                              " Syntax highlighting
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
-let g:python3_host_prog = '/usr/bin/python3' " Python3 host program
+let g:python3_host_prog = '/opt/miniconda3/bin/python' " Python3 host program
 
 " Remove trailing whitespace and new lines
 function RemoveTrailingWhitespace()
@@ -117,7 +117,7 @@ command! -nargs=0 Sw w !sudo tee % > /dev/null
 inoremap <silent><expr> <TAB>  pumvisible() ? "\<C-n>" : "\<TAB>"
 inoremap <silent><expr> <S-TAB>  pumvisible() ? "\<C-p>" : "\<TAB>"
 let g:deoplete#enable_at_startup = 1
-let g:deoplete#sources#jedi#python_path = '/usr/bin/python3'
+let g:deoplete#sources#jedi#python_path = '/opt/miniconda3/bin/python'
 
 " Airline
 let g:airline_theme = 'onedark'

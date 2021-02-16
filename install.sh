@@ -19,9 +19,9 @@ ln -s $HOME/bin/squashfs-root/usr/bin/nvim $HOME/bin/nvim
 git clone https://github.com/tmux-plugins/tmux-resurrect $HOME/tmux-resurrect
 
 # install antigen
-curl -L https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh > $HOME/antigen.zsh
+wget -O $HOME/antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 
-# edit dotfiles for remote usage
+# extras for remote installation
 HOST=${1:-remote}
 if [ "$HOST" == "remote" ]; then
     # edit init.vim to mitigate possible issues on remote
@@ -32,8 +32,11 @@ if [ "$HOST" == "remote" ]; then
     sed -i "s/source <(kitty + complete setup zsh)/#source <(kitty + complete setup zsh)/g" $DIR/dotfiles/.zshrc
     sed -i "s/antigen bundle ssh-agent/#antigen bundle ssh-agent/g" $DIR/dotfiles/.zshrc
 
-    # install python language server
+    # install python development packages
     pip3 install --user 'python-language-server[all]' black flake8 neovim
+
+    # install ranger
+    pip3 install --user ranger-fm
 fi
 
 # copy over dotfiles
