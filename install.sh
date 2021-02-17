@@ -18,9 +18,6 @@ ln -s $HOME/bin/squashfs-root/usr/bin/nvim $HOME/bin/nvim
 # install tmux-resurrect
 git clone https://github.com/tmux-plugins/tmux-resurrect $HOME/tmux-resurrect
 
-# install antigen
-wget -O $HOME/antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
-
 # extras for remote installation
 HOST=${1:-remote}
 if [ "$HOST" == "remote" ]; then

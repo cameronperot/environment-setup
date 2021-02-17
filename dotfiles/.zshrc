@@ -1,10 +1,10 @@
 # Download antigen if it doesn't exist
-if [ ! -f $HOME/antigen.zsh ]; then
-    wget -O $HOME/antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
+if [ ! -f $HOME/.antigen.zsh ]; then
+    wget -O $HOME/.antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 fi
 
 # Initialize
-source $HOME/antigen.zsh
+source $HOME/.antigen.zsh
 source $HOME/.bash_aliases
 if [ -f $HOME/.secret_exports ]; then
     source $HOME/.secret_exports
@@ -71,6 +71,7 @@ export GEM_HOME="$HOME/gems"
 export PATH="$HOME/gems/bin:$PATH"
 
 # Misc.
+export VI_MODE_SET_CURSOR=true
 export QT_QPA_PLATFORMTHEME=qt5ct
 export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
