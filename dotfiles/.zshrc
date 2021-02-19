@@ -39,6 +39,7 @@ ZSH_THEME_GIT_PROMPT_SUFFIX=")"
 ZSH_THEME_GIT_PROMPT_DIRTY="*"
 ZSH_THEME_GIT_PROMPT_CLEAN=""
 PROMPT='%B%{$fg[green]%}%n@%m %{$fg[blue]%}%2~%b%{$fg[cyan]%}$(git_prompt_info)%{$reset_color%} ⟩ '
+MODE_INDICATOR="%F{yellow}+%f"
 RPROMPT=''
 
 # History
@@ -60,15 +61,12 @@ unsetopt SHARE_HISTORY
 source <(kitty + complete setup zsh)
 
 # Julia specific env vars
-export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$HOME/rsync/programming/GraphEvolve.jl/src"
-export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$HOME/rsync/programming/MagSim.jl/src"
-export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$HOME/rsync/programming/FuNN.jl/src"
 export JULIA_EDITOR="nvim"
 
 # Install Ruby Gems to ~/gems
 export BUNDLE_FORCE_RUBY_PLATFORM=true
 export GEM_HOME="$HOME/gems"
-export PATH="$HOME/gems/bin:$PATH"
+export PATH="$PATH:$HOME/gems/bin"
 
 # Misc.
 export VI_MODE_SET_CURSOR=true

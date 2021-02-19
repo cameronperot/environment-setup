@@ -1,7 +1,7 @@
 # Environment Setup
 This repo is automates the setup of a programming environment consisting of zsh, tmux, neovim, and ranger.
 
-## Installation
+## Usage
 Clone the repo and run the install script:
 ```bash
 git clone https://github.com/cameronperot/environment-setup.git
@@ -13,3 +13,6 @@ Optional: to install the setup using a miniconda Python installation located at 
 ```bash
 ./install.sh local
 ```
+
+### Customization
+If you would like to adapt this repo to your config, you can modify the `update_dotfiles.sh` script to copy your doftiles to the dotfiles directory, and the `install.sh` script to install your desired software and copy over your dotfiles.

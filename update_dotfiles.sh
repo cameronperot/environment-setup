@@ -8,3 +8,8 @@ rsync -avz --progress -h $HOME/.zshrc $DIR/dotfiles/.zshrc
 rsync -avz --progress -h $HOME/.tmux.conf $DIR/dotfiles/.tmux.conf
 rsync -avz --progress -h $HOME/.config/nvim/init.vim $DIR/dotfiles/.config/nvim/init.vim
 rsync -avz --progress -h $HOME/.config/ranger/ $DIR/dotfiles/.config/ranger/
+
+cd $DIR
+git add .
+git commit -m "Updated dotfiles"
+git push
