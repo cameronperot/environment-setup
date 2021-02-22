@@ -24,6 +24,7 @@ antigen bundle ssh-agent
 antigen bundle pip
 antigen bundle common-aliases
 antigen bundle command-not-found
+antigen bundle autojump
 antigen bundle unixorn/git-extra-commands
 antigen bundle zsh-users/zsh-syntax-highlighting
 antigen bundle zsh-users/zsh-completions
