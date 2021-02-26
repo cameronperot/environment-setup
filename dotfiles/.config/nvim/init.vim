@@ -77,6 +77,7 @@ syntax on                                              " Syntax highlighting
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
 let g:python3_host_prog = '/opt/miniconda3/bin/python' " Python3 host program
+nmap <leader>bd :bd<cr>
 
 " Remove trailing whitespace and new lines
 function RemoveTrailingWhitespace()
@@ -121,6 +122,7 @@ let g:deoplete#sources#jedi#python_path = '/opt/miniconda3/bin/python'
 
 " Airline
 let g:airline_theme = 'onedark'
+let g:airline#extensions#branch#enabled=1
 let g:airline#extensions#bufferline#overwrite_variables = 0
 let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
