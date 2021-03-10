@@ -201,9 +201,6 @@ exec feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
 ## Redshift
 exec redshift-gtk
 
-## Notification daemon
-exec --no-start-up /usr/lib64/xfce4/notifyd/xfce4-notifyd
-
 ## Nextcloud
 exec nextcloud
 
@@ -244,6 +241,9 @@ exec /usr/bin/setxkbmap -option "ctrl:nocaps"
 ## Autolocking
 exec xautolock -time 90 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
 
+## Set XCompose mod key
+exec "xmodmap -e 'keysym Alt_R = Multi_key'"
+
 # Switch between previous workspaces with mod+tab
 bindsym $mod+Tab workspace back_and_forth
 
@@ -272,6 +272,10 @@ bindsym XF86MonBrightnessDown exec light -U 5
 ## Screenshots
 bindsym $mod+Print exec xfce4-screenshooter -f
 bindsym Control+Print exec xfce4-screenshooter -w
+
+## Scratchpad
+bindsym $mod+x [floating] move scratchpad
+bindsym $mod+z scratchpad show
 
 ## Disable window title bars in split view
 new_window 1pixel

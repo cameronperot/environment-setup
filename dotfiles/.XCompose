@@ -371,7 +371,7 @@ include "%L"
 <Multi_key> <m> <i> <m> <b>      : "⟸"
 <Multi_key> <m> <i> <f> <f>      : "⟺"
 <Multi_key> <m> <n> <b> <l>      : "∇"
+<Multi_key> <m> <d>              : "∂"
 
 # 𝛂 𝛃 𝛄 𝛅 𝛜 𝛆 𝛇 𝛈 𝛉 𝛊 𝛌 𝛋 𝛍 𝛎 𝛏 𝛑 𝛒 𝛔 𝛕 𝛟 𝛙 𝛚
 # a⃗ b⃗ c⃗ d⃗ e⃗ f⃗ g⃗ h⃗ i⃗ j⃗ k⃗ l⃗ m⃗ n⃗ o⃗ p⃗ q⃗ r⃗ s⃗ t⃗ u⃗ v⃗ w⃗ x⃗ y⃗ z⃗
-
