@@ -164,7 +164,8 @@ let g:NERDSpaceDelims = 0
 
 " NERDTree
 let g:NERDTreeShowHidden = 1
-let NERDTreeShowLineNumbers=1
+let g:NERDTreeShowLineNumbers=1
+let g:NERDTreeQuitOnOpen = 1
 autocmd FileType nerdtree setlocal relativenumber
 map <C-n> :NERDTreeToggle<CR>
 
