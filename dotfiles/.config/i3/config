@@ -228,6 +228,8 @@ exec xinput set-prop 'TPPS/2 Elan TrackPoint' 'libinput Accel Speed' -0.3
 ## Disable mouse wheel scrolling between windows
 bindsym button4 nop
 bindsym button5 nop
+bindsym button6 nop
+bindsym button7 nop
 
 ## Disable system beeps
 exec xset b off
