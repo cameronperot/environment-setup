@@ -110,6 +110,9 @@ command Vizshrc :e ~\/.zshrc
 command Vialiases :e ~\/.bash_aliases
 command! -nargs=0 Sw w !sudo tee % > /dev/null
 
+" Custom commands
+command Spellcheck :set spell spelllang=en_us <CR>
+
 
 " -----------------------------------------------------------------------------------------
 " Plugin settings
