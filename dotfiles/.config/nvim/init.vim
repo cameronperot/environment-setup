@@ -26,6 +26,7 @@ Plug 'NLKNguyen/papercolor-theme'                             " Theme
 Plug 'junegunn/seoul256.vim'                                  " Theme
 Plug 'airblade/vim-gitgutter'                                 " Git
 Plug 'tpope/vim-fugitive'                                     " Git
+Plug 'tpope/vim-rhubarb'                                      " Git
 Plug 'vim-airline/vim-airline'                                " Status bar
 Plug 'vim-airline/vim-airline-themes'                         " Status bar themes
 Plug 'bling/vim-bufferline'                                   " Display buffers in status bar
@@ -33,6 +34,7 @@ Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' } " Autocomplete
 Plug 'Shougo/deoplete-lsp'                                    " Autocomplete lsp
 Plug 'neovim/nvim-lsp'                                        " Nvim lsp support
 Plug 'jpalardy/vim-slime'                                     " Send code to terminal
+Plug 'rust-lang/rust.vim'                                     " Rust
 Plug 'JuliaEditorSupport/julia-vim', { 'for': 'julia' }       " Julia
 Plug 'mroavi/vim-julia-cell', { 'for': 'julia' }              " Julia cells
 Plug 'davidhalter/jedi-vim', { 'for': 'python' }              " Python jedi
@@ -73,7 +75,8 @@ set wrap                                               " Line wrapping
 set linebreak                                          " Line breaks
 set showbreak=\ ↪                                      " Wrapped lines
 colorscheme onedark                                    " Set theme
-syntax on                                              " Syntax highlighting
+syntax enable                                          " Syntax highlighting
+filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
 let g:python3_host_prog = '/opt/miniconda3/bin/python' " Python3 host program

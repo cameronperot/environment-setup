@@ -69,6 +69,9 @@ export BUNDLE_FORCE_RUBY_PLATFORM=true
 export GEM_HOME="$HOME/gems"
 export PATH="$PATH:$HOME/gems/bin"
 
+# Add rust to path
+export PATH="$PATH:$HOME/.cargo/bin"
+
 # Misc.
 export VI_MODE_SET_CURSOR=true
 export QT_QPA_PLATFORMTHEME=qt5ct
