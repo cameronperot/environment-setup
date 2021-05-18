@@ -255,6 +255,9 @@ bindsym $mod+t exec thunar
 # Lock screen shortcut
 bindsym Control+Mod1+l exec i3lock --ignore-empty-password --show-failed-attempts --color=000000
 
+# Greeter shortcut
+bindsym Control+Mod1+o exec dm-tool switch-to-greeter
+
 ## Julia shortcut
 bindsym $mod+XF86Favorites exec "kitty -e /home/user/julia/julia --sysimage /home/user/julia/sys_plots.so"
 
