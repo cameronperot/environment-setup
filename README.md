@@ -1,5 +1,5 @@
 # Environment Setup
-This repo is automates the setup of a programming environment consisting of zsh, tmux, neovim, and ranger.
+This repo automates the setup of a programming environment consisting of zsh, tmux, neovim, and ranger.
 
 ## Usage
 Clone the repo and run the install script:
