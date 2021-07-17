@@ -46,6 +46,7 @@ Plug 'elzr/vim-json'                                          " JSON
 Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
+Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}   " We recommend updating the parsers on update
 
 call plug#end()
 
@@ -234,3 +235,14 @@ function PythonREPLRestart()
      :SlimeSend1 ipython
 endfunction
 autocmd FileType python nnoremap <Leader>q :call PythonREPLRestart()<CR>
+
+lua <<EOF
+require'nvim-treesitter.configs'.setup {
+  ensure_installed = { "python", "julia", "javascript" }, -- one of "all", "maintained" (parsers with maintainers), or a list of languages
+  ignore_install = { }, -- List of parsers to ignore installing
+  highlight = {
+    enable = true,              -- false will disable the whole extension
+    disable = { "c", "rust" },  -- list of language that will be disabled
+  },
+}
+EOF
