@@ -1,10 +1,10 @@
 # Download antigen if it doesn't exist
-if [ ! -f $HOME/.antigen.zsh ]; then
-    wget -O $HOME/.antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
+if [ ! -f $HOME/antigen.zsh ]; then
+    wget -O $HOME/antigen.zsh https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 fi
 
 # Initialize
-source $HOME/.antigen.zsh
+source $HOME/antigen.zsh
 source $HOME/.bash_aliases
 if [ -f $HOME/.secret_exports ]; then
     source $HOME/.secret_exports
@@ -24,12 +24,15 @@ antigen bundle ssh-agent
 antigen bundle pip
 antigen bundle common-aliases
 antigen bundle command-not-found
-antigen bundle autojump
 antigen bundle unixorn/git-extra-commands
 antigen bundle zsh-users/zsh-syntax-highlighting
 antigen bundle zsh-users/zsh-completions
 antigen bundle zsh-users/zsh-autosuggestions
 antigen bundle zsh-users/zsh-history-substring-search
+
+if [ -x "$(command -v autojump)" ]; then
+    antigen bundle autojump
+fi
 
 # Antigen apply
 antigen apply

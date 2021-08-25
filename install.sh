@@ -28,7 +28,6 @@ if [ "$HOST" == "remote" ]; then
     # edit .zshrc to mitigate possible issues on remote
     sed -i "s/source <(kitty + complete setup zsh)/#source <(kitty + complete setup zsh)/g" $DIR/dotfiles/.zshrc
     sed -i "s/antigen bundle ssh-agent/#antigen bundle ssh-agent/g" $DIR/dotfiles/.zshrc
-    sed -i "s/antigen bundle autojump/#antigen bundle autojump/g" $DIR/dotfiles/.zshrc
 
     # install python development packages
     pip3 install --user 'python-language-server[all]' black flake8 neovim

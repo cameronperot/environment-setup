@@ -215,15 +215,17 @@ exec nm-applet
 
 ## Touchpad
 ### Fix Vertical Acceleration Issue
-exec xinput set-prop 'SynPS/2 Synaptics TouchPad' 'Coordinate Transformation Matrix' 1 0 0 0 0.5 0 0 0 1
+exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'Coordinate Transformation Matrix' 1 0 0 0 0.5 0 0 0 1
 ### Enable tapping
-exec xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Tapping Enabled' 1
+exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Tapping Enabled' 1
 ### Reverse scrolling direction
-exec xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Natural Scrolling Enabled' 1
+exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Natural Scrolling Enabled' 1
 ### Set touchpad accel
-exec xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Accel Speed' 0.4
+exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Accel Speed' 0.4
 ### Set trackpad accel
-exec xinput set-prop 'TPPS/2 Elan TrackPoint' 'libinput Accel Speed' -0.3
+exec_always xinput set-prop 'TPPS/2 Elan TrackPoint' 'libinput Accel Speed' -0.3
+## Disable Touchpad M3 Button
+exec_always xinput set-button-map "SynPS/2 Synaptics TouchPad" 1 0 3 4 5 6 7
 
 ## Disable mouse wheel scrolling between windows
 bindsym button4 nop
@@ -234,17 +236,20 @@ bindsym button7 nop
 ## Disable system beeps
 exec xset b off
 
-## Disable Touchpad M3 Button
-exec xinput set-button-map "SynPS/2 Synaptics TouchPad" 1 0 3 4 5 6 7
-
 ## Remap caps to ctrl
-exec /usr/bin/setxkbmap -option "ctrl:nocaps"
+exec --no-startup-id /usr/bin/setxkbmap -option "ctrl:nocaps"
 
 ## Autolocking
-exec xautolock -time 90 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
+exec --no-startup-id /usr/bin/xautolock -time 90 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
 
 ## Set XCompose mod key
-exec "xmodmap -e 'keysym Alt_R = Multi_key'"
+exec --no-startup-id /usr/bin/xmodmap -e "keysym Alt_R = Multi_key"
+
+## Start polkit
+exec --no-startup-id /usr/libexec/xfce-polkit
+
+## Start notifyd
+exec --no-startup-id /usr/lib64/xfce4/notifyd/xfce4-notifyd
 
 # Switch between previous workspaces with mod+tab
 bindsym $mod+Tab workspace back_and_forth
@@ -259,7 +264,7 @@ bindsym Control+Mod1+l exec i3lock --ignore-empty-password --show-failed-attempt
 bindsym Control+Mod1+o exec dm-tool switch-to-greeter
 
 ## Julia shortcut
-bindsym $mod+XF86Favorites exec "kitty -e /home/user/julia/julia --sysimage /home/user/julia/sys_plots.so"
+bindsym $mod+XF86Favorites exec "kitty -e /home/user/bin/julia --sysimage /home/user/julia/sys_plots.so"
 
 ## Calendar shortcut
 bindsym $mod+c exec zenity --calendar
