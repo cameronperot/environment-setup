@@ -202,7 +202,7 @@ exec feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
 exec redshift-gtk
 
 ## Nextcloud
-exec nextcloud
+#exec nextcloud
 
 ## KeepassXC
 exec kee
@@ -250,6 +250,12 @@ exec --no-startup-id /usr/libexec/xfce-polkit
 
 ## Start notifyd
 exec --no-startup-id /usr/lib64/xfce4/notifyd/xfce4-notifyd
+
+## Start SELinux applet
+exec --no-startup-id /usr/bin/seapplet
+
+## Start PulseEffects
+exec --no-startup-id /usr/bin/pulseeffects --gapplication-service
 
 # Switch between previous workspaces with mod+tab
 bindsym $mod+Tab workspace back_and_forth
