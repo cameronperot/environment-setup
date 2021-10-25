@@ -318,6 +318,7 @@ client.urgent               $rd        $rd         $tx
 ## Set i3status colors
 bar {
     status_command i3status
+    tray_output primary
     wheel_up_cmd nop
     wheel_down_cmd nop
 
