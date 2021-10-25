@@ -84,6 +84,9 @@ export NO_AT_BRIDGE=1 # https://unix.stackexchange.com/questions/230238/x-applic
 export VISUAL=nvim
 export EDITOR=nvim
 export RANGER_LOAD_DEFAULT_RC=FALSE
+export LC_ALL=en_US.UTF8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
 unalias rm
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
 bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
