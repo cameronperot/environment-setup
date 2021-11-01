@@ -117,6 +117,9 @@ command! -nargs=0 Sw w !sudo tee % > /dev/null
 " Custom commands
 command Spellcheck :set spell spelllang=en_us <CR>
 
+" Disable ctrl-q since used in tmux
+map <c-q> <nop>
+
 
 " -----------------------------------------------------------------------------------------
 " Plugin settings
