@@ -30,7 +30,7 @@ if [ "$HOST" == "remote" ]; then
     sed -i "s/antigen bundle ssh-agent/#antigen bundle ssh-agent/g" $DIR/dotfiles/.zshrc
 
     # install python development packages
-    pip3 install --user 'python-language-server[all]' black flake8 neovim
+    pip3 install --user 'python-language-server[all]' black flake8 pynvim
 
     # install ranger
     pip3 install --user ranger-fm
