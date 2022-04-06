@@ -30,7 +30,7 @@ font pango:monospace 14
 floating_modifier $mod
 
 # start a terminal
-bindsym $mod+Return exec kitty
+bindsym $mod+Return exec ~/bin/kitty
 
 # kill focused window
 bindsym $mod+Shift+q kill
@@ -194,6 +194,8 @@ bindsym $mod+r mode "resize"
 #######################
 # Additional Settings #
 #######################
+set $refresh_i3status killall -SIGUSR1 i3status
+
 # Execs
 ## Set Background
 exec feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
@@ -236,11 +238,8 @@ bindsym button7 nop
 ## Disable system beeps
 exec xset b off
 
-## Remap caps to ctrl
-exec --no-startup-id /usr/bin/setxkbmap -option "ctrl:nocaps"
-
 ## Autolocking
-exec --no-startup-id /usr/bin/xautolock -time 90 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
+exec --no-startup-id /usr/bin/xautolock -time 30 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
 
 ## Set XCompose mod key
 exec --no-startup-id /usr/bin/xmodmap -e "keysym Alt_R = Multi_key"
@@ -282,8 +281,8 @@ bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute alsa_output.pci-0
 bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute alsa_input.pci-0000_00_1f.3.analog-stereo toggle
 
 ## Sreen brightness controls
-bindsym XF86MonBrightnessUp exec light -A 5
-bindsym XF86MonBrightnessDown exec light -U 5
+bindsym XF86MonBrightnessUp exec light -A 5 && ~/bin/get_brightness.py && $refresh_i3status
+bindsym XF86MonBrightnessDown exec light -U 5 && ~/bin/get_brightness.py && $refresh_i3status
 
 ## Screenshots
 bindsym $mod+Print exec xfce4-screenshooter -f

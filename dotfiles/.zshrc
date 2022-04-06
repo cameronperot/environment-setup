@@ -87,6 +87,7 @@ export RANGER_LOAD_DEFAULT_RC=FALSE
 export LC_ALL=en_US.UTF8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
+export KEYTIMEOUT=1 # for esc in zsh vim mode
 unalias rm
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
 bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim

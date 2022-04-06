@@ -15,10 +15,8 @@ Plug 'easymotion/vim-easymotion'                              " Easy motion
 Plug 'preservim/nerdcommenter'                                " Comments
 Plug 'preservim/nerdtree'                                     " File navigation tree
 Plug 'machakann/vim-highlightedyank'                          " Highlight yank area
-Plug 'sbdchd/neoformat'                                       " Code formatting
 Plug 'godlygeek/tabular'                                      " Text alignment
 Plug 'tmhedberg/SimpylFold'                                   " Code folding
-Plug 'neomake/neomake'                                        " Code linting
 Plug 'arcticicestudio/nord-vim'                               " Theme
 Plug 'morhetz/gruvbox'                                        " Theme
 Plug 'joshdick/onedark.vim'                                   " Theme
@@ -47,6 +45,8 @@ Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}   " We recommend updating the parsers on update
+Plug 'deoplete-plugins/deoplete-clang'                        " C++ autocomplete
+Plug 'dense-analysis/ale'                                     " Code linting
 
 call plug#end()
 
@@ -94,8 +94,8 @@ function RemoveEndLines()
     silent! %s/\($\n\s*\)\+\%$//e
     call setpos('.', save_cursor)
 endfunction
-autocmd BufWritePre * call RemoveTrailingWhitespace()
-autocmd BufWritePre * call RemoveEndLines()
+"autocmd BufWritePre * call RemoveTrailingWhitespace()
+"autocmd BufWritePre * call RemoveEndLines()
 
 " Remap window navigation shortcuts
 nnoremap <C-J> <C-W><C-J>
@@ -156,6 +156,21 @@ nmap <leader>7 <Plug>AirlineSelectTab7
 nmap <leader>8 <Plug>AirlineSelectTab8
 nmap <leader>9 <Plug>AirlineSelectTab9
 
+" Ale
+let g:ale_linters = {
+    \ 'python': ['flake8', 'pylint'],
+    \ 'shell': ['shellcheck'],
+    \ 'vim': ['vint'],
+    \ 'cpp': ['clang'],
+\}
+    "\ '*': ['remove_trailing_lines', 'trim_whitespace'],
+let g:ale_fixers = {
+    \ 'python': ['black'],
+    \ 'cpp': ['clang-format']
+\}
+let g:ale_python_flake8_options = '--max-line-length=88'
+let g:ale_c_clangformat_options = '-style="{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}"'
+
 " Bufferline
 let g:bufferline_echo = 0
 
@@ -197,8 +212,9 @@ nmap <leader>s <Plug>SlimeSendCell
 let g:vimtex_quickfix_ignore_filters = [
         \ 'Overfull',
         \ 'Underfull',
+        \ 'Package hyperref Warning: Token not allowed in a PDF string',
+        \ 'contains only floats.',
     \]
-
 
 " -----------------------------------------------------------------------------------------
 " Julia settings
@@ -218,14 +234,12 @@ function JuliaREPLRestart()
 endfunction
 autocmd FileType julia nnoremap <Leader>q :call JuliaREPLRestart()<CR>
 
-
 " -----------------------------------------------------------------------------------------
 " Python settings
 " -----------------------------------------------------------------------------------------
-autocmd BufWritePre *.py execute ':Neoformat black'
+autocmd BufWritePre *.py execute ':ALEFix'
 let g:jedi#completions_enabled = 0
 let g:jedi#use_splits_not_buffers = 'right'
-let g:neomake_python_enabled_makers = ['flake8']
 autocmd FileType python nnoremap <Leader>r :IPythonCellRun<CR>
 autocmd FileType python nnoremap <Leader>c :IPythonCellExecuteCell<CR>
 autocmd FileType python nnoremap <Leader>C :IPythonCellExecuteCellJump<CR>
@@ -241,7 +255,7 @@ autocmd FileType python nnoremap <Leader>q :call PythonREPLRestart()<CR>
 
 lua <<EOF
 require'nvim-treesitter.configs'.setup {
-  ensure_installed = { "python", "julia", "javascript" }, -- one of "all", "maintained" (parsers with maintainers), or a list of languages
+  ensure_installed = { "python", "julia", "javascript", "cpp", "rust" }, -- one of "all", "maintained" (parsers with maintainers), or a list of languages
   ignore_install = { }, -- List of parsers to ignore installing
   highlight = {
     enable = true,              -- false will disable the whole extension
@@ -249,3 +263,8 @@ require'nvim-treesitter.configs'.setup {
   },
 }
 EOF
+
+" -----------------------------------------------------------------------------------------
+" C++ settings
+" -----------------------------------------------------------------------------------------
+autocmd BufWritePre *.cpp execute ':ALEFix'

@@ -2,6 +2,7 @@ general {
         output_format = "i3bar"
         colors = true
         interval = 10
+        markup = "pango"
 }
 
 order += "path_exists VPN"
@@ -13,6 +14,7 @@ order += "cpu_temperature 0"
 order += "memory"
 order += "battery 0"
 order += "tztime local"
+order += "read_file brightness"
 order += "volume master"
 
 wireless wlp0s20f3 {
@@ -67,4 +69,10 @@ volume master {
         format_muted = "♪: muted (%volume)"
         device = "default"
         mixer = "Master"
+}
+
+read_file brightness {
+        format = "<span color='#d1d1d1'>☀: %content%</span>"
+        path = "/home/user/.config/brightness"
+        max_characters = 3
 }
