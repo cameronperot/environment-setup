@@ -9,6 +9,7 @@ endif
 
 call plug#begin('~/.local/share/nvim/plugged')
 
+Plug 'rhysd/vim-grammarous'                                   " Grammar
 Plug 'jiangmiao/auto-pairs'                                   " Bracket pairing
 Plug 'tpope/vim-surround'                                     " Bracket surrounding
 Plug 'easymotion/vim-easymotion'                              " Easy motion
@@ -17,6 +18,7 @@ Plug 'preservim/nerdtree'                                     " File navigation 
 Plug 'machakann/vim-highlightedyank'                          " Highlight yank area
 Plug 'godlygeek/tabular'                                      " Text alignment
 Plug 'tmhedberg/SimpylFold'                                   " Code folding
+Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}   " Better code coloring
 Plug 'arcticicestudio/nord-vim'                               " Theme
 Plug 'morhetz/gruvbox'                                        " Theme
 Plug 'joshdick/onedark.vim'                                   " Theme
@@ -31,6 +33,7 @@ Plug 'bling/vim-bufferline'                                   " Display buffers 
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' } " Autocomplete
 Plug 'Shougo/deoplete-lsp'                                    " Autocomplete lsp
 Plug 'neovim/nvim-lsp'                                        " Nvim lsp support
+Plug 'dense-analysis/ale'                                     " Code linting
 Plug 'jpalardy/vim-slime'                                     " Send code to terminal
 Plug 'rust-lang/rust.vim'                                     " Rust
 Plug 'JuliaEditorSupport/julia-vim', { 'for': 'julia' }       " Julia
@@ -38,15 +41,13 @@ Plug 'mroavi/vim-julia-cell', { 'for': 'julia' }              " Julia cells
 Plug 'davidhalter/jedi-vim', { 'for': 'python' }              " Python jedi
 Plug 'zchee/deoplete-jedi', { 'for': 'python' }               " Python jedi autocomplete for deoplete
 Plug 'hanschen/vim-ipython-cell', { 'for': 'python' }         " IPython cells
+Plug 'deoplete-plugins/deoplete-clang'                        " C++ autocomplete
 Plug 'lervag/vimtex'                                          " LaTeX
 Plug 'plasticboy/vim-markdown'                                " Markdown
 Plug 'elzr/vim-json'                                          " JSON
 Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
-Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}   " We recommend updating the parsers on update
-Plug 'deoplete-plugins/deoplete-clang'                        " C++ autocomplete
-Plug 'dense-analysis/ale'                                     " Code linting
 
 call plug#end()
 
@@ -94,8 +95,8 @@ function RemoveEndLines()
     silent! %s/\($\n\s*\)\+\%$//e
     call setpos('.', save_cursor)
 endfunction
-"autocmd BufWritePre * call RemoveTrailingWhitespace()
-"autocmd BufWritePre * call RemoveEndLines()
+autocmd BufWritePre * call RemoveTrailingWhitespace()
+autocmd BufWritePre * call RemoveEndLines()
 
 " Remap window navigation shortcuts
 nnoremap <C-J> <C-W><C-J>
@@ -132,7 +133,7 @@ let g:deoplete#sources#jedi#python_path = '/opt/miniconda3/bin/python'
 
 " Airline
 let g:airline_theme = 'onedark'
-let g:airline#extensions#branch#enabled=1
+let g:airline#extensions#branch#enabled = 1
 let g:airline#extensions#bufferline#overwrite_variables = 0
 let g:airline_powerline_fonts = 1
 let g:airline#extensions#tabline#enabled = 1
@@ -158,18 +159,19 @@ nmap <leader>9 <Plug>AirlineSelectTab9
 
 " Ale
 let g:ale_linters = {
-    \ 'python': ['flake8', 'pylint'],
+    \ 'python': ['flake8'],
     \ 'shell': ['shellcheck'],
     \ 'vim': ['vint'],
     \ 'cpp': ['clang'],
 \}
-    "\ '*': ['remove_trailing_lines', 'trim_whitespace'],
+    ""\ '*': ['remove_trailing_lines', 'trim_whitespace'],
 let g:ale_fixers = {
     \ 'python': ['black'],
     \ 'cpp': ['clang-format']
 \}
-let g:ale_python_flake8_options = '--max-line-length=88'
+let g:ale_python_flake8_options = '--max-line-length=120 --extend-ignore=E203'
 let g:ale_c_clangformat_options = '-style="{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}"'
+let g:ale_linters_explicit = 1
 
 " Bufferline
 let g:bufferline_echo = 0
@@ -259,7 +261,7 @@ require'nvim-treesitter.configs'.setup {
   ignore_install = { }, -- List of parsers to ignore installing
   highlight = {
     enable = true,              -- false will disable the whole extension
-    disable = { "c", "rust" },  -- list of language that will be disabled
+    disable = { "c", "rust", "latex" },  -- list of language that will be disabled
   },
 }
 EOF

@@ -30,7 +30,7 @@ font pango:monospace 14
 floating_modifier $mod
 
 # start a terminal
-bindsym $mod+Return exec ~/bin/kitty
+bindsym $mod+Return exec kitty
 
 # kill focused window
 bindsym $mod+Shift+q kill
