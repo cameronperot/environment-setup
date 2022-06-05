@@ -82,7 +82,10 @@ filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
 let g:python3_host_prog = '/opt/miniconda3/bin/python' " Python3 host program
-nmap <leader>bd :bd<cr>
+
+" Buffer navigation
+nnoremap <leader>bd :bd<cr>
+nnoremap <Leader>bb :ls<CR>:b<Space>
 
 " Remove trailing whitespace and new lines
 function RemoveTrailingWhitespace()
@@ -270,3 +273,4 @@ EOF
 " C++ settings
 " -----------------------------------------------------------------------------------------
 autocmd BufWritePre *.cpp execute ':ALEFix'
+autocmd BufWritePre *.cu execute ':ALEFix clang-format'
