@@ -24,6 +24,8 @@ Plug 'morhetz/gruvbox'                                        " Theme
 Plug 'joshdick/onedark.vim'                                   " Theme
 Plug 'NLKNguyen/papercolor-theme'                             " Theme
 Plug 'junegunn/seoul256.vim'                                  " Theme
+Plug 'sainnhe/sonokai'                                        " Theme
+Plug 'sonph/onehalf', {'rtp': 'vim/'}                         " Theme
 Plug 'airblade/vim-gitgutter'                                 " Git
 Plug 'tpope/vim-fugitive'                                     " Git
 Plug 'tpope/vim-rhubarb'                                      " Git
@@ -48,6 +50,7 @@ Plug 'elzr/vim-json'                                          " JSON
 Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
+Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } } " NeoVim in Firefox
 
 call plug#end()
 
