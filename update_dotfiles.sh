@@ -4,8 +4,8 @@ set -eu -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd -P)"
 
 # copy over dotfiles
-rsync -avz --progress -h $HOME/.profile $DIR/dotfiles/.profile
 rsync -avz --progress -h $HOME/.zshrc $DIR/dotfiles/.zshrc
+rsync -avz --progress -h $HOME/.zshenv $DIR/dotfiles/.zshenv
 rsync -avz --progress -h $HOME/.tmux.conf $DIR/dotfiles/.tmux.conf
 rsync -avz --progress -h $HOME/.XCompose $DIR/dotfiles/.XCompose
 rsync -avz --progress -h $HOME/.config/htop/ $DIR/dotfiles/.config/htop/

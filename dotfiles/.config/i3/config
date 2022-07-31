@@ -204,10 +204,7 @@ exec feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
 exec redshift-gtk
 
 ## Nextcloud
-#exec nextcloud
-
-## KeepassXC
-exec kee
+exec nextcloud
 
 ## xfce4-power-manager
 exec xfce4-power-manager
