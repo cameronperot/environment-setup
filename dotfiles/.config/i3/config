@@ -30,13 +30,13 @@ font pango:JuliaMono 14
 floating_modifier $mod
 
 # start a terminal
-bindsym $mod+Return exec kitty
+bindsym $mod+Return exec --no-startup-id kitty
 
 # kill focused window
 bindsym $mod+Shift+q kill
 
 # start dmenu (a program launcher)
-bindsym $mod+d exec dmenu_run -fn "JuliaMono:pixelsize=20"
+bindsym $mod+d exec --no-startup-id dmenu_run -fn "JuliaMono:pixelsize=20"
 # There also is the (new) i3-dmenu-desktop which only displays applications
 # shipping a .desktop file. It is a wrapper around dmenu, so you need that
 # installed.
@@ -198,33 +198,33 @@ set $refresh_i3status killall -SIGUSR1 i3status
 
 # Execs
 ## Set Background
-exec feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
+exec --no-startup-id feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
 
 ## Redshift
-exec redshift-gtk
+exec --no-startup-id redshift-gtk
 
 ## Nextcloud
-exec nextcloud
+exec --no-startup-id nextcloud
 
 ## xfce4-power-manager
-exec xfce4-power-manager
+exec --no-startup-id xfce4-power-manager
 
 ## Network Manager applet
-exec nm-applet
+exec --no-startup-id nm-applet
 
 ## Touchpad
 ### Fix Vertical Acceleration Issue
-exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'Coordinate Transformation Matrix' 1 0 0 0 0.5 0 0 0 1
+exec_always --no-startup-id xinput set-prop 'SynPS/2 Synaptics TouchPad' 'Coordinate Transformation Matrix' 1 0 0 0 0.5 0 0 0 1
 ### Enable tapping
-exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Tapping Enabled' 1
+exec_always --no-startup-id xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Tapping Enabled' 1
 ### Reverse scrolling direction
-exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Natural Scrolling Enabled' 1
+exec_always --no-startup-id xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Natural Scrolling Enabled' 1
 ### Set touchpad accel
-exec_always xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Accel Speed' 0.4
+exec_always --no-startup-id xinput set-prop 'SynPS/2 Synaptics TouchPad' 'libinput Accel Speed' 0.4
 ### Set trackpad accel
-exec_always xinput set-prop 'TPPS/2 Elan TrackPoint' 'libinput Accel Speed' -0.3
+exec_always --no-startup-id xinput set-prop 'TPPS/2 Elan TrackPoint' 'libinput Accel Speed' -0.3
 ## Disable Touchpad M3 Button
-exec_always xinput set-button-map "SynPS/2 Synaptics TouchPad" 1 0 3 4 5 6 7
+exec_always --no-startup-id xinput set-button-map "SynPS/2 Synaptics TouchPad" 1 0 3 4 5 6 7
 
 ## Disable mouse wheel scrolling between windows
 bindsym button4 nop
@@ -233,7 +233,7 @@ bindsym button6 nop
 bindsym button7 nop
 
 ## Disable system beeps
-exec xset b off
+exec --no-startup-id xset b off
 
 ## Autolocking
 exec --no-startup-id /usr/bin/xautolock -time 30 -locker "i3lock --ignore-empty-password --show-failed-attempts -c 000000"
@@ -251,25 +251,25 @@ exec --no-startup-id /usr/lib64/xfce4/notifyd/xfce4-notifyd
 exec --no-startup-id /usr/bin/seapplet
 
 ## Start PulseEffects
-exec --no-startup-id /usr/bin/pulseeffects --gapplication-service
+exec --no-startup-id /usr/bin/easyeffects --gapplication-service
 
 # Switch between previous workspaces with mod+tab
 bindsym $mod+Tab workspace back_and_forth
 
 # Thunar shortcut
-bindsym $mod+t exec thunar
+bindsym $mod+t exec --no-startup-id thunar
 
 # Lock screen shortcut
-bindsym Control+Mod1+l exec i3lock --ignore-empty-password --show-failed-attempts --color=000000
+bindsym Control+Mod1+l exec --no-startup-id i3lock --ignore-empty-password --show-failed-attempts --color=000000
 
 # Greeter shortcut
-bindsym Control+Mod1+o exec dm-tool switch-to-greeter
+bindsym Control+Mod1+o exec --no-startup-id dm-tool switch-to-greeter
 
 ## Julia shortcut
-bindsym $mod+XF86Favorites exec "kitty -e /home/user/bin/julia --sysimage /home/user/julia/sys_plots.so"
+bindsym $mod+XF86Favorites exec --no-startup-id "kitty -e /home/user/bin/julia"
 
 ## Calendar shortcut
-bindsym $mod+c exec zenity --calendar
+bindsym $mod+c exec --no-startup-id zenity --calendar
 
 ## Pulse Audio controls
 bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume alsa_output.pci-0000_00_1f.3.analog-stereo +10%
@@ -278,12 +278,11 @@ bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute alsa_output.pci-0
 bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute alsa_input.pci-0000_00_1f.3.analog-stereo toggle
 
 ## Sreen brightness controls
-bindsym XF86MonBrightnessUp exec light -A 5 && ~/bin/get_brightness.py && $refresh_i3status
-bindsym XF86MonBrightnessDown exec light -U 5 && ~/bin/get_brightness.py && $refresh_i3status
+bindsym XF86MonBrightnessUp exec --no-startup-id light -A 5 && ~/bin/get_brightness.py && $refresh_i3status
+bindsym XF86MonBrightnessDown exec --no-startup-id light -U 5 && ~/bin/get_brightness.py && $refresh_i3status
 
 ## Screenshots
-bindsym $mod+Print exec xfce4-screenshooter -f
-bindsym Control+Print exec xfce4-screenshooter -w
+bindsym Control+Print exec --no-startup-id xfce4-screenshooter
 
 ## Scratchpad
 bindsym $mod+x [floating] move scratchpad
@@ -315,8 +314,10 @@ client.urgent               $rd        $rd         $tx
 bar {
     status_command i3status
     tray_output primary
-    wheel_up_cmd nop
-    wheel_down_cmd nop
+    bindsym button4 nop
+    bindsym button5 nop
+    bindsym button6 nop
+    bindsym button7 nop
 
     colors {
         background          $bg
