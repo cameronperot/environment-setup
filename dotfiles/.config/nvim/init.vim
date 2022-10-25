@@ -164,6 +164,7 @@ nmap <leader>8 <Plug>AirlineSelectTab8
 nmap <leader>9 <Plug>AirlineSelectTab9
 
 " Ale
+let g:ale_fix_on_save = 1
 let g:ale_linters = {
     \ 'python': ['flake8'],
     \ 'shell': ['shellcheck'],
@@ -245,7 +246,6 @@ autocmd FileType julia nnoremap <Leader>q :call JuliaREPLRestart()<CR>
 " -----------------------------------------------------------------------------------------
 " Python settings
 " -----------------------------------------------------------------------------------------
-autocmd BufWritePre *.py execute ':ALEFix'
 let g:jedi#completions_enabled = 0
 let g:jedi#use_splits_not_buffers = 'right'
 autocmd FileType python nnoremap <Leader>r :IPythonCellRun<CR>
@@ -275,5 +275,4 @@ EOF
 " -----------------------------------------------------------------------------------------
 " C++ settings
 " -----------------------------------------------------------------------------------------
-autocmd BufWritePre *.cpp execute ':ALEFix'
 autocmd BufWritePre *.cu execute ':ALEFix clang-format'
