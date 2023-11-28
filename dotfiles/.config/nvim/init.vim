@@ -69,7 +69,7 @@ set expandtab                                          " Expand tab into spaces
 set tabstop=4                                          " Number of spaces per tab
 set shiftwidth=4                                       " Number of spaces when autoindenting
 set number relativenumber                              " Enable line numbers
-set colorcolumn=92                                     " Number of characters per line
+set colorcolumn=88                                     " Number of characters per line
 set ignorecase                                         " Ignore case in search patterns
 set smartcase                                          " Override ignorecase if search pattern contains uppercase
 set hidden                                             " Manage multiple buffers effectively
@@ -79,16 +79,18 @@ set list listchars=tab:»·,trail:·                      " Show trailing whites
 set wrap                                               " Line wrapping
 set linebreak                                          " Line breaks
 set showbreak=\ ↪                                      " Wrapped lines
+set spell spelllang=en_us                              " Spell checking
 colorscheme onedark                                    " Set theme
 syntax enable                                          " Syntax highlighting
 filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
-let g:python3_host_prog = '/opt/miniconda3/bin/python' " Python3 host program
+let g:python3_host_prog = $HOME . '/miniconda3/envs/dev/bin/python'
 
 " Buffer navigation
 nnoremap <leader>bd :bd<cr>
 nnoremap <Leader>bb :ls<CR>:b<Space>
+nnoremap <leader>af :ALEFix<cr>
 
 " Remove trailing whitespace and new lines
 function RemoveTrailingWhitespace()
@@ -132,10 +134,10 @@ map <c-q> <nop>
 " Plugin settings
 " -----------------------------------------------------------------------------------------
 " Autocomplete
-inoremap <silent><expr> <TAB>  pumvisible() ? "\<C-n>" : "\<TAB>"
-inoremap <silent><expr> <S-TAB>  pumvisible() ? "\<C-p>" : "\<TAB>"
+inoremap <silent><expr> <TAB>  pumvisible() ? '<C-n>' : '<TAB>'
+inoremap <silent><expr> <S-TAB>  pumvisible() ? '<C-p>' : '<TAB>'
 let g:deoplete#enable_at_startup = 1
-let g:deoplete#sources#jedi#python_path = '/opt/miniconda3/bin/python'
+let g:deoplete#sources#jedi#python_path = python3_host_prog
 
 " Airline
 let g:airline_theme = 'onedark'
@@ -164,21 +166,25 @@ nmap <leader>8 <Plug>AirlineSelectTab8
 nmap <leader>9 <Plug>AirlineSelectTab9
 
 " Ale
-let g:ale_fix_on_save = 1
 let g:ale_linters = {
-    \ 'python': ['flake8'],
+    \ 'python': ['flake8', 'pylint'],
     \ 'shell': ['shellcheck'],
     \ 'vim': ['vint'],
     \ 'cpp': ['clang'],
 \}
     ""\ '*': ['remove_trailing_lines', 'trim_whitespace'],
 let g:ale_fixers = {
-    \ 'python': ['black'],
+    \ 'python': ['black', 'isort'],
     \ 'cpp': ['clang-format']
 \}
-let g:ale_python_flake8_options = '--max-line-length=120 --extend-ignore=E203'
+let g:ale_python_pylint_options = '--disable=missing-module-docstring,wrong-import-position'
+let g:ale_python_flake8_options = '--max-line-length=88 --extend-ignore=E203'
+let g:ale_python_black_options = '--line-length=88'
+let g:ale_python_isort_options = '--profile=black --line-length=88'
 let g:ale_c_clangformat_options = '-style="{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}"'
 let g:ale_linters_explicit = 1
+let g:ale_fix_on_save = 1
+let g:ale_lint_on_insert_leave = 1
 
 " Bufferline
 let g:bufferline_echo = 0
@@ -211,8 +217,8 @@ let g:tex_flavor = "latex"
 let g:slime_target = 'tmux'
 let g:slime_default_config = {'socket_name': 'default', 'target_pane': 'REPL:0.0'}
 let g:slime_dont_ask_default = 1
-let g:slime_paste_file = '$HOME/.slime_paste'
-let g:slime_cell_delimiter = "# %%"
+let g:slime_paste_file = $HOME . '/.slime_paste'
+let g:slime_cell_delimiter = '# %%'
 nmap <Leader>e <Plug>SlimeLineSend
 xmap <Leader>e <Plug>SlimeRegionSend
 nmap <leader>s <Plug>SlimeSendCell
@@ -223,6 +229,7 @@ let g:vimtex_quickfix_ignore_filters = [
         \ 'Underfull',
         \ 'Package hyperref Warning: Token not allowed in a PDF string',
         \ 'contains only floats.',
+        \ "`h' float specifier changed to `ht'.",
     \]
 
 " -----------------------------------------------------------------------------------------
@@ -263,16 +270,11 @@ autocmd FileType python nnoremap <Leader>q :call PythonREPLRestart()<CR>
 
 lua <<EOF
 require'nvim-treesitter.configs'.setup {
-  ensure_installed = { "python", "julia", "javascript", "cpp", "rust" }, -- one of "all", "maintained" (parsers with maintainers), or a list of languages
-  ignore_install = { }, -- List of parsers to ignore installing
+  ensure_installed = 'all',
+  ignore_install = { },
   highlight = {
-    enable = true,              -- false will disable the whole extension
-    disable = { "c", "rust", "latex" },  -- list of language that will be disabled
+    enable = true,
+    disable = { 'c', 'rust', 'latex' },
   },
 }
 EOF
-
-" -----------------------------------------------------------------------------------------
-" C++ settings
-" -----------------------------------------------------------------------------------------
-autocmd BufWritePre *.cu execute ':ALEFix clang-format'
