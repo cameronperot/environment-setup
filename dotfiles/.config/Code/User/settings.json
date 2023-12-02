@@ -1,0 +1,110 @@
+{
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        },
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
+    "autoDocstring.docstringFormat": "sphinx",
+    "autoDocstring.generateDocstringOnEnter": true,
+    "autoDocstring.includeExtendedSummary": true,
+    "autoDocstring.guessTypes": true,
+    "autoDocstring.customTemplatePath": "/home/user/.config/Code/sphinx.template",
+    "black-formatter.args": [
+        "--line-length",
+        "98",
+        "--extend-exclude",
+        "\\.json"
+    ],
+    "breadcrumbs.enabled": false,
+    "editor.acceptSuggestionOnEnter": "smart",
+    "editor.cursorBlinking": "solid",
+    "editor.cursorStyle": "block",
+    "editor.fontFamily": "'JuliaMono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontSize": 13,
+    "editor.formatOnSave": true,
+    "editor.lineNumbers": "relative",
+    "editor.multiCursorModifier": "ctrlCmd",
+    "editor.rulers": [
+        98
+    ],
+    "editor.tabCompletion": "on",
+    "editor.unfoldOnClickAfterEndOfLine": true,
+    "editor.wordWrap": "on",
+    "editor.wordWrapColumn": 98,
+    "editor.wrappingIndent": "indent",
+    "emmet.triggerExpansionOnTab": true,
+    "extensions.experimental.affinity": {
+        "asvetliakov.vscode-neovim": 1
+    },
+    "flake8.args": [
+        "--max-line-length=98"
+    ],
+    "git.enableCommitSigning": true,
+    "isort.args": [
+        "--profile",
+        "black",
+        "--line-length",
+        "98",
+        "--project",
+        "lsq",
+        "--project",
+        "rd72",
+        "--project",
+        "rd65",
+        "--project",
+        "rd1062",
+    ],
+    "isort.check": true,
+    "isort.importStrategy": "fromEnvironment",
+    "julia.enableCrashReporter": false,
+    "julia.enableTelemetry": false,
+    "julia.symbolCacheDownload": true,
+    "jupyter.askForKernelRestart": false,
+    "notebook.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "notebook.formatOnSave.enabled": true,
+    "notebook.globalToolbar": false,
+    "notebook.lineNumbers": "on",
+    "jupyter.interactiveWindow.creationMode": "perFile",
+    "jupyter.interactiveWindow.textEditor.executeSelection": true,
+    "pylint.args": [
+        "--max-line-length=98"
+    ],
+    "telemetry.telemetryLevel": "off",
+    "terminal.integrated.commandsToSkipShell": [
+        "language-julia.interrupt"
+    ],
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "terminal.integrated.inheritEnv": false,
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "icon": "terminal-bash",
+            "path": "bash"
+        },
+        "fish": {
+            "path": "fish"
+        },
+        "tmux": {
+            "icon": "terminal-tmux",
+            "path": "tmux"
+        },
+        "zsh": {
+            "path": "zsh"
+        }
+    },
+    "vim.cursorStylePerMode.insert": "line",
+    "vim.cursorStylePerMode.normal": "block",
+    "vim.cursorStylePerMode.replace": "underline",
+    "vim.easymotion": true,
+    "vim.neovimPath": "/home/user/bin/nvim",
+    "vim.neovimUseConfigFile": true,
+    "vscode-neovim.neovimExecutablePaths.linux": "/home/user/bin/nvim",
+    "vscode-neovim.neovimInitVimPaths.linux": "/home/user/.config/nvim/init.vim",
+    "vscode-neovim.useCtrlKeysForInsertMode": false,
+    "window.zoomLevel": 2
+    "workbench.colorTheme": "One Dark Pro Darker",
+    "zenMode.hideLineNumbers": false,
+}
