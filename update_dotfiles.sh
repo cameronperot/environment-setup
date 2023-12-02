@@ -4,17 +4,21 @@ set -eu -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd -P )"
 
 # copy over dotfiles
-rsync -avz --progress -h "${HOME}/.zshrc" "${DIR}/dotfiles/.zshrc"
-rsync -avz --progress -h "${HOME}/.zshenv" "${DIR}/dotfiles/.zshenv"
-rsync -avz --progress -h "${HOME}/.tmux.conf" "${DIR}/dotfiles/.tmux.conf"
-rsync -avz --progress -h "${HOME}/.XCompose" "${DIR}/dotfiles/.XCompose"
-rsync -avz --progress -h "${HOME}/.config/htop/" "${DIR}/dotfiles/.config/htop/"
-rsync -avz --progress -h "${HOME}/.config/nvim/init.vim" "${DIR}/dotfiles/.config/nvim/init.vim"
-rsync -avz --progress -h "${HOME}/.config/i3/config" "${DIR}/dotfiles/.config/i3/config"
-rsync -avz --progress -h "${HOME}/.config/i3status/config" "${DIR}/dotfiles/.config/i3status/config"
-rsync -avz --progress -h "${HOME}/.config/ranger/" "${DIR}/dotfiles/.config/ranger/"
+rsync -a "${HOME}/.zshrc" "${DIR}/dotfiles/.zshrc"
+rsync -a "${HOME}/.zshenv" "${DIR}/dotfiles/.zshenv"
+rsync -a "${HOME}/.tmux.conf" "${DIR}/dotfiles/.tmux.conf"
+rsync -a "${HOME}/.XCompose" "${DIR}/dotfiles/.XCompose"
+rsync -a "${HOME}/.config/htop/" "${DIR}/dotfiles/.config/htop/"
+rsync -a "${HOME}/.config/nvim/init.vim" "${DIR}/dotfiles/.config/nvim/init.vim"
+rsync -a "${HOME}/.config/i3/config" "${DIR}/dotfiles/.config/i3/config"
+rsync -a "${HOME}/.config/i3status/config" "${DIR}/dotfiles/.config/i3status/config"
+rsync -a "${HOME}/.config/ranger/" "${DIR}/dotfiles/.config/ranger/"
+rsync -a "${HOME}/.config/Code/User/settings.json" "${DIR}/dotfiles/.config/Code/User/settings.json"
+rsync -a "${HOME}/.config/Code/User/keybindings.json" "${DIR}/dotfiles/.config/Code/User/keybindings.json"
+rsync -a "${HOME}/.config/Code/User/extensions.list" "${DIR}/dotfiles/.config/Code/User/extensions.list"
 
+# commit and push
 cd "${DIR}"
-git add .
+git add dotfiles
 git commit -m "Updated dotfiles"
 git push
