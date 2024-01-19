@@ -34,10 +34,6 @@ antigen bundle zsh-users/zsh-completions
 antigen bundle zsh-users/zsh-autosuggestions
 antigen bundle zsh-users/zsh-history-substring-search
 
-if [ -x "$(command -v autojump)" ]; then
-    antigen bundle autojump
-fi
-
 # Antigen apply
 antigen apply
 
@@ -75,3 +71,11 @@ transfer(){ if [ $# -eq 0 ];then echo "No arguments specified.\nUsage:\n  transf
 # HSTR configuration - add this to ~/.bashrc
 bindkey -s "^h" " hstr^M"        # bind ctrl-h to hstr
 alias hh=hstr                    # hh to be alias for hstr
+
+# zoxide
+if [ -x "$(command -v zoxide)" ]; then
+    function z () {
+        __zoxide_z "$@"
+    }
+    eval "$(zoxide init zsh --no-cmd)"
+fi
