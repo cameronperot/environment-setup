@@ -69,7 +69,7 @@ set expandtab                                          " Expand tab into spaces
 set tabstop=4                                          " Number of spaces per tab
 set shiftwidth=4                                       " Number of spaces when autoindenting
 set number relativenumber                              " Enable line numbers
-set colorcolumn=88                                     " Number of characters per line
+set colorcolumn=92                                     " Number of characters per line
 set ignorecase                                         " Ignore case in search patterns
 set smartcase                                          " Override ignorecase if search pattern contains uppercase
 set hidden                                             " Manage multiple buffers effectively
@@ -178,9 +178,9 @@ let g:ale_fixers = {
     \ 'cpp': ['clang-format']
 \}
 let g:ale_python_pylint_options = '--disable=missing-module-docstring,wrong-import-position'
-let g:ale_python_flake8_options = '--max-line-length=88 --extend-ignore=E203'
-let g:ale_python_black_options = '--line-length=88'
-let g:ale_python_isort_options = '--profile=black --line-length=88'
+let g:ale_python_flake8_options = '--max-line-length=92 --extend-ignore=E203'
+let g:ale_python_black_options = '--line-length=92'
+let g:ale_python_isort_options = '--profile=black --line-length=92'
 let g:ale_c_clangformat_options = '-style="{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}"'
 let g:ale_linters_explicit = 1
 let g:ale_fix_on_save = 1
