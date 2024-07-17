@@ -10,6 +10,7 @@ ms-python.mypy-type-checker
 ms-python.pylint
 ms-python.python
 ms-python.vscode-pylance
+ms-toolsai.datawrangler
 ms-toolsai.jupyter
 ms-toolsai.jupyter-keymap
 ms-toolsai.jupyter-renderers
@@ -23,5 +24,7 @@ ms-vscode-remote.vscode-remote-extensionpack
 ms-vscode.remote-explorer
 ms-vscode.remote-server
 njpwerner.autodocstring
+optuna.optuna-dashboard
+streetsidesoftware.code-spell-checker
 vscodevim.vim
 zhuangtongfa.material-theme
