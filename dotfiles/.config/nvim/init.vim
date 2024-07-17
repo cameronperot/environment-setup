@@ -18,14 +18,11 @@ Plug 'preservim/nerdtree'                                     " File navigation 
 Plug 'machakann/vim-highlightedyank'                          " Highlight yank area
 Plug 'godlygeek/tabular'                                      " Text alignment
 Plug 'tmhedberg/SimpylFold'                                   " Code folding
+" treesitter might require one to run `cargo install tree-sitter-cli` (or via npm) beforehand
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}   " Better code coloring
-Plug 'arcticicestudio/nord-vim'                               " Theme
-Plug 'morhetz/gruvbox'                                        " Theme
 Plug 'joshdick/onedark.vim'                                   " Theme
 Plug 'NLKNguyen/papercolor-theme'                             " Theme
 Plug 'junegunn/seoul256.vim'                                  " Theme
-Plug 'sainnhe/sonokai'                                        " Theme
-Plug 'sonph/onehalf', {'rtp': 'vim/'}                         " Theme
 Plug 'airblade/vim-gitgutter'                                 " Git
 Plug 'tpope/vim-fugitive'                                     " Git
 Plug 'tpope/vim-rhubarb'                                      " Git
@@ -35,6 +32,7 @@ Plug 'bling/vim-bufferline'                                   " Display buffers 
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' } " Autocomplete
 Plug 'Shougo/deoplete-lsp'                                    " Autocomplete lsp
 Plug 'neovim/nvim-lsp'                                        " Nvim lsp support
+Plug 'neovim/nvim-lspconfig'                                  " Nvim lsp config
 Plug 'dense-analysis/ale'                                     " Code linting
 Plug 'jpalardy/vim-slime'                                     " Send code to terminal
 Plug 'rust-lang/rust.vim'                                     " Rust
@@ -49,8 +47,8 @@ Plug 'plasticboy/vim-markdown'                                " Markdown
 Plug 'elzr/vim-json'                                          " JSON
 Plug 'honza/vim-snippets'                                     " Snippets
 Plug 'SirVer/ultisnips'                                       " Snippet engine
+Plug 'kkoomen/vim-doge', { 'do': { -> doge#install() } }      " DOcument GEneration
 Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdown preview (requires nodejs and yarn)
-Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } } " NeoVim in Firefox
 
 call plug#end()
 
@@ -69,7 +67,7 @@ set expandtab                                          " Expand tab into spaces
 set tabstop=4                                          " Number of spaces per tab
 set shiftwidth=4                                       " Number of spaces when autoindenting
 set number relativenumber                              " Enable line numbers
-set colorcolumn=92                                     " Number of characters per line
+set colorcolumn=98                                     " Number of characters per line
 set ignorecase                                         " Ignore case in search patterns
 set smartcase                                          " Override ignorecase if search pattern contains uppercase
 set hidden                                             " Manage multiple buffers effectively
@@ -85,7 +83,7 @@ syntax enable                                          " Syntax highlighting
 filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
-let g:python3_host_prog = $HOME . '/miniconda3/envs/dev/bin/python'
+let g:python3_host_prog = $HOME . "/miniconda3/envs/dev/bin/python"
 
 " Buffer navigation
 nnoremap <leader>bd :bd<cr>
@@ -167,20 +165,23 @@ nmap <leader>9 <Plug>AirlineSelectTab9
 
 " Ale
 let g:ale_linters = {
-    \ 'python': ['flake8', 'pylint'],
-    \ 'shell': ['shellcheck'],
+    \ 'python': ['flake8', 'pylint', 'mypy'],
+    \ 'sh': ['shellcheck'],
     \ 'vim': ['vint'],
     \ 'cpp': ['clang'],
 \}
     ""\ '*': ['remove_trailing_lines', 'trim_whitespace'],
 let g:ale_fixers = {
     \ 'python': ['black', 'isort'],
-    \ 'cpp': ['clang-format']
+    \ 'cpp': ['clang-format'],
+    \ 'sh': ['shfmt'],
 \}
 let g:ale_python_pylint_options = '--disable=missing-module-docstring,wrong-import-position'
-let g:ale_python_flake8_options = '--max-line-length=92 --extend-ignore=E203'
-let g:ale_python_black_options = '--line-length=92'
-let g:ale_python_isort_options = '--profile=black --line-length=92'
+let g:ale_python_flake8_options = '--max-line-length=98 --extend-ignore=E203'
+let g:ale_python_black_options = '--config=$HOME/.config/black.conf'
+let g:ale_python_isort_options = '--profile=black --line-length=98'
+let g:ale_python_mypy_options = ''
+let g:ale_sh_shfmt_options = '-i 4'
 let g:ale_c_clangformat_options = '-style="{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}"'
 let g:ale_linters_explicit = 1
 let g:ale_fix_on_save = 1
@@ -209,9 +210,13 @@ let g:NERDTreeQuitOnOpen = 1
 autocmd FileType nerdtree setlocal relativenumber
 map <C-n> :NERDTreeToggle<CR>
 
+" DOcument GEnerator
+let g:doge_doc_standard_python = 'sphinx'
+nmap <silent> <Leader>dg <Plug>(doge-generate)
+
 " UltiSnips
-let g:UltiSnipsExpandTrigger = "<C-K>"
-let g:tex_flavor = "latex"
+let g:UltiSnipsExpandTrigger = '<C-K>'
+let g:tex_flavor = 'latex'
 
 " Vim-slime
 let g:slime_target = 'tmux'
@@ -270,11 +275,21 @@ autocmd FileType python nnoremap <Leader>q :call PythonREPLRestart()<CR>
 
 lua <<EOF
 require'nvim-treesitter.configs'.setup {
-  ensure_installed = 'all',
-  ignore_install = { },
-  highlight = {
-    enable = true,
-    disable = { 'c', 'rust', 'latex' },
-  },
+    ensure_installed = {
+        'bash',
+        'cpp',
+        'json',
+        'julia',
+        'latex',
+        'lua',
+        'python',
+        'toml',
+        'yaml'
+    },
+    ignore_install = { },
+    highlight = {
+      enable = true,
+      disable = { },
+    },
 }
 EOF

@@ -1,4 +1,5 @@
 include "%L"
+include "/usr/share/X11/locale/en_US.UTF-8/Compose"
 
 # Lowercase Greek
 <Multi_key> <g> <a> : "α"
