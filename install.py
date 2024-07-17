@@ -186,9 +186,9 @@ if __name__ == "__main__":
         "--neovim-version",
         action="store",
         type=str,
-        default="v0.9.4",
+        default="v0.10.0",
         metavar="<NVIM_VERSION>",
-        help="Version of Neovim to install, e.g., v0.9.4 or nightly.",
+        help="Version of Neovim to install, e.g., v0.10.0 or nightly.",
     )
     parser.add_argument(
         "--extract-appimage",
