@@ -5,15 +5,12 @@ fi
 
 # Initialize
 source "$HOME/antigen.zsh"
-if [ -f "$HOME/.profile" ]; then
-    source "$HOME/.profile"
-fi
-if [ -f "$HOME/.bash_aliases" ]; then
-    source "$HOME/.bash_aliases"
-fi
-if [ -f "$HOME/.secret_exports" ]; then
-    source "$HOME/.secret_exports"
-fi
+for file in .profile .bash_aliases secret_exports
+do
+    if [ -f "$HOME/$file" ]; then
+        source "$HOME/$file"
+    fi
+done
 
 # Antigen config
 antigen use oh-my-zsh
@@ -63,7 +60,7 @@ source <(kitty + complete setup zsh)
 # Misc.
 unalias rm
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
-bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
+bindkey -s "^n" " cadev && nvim^M"   # bind ctrl-n to nvim
 
 # transfer.sh
 transfer(){ if [ $# -eq 0 ];then echo "No arguments specified.\nUsage:\n  transfer <file|directory>\n  ... | transfer <file_name>">&2;return 1;fi;if tty -s;then file="$1";file_name=$(basename "$file");if [ ! -e "$file" ];then echo "$file: No such file or directory">&2;return 1;fi;if [ -d "$file" ];then file_name="$file_name.zip" ,;(cd "$file"&&zip -r -q - .)|curl --progress-bar --upload-file "-" "https://transfer.sh/$file_name"|tee /dev/null,;else cat "$file"|curl --progress-bar --upload-file "-" "https://transfer.sh/$file_name"|tee /dev/null;fi;else file_name=$1;curl --progress-bar --upload-file "-" "https://transfer.sh/$file_name"|tee /dev/null;fi;}
