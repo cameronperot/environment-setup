@@ -34,4 +34,5 @@ export QT_QPA_PLATFORMTHEME=qt5ct
 export NO_AT_BRIDGE=1 # https://unix.stackexchange.com/questions/230238/x-applications-warn-couldnt-connect-to-accessibility-bus-on-stderr
 export RANGER_LOAD_DEFAULT_RC=FALSE
 export GPG_TTY=$(tty)
+export LIBVIRT_DEFAULT_URI="qemu:///system"
 . "$HOME/.cargo/env"
