@@ -79,6 +79,7 @@ set linebreak                                          " Line breaks
 set showbreak=\ ↪                                      " Wrapped lines
 set spell spelllang=en_us                              " Spell checking
 colorscheme onedark                                    " Set theme
+set notermguicolors                                    " Disable termguicolors
 syntax enable                                          " Syntax highlighting
 filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
