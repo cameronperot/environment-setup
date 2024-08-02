@@ -1,5 +1,22 @@
 # misc.
+alias clearbashhist="cat /dev/null > ~/.bash_history && history -c && exit"
+alias clearnvimswap="rm ~/.local/share/nvim/swap/*.swp"
 alias viconfig="vi ~/.config/nvim/init.vim"
+alias i3config="vi ~/.config/i3/config"
+alias sshk="kitty +kitten ssh"
 alias vi="nvim"
+alias vin="nvim --clean"
+alias svi="sudoedit"
 alias ta="tmux a -t"
-alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage && mv /tmp/nvim.appimage $HOME/bin/nvim && chmod u+x $HOME/bin/nvim"
+alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
+
+# podman
+alias pm="podman"
+alias pma="podman attach"
+alias pmc="podman container"
+alias pme="podman exec"
+alias pmi="podman image"
+alias pmp="podman pull"
+alias pmr="podman run"
+alias pmv="podman volume"
+alias pmcom="podman-compose"
