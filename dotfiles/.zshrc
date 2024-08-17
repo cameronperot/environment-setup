@@ -5,7 +5,7 @@ fi
 
 # Initialize
 source "$HOME/antigen.zsh"
-for file in .profile .bash_aliases secret_exports
+for file in .profile .bash_aliases .secret_exports
 do
     if [ -f "$HOME/$file" ]; then
         source "$HOME/$file"
