@@ -1,6 +1,7 @@
 " -----------------------------------------------------------------------------------------
 " Plugins
 " -----------------------------------------------------------------------------------------
+" Automatically download vim-plug if not already available
 if empty(glob('~/.local/share/nvim/site/autoload/plug.vim'))
   silent !curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs
     \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
@@ -34,13 +35,10 @@ Plug 'Shougo/deoplete-lsp'                                    " Autocomplete lsp
 Plug 'neovim/nvim-lsp'                                        " Nvim lsp support
 Plug 'neovim/nvim-lspconfig'                                  " Nvim lsp config
 Plug 'dense-analysis/ale'                                     " Code linting
-Plug 'jpalardy/vim-slime'                                     " Send code to terminal
 Plug 'rust-lang/rust.vim'                                     " Rust
 Plug 'JuliaEditorSupport/julia-vim', { 'for': 'julia' }       " Julia
-Plug 'mroavi/vim-julia-cell', { 'for': 'julia' }              " Julia cells
 Plug 'davidhalter/jedi-vim', { 'for': 'python' }              " Python jedi
 Plug 'zchee/deoplete-jedi', { 'for': 'python' }               " Python jedi autocomplete for deoplete
-Plug 'hanschen/vim-ipython-cell', { 'for': 'python' }         " IPython cells
 Plug 'deoplete-plugins/deoplete-clang'                        " C++ autocomplete
 Plug 'lervag/vimtex'                                          " LaTeX
 Plug 'plasticboy/vim-markdown'                                " Markdown
@@ -52,9 +50,8 @@ Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & yarn install'  } " Markdo
 
 call plug#end()
 
-
 " -----------------------------------------------------------------------------------------
-" Vim settings
+" General settings
 " -----------------------------------------------------------------------------------------
 set encoding=utf-8                                     " File encoding
 set nofoldenable                                       " Disable folding
@@ -84,7 +81,7 @@ syntax enable                                          " Syntax highlighting
 filetype plugin indent on                              " Enable filetype
 highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE
 au FileType * set fo-=c fo-=r fo-=o                    " Disable auto continuing comment on next line
-let g:python3_host_prog = $HOME . "/miniconda3/envs/dev/bin/python"
+let g:python3_host_prog = $HOME . '/miniconda3/envs/dev/bin/python'
 
 " Buffer navigation
 nnoremap <leader>bd :bd<cr>
@@ -116,10 +113,6 @@ nnoremap <silent> <Leader>nh <cmd>nohlsearch<CR>
 
 " Quick edit commands
 command Viconfig :e ~\/.config\/nvim\/init.vim
-command Vii3config :e ~\/.config\/i3\/config
-command Vibashrc :e ~\/.bashrc
-command Vizshrc :e ~\/.zshrc
-command Vialiases :e ~\/.bash_aliases
 command! -nargs=0 Sw w !sudo tee % > /dev/null
 
 " Custom commands
@@ -127,7 +120,6 @@ command Spellcheck :set spell spelllang=en_us <CR>
 
 " Disable ctrl-q since used in tmux
 map <c-q> <nop>
-
 
 " -----------------------------------------------------------------------------------------
 " Plugin settings
@@ -191,6 +183,14 @@ let g:ale_lint_on_insert_leave = 1
 " Bufferline
 let g:bufferline_echo = 0
 
+" DOcument GEnerator
+let g:doge_doc_standard_python = 'sphinx'
+nmap <silent> <Leader>dg <Plug>(doge-generate)
+
+" Jedi
+let g:jedi#completions_enabled = 0
+let g:jedi#use_splits_not_buffers = 'right'
+
 " Markdown
 autocmd filetype markdown set formatoptions+=ro
 autocmd filetype markdown set comments=b:*,b:-,b:+,b:1.,n:>
@@ -211,69 +211,7 @@ let g:NERDTreeQuitOnOpen = 1
 autocmd FileType nerdtree setlocal relativenumber
 map <C-n> :NERDTreeToggle<CR>
 
-" DOcument GEnerator
-let g:doge_doc_standard_python = 'sphinx'
-nmap <silent> <Leader>dg <Plug>(doge-generate)
-
-" UltiSnips
-let g:UltiSnipsExpandTrigger = '<C-K>'
-let g:tex_flavor = 'latex'
-
-" Vim-slime
-let g:slime_target = 'tmux'
-let g:slime_default_config = {'socket_name': 'default', 'target_pane': 'REPL:0.0'}
-let g:slime_dont_ask_default = 1
-let g:slime_paste_file = $HOME . '/.slime_paste'
-let g:slime_cell_delimiter = '# %%'
-nmap <Leader>e <Plug>SlimeLineSend
-xmap <Leader>e <Plug>SlimeRegionSend
-nmap <leader>s <Plug>SlimeSendCell
-
-" Vimtex
-let g:vimtex_quickfix_ignore_filters = [
-        \ 'Overfull',
-        \ 'Underfull',
-        \ 'Package hyperref Warning: Token not allowed in a PDF string',
-        \ 'contains only floats.',
-        \ "`h' float specifier changed to `ht'.",
-    \]
-
-" -----------------------------------------------------------------------------------------
-" Julia settings
-" -----------------------------------------------------------------------------------------
-let g:julia_cell_delimit_cells_by = 'tags'
-let g:julia_cell_tag = '# %%'
-autocmd FileType julia nnoremap <Leader>r :JuliaCellRun<CR>
-autocmd FileType julia nnoremap <Leader>c :JuliaCellExecuteCell<CR>
-autocmd FileType julia nnoremap <Leader>C :JuliaCellExecuteCellJump<CR>
-autocmd FileType julia nnoremap <Leader>l :JuliaCellClear<CR>
-autocmd FileType julia nnoremap <Leader>p :JuliaCellPrevCell<CR>
-autocmd FileType julia nnoremap <Leader>n :JuliaCellNextCell<CR>
-nnoremap <Leader>z :e /tmp/scratch.jl<CR>
-function JuliaREPLRestart()
-     :SlimeSend1 exit()
-     :SlimeSend1 julia
-endfunction
-autocmd FileType julia nnoremap <Leader>q :call JuliaREPLRestart()<CR>
-
-" -----------------------------------------------------------------------------------------
-" Python settings
-" -----------------------------------------------------------------------------------------
-let g:jedi#completions_enabled = 0
-let g:jedi#use_splits_not_buffers = 'right'
-autocmd FileType python nnoremap <Leader>r :IPythonCellRun<CR>
-autocmd FileType python nnoremap <Leader>c :IPythonCellExecuteCell<CR>
-autocmd FileType python nnoremap <Leader>C :IPythonCellExecuteCellJump<CR>
-autocmd FileType python nnoremap <Leader>l :IPythonCellClear<CR>
-autocmd FileType python nnoremap <Leader>P :IPythonCellPrevCell<CR>
-autocmd FileType python nnoremap <Leader>N :IPythonCellNextCell<CR>
-autocmd FileType python nnoremap <Leader>x :IPythonCellClose<CR>
-function PythonREPLRestart()
-     :SlimeSend1 exit()
-     :SlimeSend1 ipython
-endfunction
-autocmd FileType python nnoremap <Leader>q :call PythonREPLRestart()<CR>
-
+" Treesitter
 lua <<EOF
 require'nvim-treesitter.configs'.setup {
     ensure_installed = {
@@ -294,3 +232,16 @@ require'nvim-treesitter.configs'.setup {
     },
 }
 EOF
+
+" UtiliSnips
+let g:UltiSnipsExpandTrigger = '<C-K>'
+let g:tex_flavor = 'latex'
+
+" Vimtex
+let g:vimtex_quickfix_ignore_filters = [
+    \ 'Overfull',
+    \ 'Underfull',
+    \ 'Package hyperref Warning: Token not allowed in a PDF string',
+    \ 'contains only floats.',
+    \ "`h' float specifier changed to `ht'.",
+\]
