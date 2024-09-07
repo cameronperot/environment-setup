@@ -11,7 +11,7 @@ class EnvironmentInstaller:
     Class to orchestrate the environment installation.
     """
 
-    def __init__(self, neovim_version="v0.9.4", extract_appimage=False):
+    def __init__(self, neovim_version="v0.10.1", extract_appimage=False):
         """
         Initialize ``EnvironmentInstaller``.
 
@@ -186,9 +186,9 @@ if __name__ == "__main__":
         "--neovim-version",
         action="store",
         type=str,
-        default="v0.10.0",
+        default="v0.10.1",
         metavar="<NVIM_VERSION>",
-        help="Version of Neovim to install, e.g., v0.10.0 or nightly.",
+        help="Version of Neovim to install, e.g., v0.10.1 or nightly.",
     )
     parser.add_argument(
         "--extract-appimage",
