@@ -89,8 +89,6 @@ class EnvironmentInstaller:
                     nvim_path,
                 ],
             ]
-        else:
-            commands += [["mv", nvim_path, nvim_path.parent / "nvim"]]
 
         # run the commands
         for command in commands:
