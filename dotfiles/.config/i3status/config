@@ -7,6 +7,7 @@ general {
 
 order += "path_exists tun"
 order += "path_exists wg"
+order += "path_exists mv"
 /*order += "wireless wlp0s20f3"*/
 /*order += "ethernet enp0s31f6"*/
 /*order += "ipv6"*/
@@ -32,6 +33,7 @@ battery 0 {
         format = "BAT: %status %percentage %remaining"
         format_down = "No battery"
         status_chr = "⚡"
+        status_idle = "🔌"
         status_bat = "🔋"
         status_unk = "?"
         status_full = "☻"
@@ -45,6 +47,11 @@ path_exists tun {
 }
 
 path_exists wg {
+        # path exists when a VPN tunnel launched by nmcli/nm-applet is active
+        path = "/proc/sys/net/ipv4/conf/wg0"
+}
+
+path_exists mv {
         # path exists when a VPN tunnel launched by nmcli/nm-applet is active
         path = "/proc/sys/net/ipv4/conf/wg-mullvad"
 }
@@ -78,7 +85,7 @@ volume master {
 }
 
 read_file brightness {
-        format = "<span color='#d1d1d1'>☀: %content%</span>"
+        format = "<span color='#d1d1d1'>⛯: %content%</span>"
         path = "/home/user/.config/brightness"
         max_characters = 3
 }

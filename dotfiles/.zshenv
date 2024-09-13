@@ -35,4 +35,5 @@ export NO_AT_BRIDGE=1 # https://unix.stackexchange.com/questions/230238/x-applic
 export RANGER_LOAD_DEFAULT_RC=FALSE
 export GPG_TTY=$(tty)
 export LIBVIRT_DEFAULT_URI="qemu:///system"
+export SHELL=/usr/bin/zsh
 . "$HOME/.cargo/env"
