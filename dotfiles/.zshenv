@@ -1,8 +1,6 @@
 # Path
-export PATH="$PATH:$HOME/gems/bin"
-export PATH="$PATH:$HOME/.cargo/bin"
-export PATH="$HOME/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
 
 # History
 export HISTFILE="$HOME/.zsh_history"
@@ -13,7 +11,14 @@ export SAVEHIST=$HISTSIZE
 export HSTR_CONFIG=hicolor       # get more colors
 export HSTR_CONFIG=prompt-bottom # place prompt at bottom
 
+# Rust
+export PATH="$PATH:$HOME/.cargo/bin"
+if [ -f "$HOME/.cargo/env" ]; then
+    . "$HOME/.cargo/env"
+fi
+
 # Ruby
+export PATH="$PATH:$HOME/gems/bin"
 export BUNDLE_FORCE_RUBY_PLATFORM=true
 export GEM_HOME="$HOME/gems"
 
@@ -36,4 +41,3 @@ export RANGER_LOAD_DEFAULT_RC=FALSE
 export GPG_TTY=$(tty)
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 export SHELL=/usr/bin/zsh
-. "$HOME/.cargo/env"

@@ -198,7 +198,7 @@ set $refresh_i3status killall -SIGUSR1 i3status
 
 # Execs
 ## Set Background
-exec --no-startup-id feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
+exec --no-startup-id /usr/bin/feh --bg-scale /home/user/rsync/pictures/Wallpapers/earth-from-space.jpg
 
 ## Redshift
 exec --no-startup-id redshift-gtk
