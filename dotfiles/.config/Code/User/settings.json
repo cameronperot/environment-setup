@@ -123,7 +123,7 @@
     "vim.cursorStylePerMode.normal": "block",
     "vim.cursorStylePerMode.replace": "underline",
     "vim.easymotion": true,
-    "vim.neovimPath": "/home/user/bin/nvim",
+    "vim.neovimPath": "/usr/bin/nvim",
     "vim.neovimUseConfigFile": true,
     "vscode-neovim.ctrlKeysForInsertMode": [
         "h",
@@ -134,7 +134,7 @@
         "u",
         "w",
     ],
-    "vscode-neovim.neovimExecutablePaths.linux": "/home/user/bin/nvim",
+    "vscode-neovim.neovimExecutablePaths.linux": "/usr/bin/nvim",
     "vscode-neovim.neovimInitVimPaths.linux": "/home/user/.config/Code/User/init.vim",
     "window.commandCenter": false,
     "window.customTitleBarVisibility": "auto",
