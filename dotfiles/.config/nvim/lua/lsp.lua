@@ -11,18 +11,6 @@ require("mason").setup({
 require("mason-lspconfig").setup()
 
 -- LSP Diagnostics Options
-local sign = function(opts)
-    vim.fn.sign_define(opts.name, {
-        texthl = opts.name,
-        text = opts.text,
-        numhl = ""
-    })
-end
-sign({name = "DiagnosticSignError", text = "✕"})
-sign({name = "DiagnosticSignWarn", text = "⚠"})
-sign({name = "DiagnosticSignHint", text = "→"})
-sign({name = "DiagnosticSignInfo", text = "ℹ"})
-
 vim.diagnostic.config({
     virtual_text = false,
     signs = true,
@@ -34,6 +22,20 @@ vim.diagnostic.config({
         source = "always",
         header = "",
         prefix = "",
+    },
+    signs = {
+        text = {
+            [vim.diagnostic.severity.ERROR] = "✕",
+            [vim.diagnostic.severity.WARN] = "⚠",
+            [vim.diagnostic.severity.HINT] = "→",
+            [vim.diagnostic.severity.INFO] = "ℹ",
+        },
+        numhl = {
+            [vim.diagnostic.severity.ERROR] = "",
+            [vim.diagnostic.severity.WARN] = "",
+            [vim.diagnostic.severity.HINT] = "",
+            [vim.diagnostic.severity.INFO] = "",
+        },
     },
 })
 
