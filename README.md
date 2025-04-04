@@ -17,12 +17,16 @@ For more information on the CLI args, run
 Ensure the required packages are installed by running the following in Neovim:
 ```
 PackerSync
+```
+```
 MasonInstall lua-language-server rust-analyzer codelldb pyright
 ```
 
-To install rust-analyzer and pyright manually:
+To install pyright or rust-analyzer manually:
 ```bash
 rustup component add rust-analyzer
+```
+```bash
 npm install -g pyright
 ```
 
@@ -55,9 +59,13 @@ cargo install tree-sitter-cli
 Julia can be downloaded and installed from the [Julia downloads page](https://julialang.org/downloads/).
 
 ## Misc.
-Zoxide is nice for navigating filesystems.
+Zoxide is a nice alternative to using `cd`:
 ```bash
 conda install -c conda-forge zoxide
+```
+or
+```bash
+cargo install zoxide --locked
 ```
 
 ## Customization

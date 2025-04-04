@@ -21,6 +21,6 @@ rsync -a "${HOME}/.zshrc" "${DIR}/dotfiles/.zshrc"
 
 # commit and push
 cd "${DIR}"
-git add dotfiles
+git add -u
 git commit -m "Updated dotfiles"
 git push
