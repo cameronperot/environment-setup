@@ -14,20 +14,9 @@ For more information on the CLI args, run
 ```
 
 ## Neovim
-Ensure the required packages are installed by running the following in Neovim:
-```
-PackerSync
-```
-```
-MasonInstall lua-language-server rust-analyzer codelldb pyright
-```
-
-To install pyright or rust-analyzer manually:
+Some packages that might be required:
 ```bash
-rustup component add rust-analyzer
-```
-```bash
-npm install -g pyright
+cargo install tree-sitter-cli stylua
 ```
 
 ## Programming Languages
@@ -48,11 +37,6 @@ Miniconda can be initialized with zsh by running:
 Rust can be installed using [rustup](https://rustup.rs/) with:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Treesitter might require the following package to be installed:
-```
-cargo install tree-sitter-cli
 ```
 
 ### Julia
