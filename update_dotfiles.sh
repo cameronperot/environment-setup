@@ -5,6 +5,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 
 # copy over dotfiles
 rsync -a --mkpath "${HOME}/.XCompose" "${DIR}/dotfiles/.XCompose"
+rsync -a --mkpath "${HOME}/.conda_init.sh" "${DIR}/dotfiles/.conda_init.sh"
 rsync -a --mkpath "${HOME}/.config/Code/User/extensions.list" "${DIR}/dotfiles/.config/Code/User/extensions.list"
 rsync -a --mkpath "${HOME}/.config/Code/User/keybindings.json" "${DIR}/dotfiles/.config/Code/User/keybindings.json"
 rsync -a --mkpath "${HOME}/.config/Code/User/settings.json" "${DIR}/dotfiles/.config/Code/User/settings.json"
