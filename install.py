@@ -71,7 +71,7 @@ class EnvironmentInstaller:
         os.chdir(nvim_path.parent)
 
         # appimage url and commands to download and mark it as executable
-        url = f"https://github.com/neovim/neovim/releases/download/{self._neovim_version}/nvim.appimage"
+        url = f"https://github.com/neovim/neovim/releases/download/{self._neovim_version}/nvim-linux-x86_64.appimage"
         commands = [
             ["wget", "-O", nvim_path, url],
             ["chmod", "u+x", nvim_path],
@@ -137,9 +137,11 @@ class EnvironmentInstaller:
 
         # comment out the necessary lines
         lines = [
-            line
-            if not any(line.startswith(pattern) for pattern in comment_lines)
-            else f"# {line}"
+            (
+                line
+                if not any(line.startswith(pattern) for pattern in comment_lines)
+                else f"# {line}"
+            )
             for line in lines
         ]
 
@@ -184,9 +186,9 @@ if __name__ == "__main__":
         "--neovim-version",
         action="store",
         type=str,
-        default="v0.10.1",
+        default="stable",
         metavar="<NVIM_VERSION>",
-        help="Version of Neovim to install, e.g., v0.10.1 or nightly.",
+        help="Version of Neovim to install, e.g., v0.11.0 or nightly.",
     )
     parser.add_argument(
         "--extract-appimage",
