@@ -48,7 +48,7 @@ vim.cmd("colorscheme onedark")
 
 -- Python
 -- vim.g.python3_host_prog = vim.env.HOME .. "/miniconda3/envs/dev/bin/python" -- Python interpreter
-vim.g.python3_host_prog = "/opt/miniconda3/envs/dev/bin/python" -- Python interpreter
+vim.g.python3_host_prog = vim.env.HOME .. "/miniconda3/envs/dev/bin/python" -- Python interpreter
 
 -- Markdown
 vim.api.nvim_create_autocmd("FileType", {
