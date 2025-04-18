@@ -3,10 +3,17 @@ local M = {
     config = function()
         require("mason-lspconfig").setup({
             ensure_installed = {
-                "lua_ls",
                 "pyright",
                 "rust_analyzer",
+                "clangd",
+                "julials",
+                "jsonls",
+                "texlab",
+                "yamlls",
+                "taplo",
+                "lua_ls",
             },
+            automatic_installation = true,
         })
     end,
 }

@@ -1,5 +1,5 @@
 -- Diagnostics Options
-vim.diagnostic.config {
+vim.diagnostic.config({
     virtual_text = false,
     update_in_insert = true,
     underline = true,
@@ -24,13 +24,13 @@ vim.diagnostic.config {
             [vim.diagnostic.severity.INFO] = "",
         },
     },
-}
+})
 
 -- Diagnostics UI Fix
-vim.cmd [[
+vim.cmd([[
     set signcolumn=yes
     autocmd CursorHold * lua vim.diagnostic.open_float(nil, { focusable = false })
-]]
+]])
 
 -- Diagnostics Message Filter
 function filter_array(a, f)
@@ -59,4 +59,5 @@ function on_publish_diagnostics_filtered(a, params, client_id, c, config)
     vim.lsp.diagnostic.on_publish_diagnostics(a, params, client_id, c, config)
 end
 
-vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(on_publish_diagnostics_filtered, {})
+vim.lsp.handlers["textDocument/publishDiagnostics"] =
+    vim.lsp.with(on_publish_diagnostics_filtered, {})

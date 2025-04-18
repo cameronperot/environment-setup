@@ -1,8 +1,9 @@
 local M = {
     "williamboman/mason.nvim",
     dependencies = { "williamboman/mason-lspconfig.nvim" },
+    cmd = { "Mason" },
     config = function()
-        require("mason").setup {
+        require("mason").setup({
             ui = {
                 icons = {
                     package_installed = "✓",
@@ -10,7 +11,7 @@ local M = {
                     package_uninstalled = "✗",
                 },
             },
-        }
+        })
     end,
 }
 

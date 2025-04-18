@@ -1,0 +1,144 @@
+# Theme
+[theme]
+theme = "semi-native"
+[icons]
+icons = "awesome4"
+[theme.overrides]
+idle_bg = "#2c2c2e"
+idle_fg = "#cdd6f4"
+good_bg = "#2c2c2e"
+good_fg = "#40e82e"
+info_bg = "#2c2c2e"
+info_fg = "#cdd6f4"
+warning_bg = "#2c2c2e"
+warning_fg = "#fc9714"
+critical_bg = "#2c2c2e"
+critical_fg = "#f94545"
+
+# Scratchpad
+[[block]]
+block = "scratchpad"
+
+# WiFi
+[[block]]
+block = "net"
+interval = 10
+format = " ↓$speed_down ↑$speed_up "
+device = "wlp0s20f3"
+[[block.click]]
+button = "right"
+cmd = "kitty -e ping -c 3 1.1"
+
+# VPN
+[[block]]
+block = "custom"
+interval = 10
+command = """
+if ip a show tailscale0 up > /dev/null 2>&1; then
+  echo '{"text": "ts", "state": "Good"}'
+else
+  echo '{"text": "ts", "state": "Critical"}'
+fi
+"""
+json = true
+
+[[block]]
+block = "custom"
+interval = 10
+command = """
+if ip a show wg0-mullvad up > /dev/null 2>&1; then
+  echo '{"text": "mv", "state": "Good"}'
+else
+  echo '{"text": "mv", "state": "Critical"}'
+fi
+"""
+json = true
+
+# CPU
+[[block]]
+block = "cpu"
+interval = 10
+format = " $icon $utilization "
+info_cpu = 20
+warning_cpu = 50
+critical_cpu = 90
+[[block.click]]
+button = "left"
+cmd = "kitty -e btop"
+
+# CPU temp
+[[block]]
+block = "temperature"
+interval = 10
+format = " $icon $max "
+chip = "*-isa-*"
+[[block.click]]
+button = "left"
+cmd = "kitty -e watch -n 1 sensors"
+
+# Memory
+[[block]]
+block = "memory"
+interval = 10
+format = " $icon $mem_used_percents.eng(w:2) "
+[[block.click]]
+button = "left"
+cmd = "kitty -e btop"
+
+# Battery
+[[block]]
+block = "battery"
+interval = 10
+format = " $icon $percentage $time "
+device = "BAT0"
+[[block.click]]
+button = "left"
+cmd = "xfce4-power-manager-settings"
+
+# Datetime
+[[block]]
+block = "time"
+interval = 10
+format = " $timestamp.datetime(f:'%a %m-%d %H:%M:%S %Z') "
+timezone = "Europe/Berlin"
+[[block.click]]
+button = "left"
+cmd = "zenity --calendar"
+
+# Datetime
+[[block]]
+block = "time"
+interval = 60
+format = " $timestamp.datetime(f:'%H:%M %Z') "
+timezone = "US/Eastern"
+[[block.click]]
+button = "left"
+cmd = "zenity --calendar"
+
+# Brightness
+[[block]]
+block = "backlight"
+format = " ☀ $brightness "
+[[block.click]]
+button = "left"
+cmd = ""
+
+# Audio output
+[[block]]
+block = "sound"
+[[block.click]]
+button = "left"
+cmd = "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+[[block.click]]
+button = "right"
+cmd = "pavucontrol"
+
+# Audio input
+[[block]]
+block = "sound"
+driver = "pulseaudio"
+device_kind = "source"
+format = " $icon "
+[[block.click]]
+button = "left"
+cmd = "pactl set-source-mute @DEFAULT_SOURCE@ toggle"

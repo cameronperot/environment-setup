@@ -3,7 +3,7 @@ local M = {
     cmd = { "Trouble", "TroubleToggle" },
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = function()
-        require("trouble").setup {}
+        require("trouble").setup({})
     end,
 }
 

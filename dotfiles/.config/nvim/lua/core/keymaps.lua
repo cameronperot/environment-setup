@@ -9,6 +9,9 @@ vim.keymap.set("n", "<leader>bd", "<cmd>bd<cr>", opts_noremap)
 vim.keymap.set("n", "<leader>bD", "<cmd>bd!<cr>", opts_noremap)
 vim.keymap.set("n", "<leader>bb", "<cmd>ls<cr><cmd>b<Space>", opts_noremap)
 vim.keymap.set("n", "<leader><tab>", "<C-^>", opts)
+-- copy current line to clipboard
+vim.keymap.set("n", "<leader>yy", '<cmd>normal "+yy<cr>', opts_noremap)
+vim.keymap.set("n", "<leader>yb", "<cmd>%y+<CR>", opts_noremap)
 vim.keymap.set("n", "<leader>bp", function()
     vim.cmd("bprevious")
 end, opts)
@@ -48,9 +51,6 @@ end
 
 -- Nvim-tree
 vim.keymap.set("n", "<C-n>", "<cmd>NvimTreeToggle<cr>", opts_noremap)
-
--- Tagbar
-vim.keymap.set("n", "<leader>tt", "<cmd>TagbarToggle<cr>", opts_noremap)
 
 -- Telescope
 local builtin = require("telescope.builtin")
