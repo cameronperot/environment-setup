@@ -1,29 +1,23 @@
 local M = {
     "neovim/nvim-lspconfig",
-    event = { "BufReadPre", "BufNewFile" },
     dependencies = { "hrsh7th/cmp-nvim-lsp" },
+    ft = {
+        "c",
+        "cpp",
+        "json",
+        "julia",
+        "latex",
+        "lua",
+        "python",
+        "rust",
+        "sh",
+        "tex",
+        "toml",
+        "yaml",
+    },
     config = function()
         local capabilities = require("cmp_nvim_lsp").default_capabilities()
         local lspconfig = require("lspconfig")
-        lspconfig.lua_ls.setup({
-            settings = {
-                Lua = {
-                    runtime = {
-                        version = "LuaJIT",
-                    },
-                    diagnostics = {
-                        globals = { "vim" },
-                    },
-                    workspace = {
-                        library = vim.api.nvim_get_runtime_file("", true),
-                        checkThirdParty = false,
-                    },
-                    telemetry = {
-                        enable = false,
-                    },
-                },
-            },
-        })
         lspconfig.pyright.setup({
             capabilities = capabilities,
             settings = {
@@ -50,6 +44,20 @@ local M = {
         })
         lspconfig.clangd.setup({ capabilities = capabilities })
         lspconfig.julials.setup({ capabilities = capabilities })
+        lspconfig.lua_ls.setup({
+            capabilities = capabilities,
+            settings = {
+                Lua = {
+                    diagnostics = {
+                        globals = { "vim" },
+                    },
+                },
+            },
+        })
+        lspconfig.jsonls.setup({ capabilities = capabilities })
+        lspconfig.texlab.setup({ capabilities = capabilities })
+        lspconfig.yamlls.setup({ capabilities = capabilities })
+        lspconfig.taplo.setup({ capabilities = capabilities })
     end,
 }
 

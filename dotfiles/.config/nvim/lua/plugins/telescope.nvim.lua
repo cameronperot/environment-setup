@@ -3,7 +3,7 @@ local M = {
     version = "0.1.8",
     dependencies = { "nvim-lua/plenary.nvim" },
     config = function()
-        require("telescope").setup {
+        require("telescope").setup({
             extensions = {
                 fzf = {
                     fuzzy = true,
@@ -12,8 +12,8 @@ local M = {
                     case_mode = "smart_case",
                 },
             },
-        }
-        require("telescope").load_extension "fzf"
+        })
+        require("telescope").load_extension("fzf")
     end,
 }
 

@@ -1,5 +1,6 @@
 local M = {
     "dense-analysis/ale",
+    event = { "BufReadPost", "BufWritePre" },
     config = function()
         vim.g.ale_linters = {
             cpp = { "clang" },

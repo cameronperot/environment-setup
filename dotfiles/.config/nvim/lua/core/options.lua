@@ -32,6 +32,7 @@ vim.opt.showbreak = " ↪" -- Wrapped line indicator
 vim.opt.spell = true -- Enable spell checking
 vim.opt.spelllang = "en_us" -- US English spelling
 vim.opt.termguicolors = true -- 24-bit color support
+vim.opt.ttyfast = true -- Speed up scrolling
 vim.cmd("syntax enable") -- Syntax highlighting
 vim.cmd("filetype plugin indent on") -- Enable filetype
 vim.cmd(

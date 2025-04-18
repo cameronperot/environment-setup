@@ -1,8 +1,9 @@
 local M = {
     "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
     config = function()
-        local cmp = require "cmp"
-        cmp.setup {
+        local cmp = require("cmp")
+        cmp.setup({
             snippet = {
                 expand = function(args)
                     vim.fn["vsnip#anonymous"](args.body)
@@ -17,10 +18,10 @@ local M = {
                 ["<C-u>"] = cmp.mapping.scroll_docs(-8),
                 ["<C-Space>"] = cmp.mapping.complete(),
                 ["<C-e>"] = cmp.mapping.close(),
-                ["<CR>"] = cmp.mapping.confirm {
+                ["<CR>"] = cmp.mapping.confirm({
                     behavior = cmp.ConfirmBehavior.Insert,
                     select = true,
-                },
+                }),
             },
             sources = {
                 { name = "path" },
@@ -49,7 +50,7 @@ local M = {
                     return item
                 end,
             },
-        }
+        })
     end,
 }
 
