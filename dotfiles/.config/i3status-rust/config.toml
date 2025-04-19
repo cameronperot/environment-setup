@@ -4,16 +4,16 @@ theme = "semi-native"
 [icons]
 icons = "awesome4"
 [theme.overrides]
-idle_bg = "#2c2c2e"
-idle_fg = "#cdd6f4"
-good_bg = "#2c2c2e"
-good_fg = "#40e82e"
-info_bg = "#2c2c2e"
-info_fg = "#cdd6f4"
-warning_bg = "#2c2c2e"
-warning_fg = "#fc9714"
-critical_bg = "#2c2c2e"
-critical_fg = "#f94545"
+idle_bg = "#2c2c2eCC"
+idle_fg = "#b3b3b3"
+good_bg = "#2c2c2eCC"
+good_fg = "#40e82eCC"
+info_bg = "#2c2c2eCC"
+info_fg = "#b3b3b3"
+warning_bg = "#2c2c2eCC"
+warning_fg = "#fc9714CC"
+critical_bg = "#2c2c2eCC"
+critical_fg = "#f94545CC"
 
 # Scratchpad
 [[block]]
@@ -24,7 +24,10 @@ block = "scratchpad"
 block = "net"
 interval = 10
 format = " ↓$speed_down ↑$speed_up "
-device = "wlp0s20f3"
+device = "wlp1s0"
+[[block.click]]
+button = "left"
+cmd = "kitty -e nmtui"
 [[block.click]]
 button = "right"
 cmd = "kitty -e ping -c 3 1.1"
@@ -90,7 +93,7 @@ cmd = "kitty -e btop"
 block = "battery"
 interval = 10
 format = " $icon $percentage $time "
-device = "BAT0"
+device = "BAT1"
 [[block.click]]
 button = "left"
 cmd = "xfce4-power-manager-settings"

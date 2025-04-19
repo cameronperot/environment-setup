@@ -8,11 +8,11 @@ font pango:JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Mediu
 # Appearance
 # --------------------
 # Colors
-set $bg     #2c2c2e
-set $fg     #9f9f9f
+set $bg     #2c2c2ecc
+set $fg     #b3b3b3
 set $hi     #efef8f
-set $ac     #125b8e
-set $fi     #474747
+set $ac     #125b8ecc
+set $fi     #474747cc
 set $tx     #d1d1d1
 set $ia     #8f8f8f
 set $be     #8faf9f
@@ -21,7 +21,9 @@ set $gn     #88b090
 set $rd     #c92424
 
 # Window decoration
-default_border pixel 1
+default_border pixel 0
+hide_edge_borders --i3 smart
+titlebar_padding 2 1
 client.focused                $ac        $ac         $tx     $ac         $ac
 client.unfocused              $bg        $bg         $ia     $bg         $bg
 client.focused_inactive       $fi        $fi         $ia     $fi         $fi
@@ -30,6 +32,12 @@ client.urgent                 $rd        $rd         $tx     $rd         $rd
 # Set default workspace layout
 workspace_layout tabbed
 
+# Set GTK theme
+exec_always {
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gsettings set org.gnome.desktop.interface gtk-theme 'Greybird-dark'
+}
+
 # --------------------
 # Input Configuration
 # --------------------
@@ -37,22 +45,15 @@ input "type:touchpad" {
     dwt enabled
     tap enabled
     natural_scroll enabled
+    middle_emulation disabled
     accel_profile "adaptive"
-    pointer_accel 0.125
+    pointer_accel 0.15
 }
 
 input "type:pointer" {
     accel_profile "flat"
     pointer_accel -0.4
 }
-
-# --------------------
-# Output Configuration
-# --------------------
-output VGA-1 {
-   mode 1920x1200@60.000Hz
-}
-output * scale 1.25
 
 # --------------------
 # Workspaces
@@ -90,7 +91,7 @@ bindsym $mod+8 workspace $ws8
 bindsym $mod+9 workspace $ws9
 bindsym $mod+0 workspace $ws10
 bindsym $mod+minus workspace $ws11
-bindsym $mod+plus workspace $ws12
+bindsym $mod+equal workspace $ws12
 bindsym $mod+BackSpace workspace $ws13
 bindsym $mod+Home workspace $ws14
 bindsym $mod+End workspace $ws15
@@ -191,7 +192,8 @@ bindsym $mod+r mode "resize"
 bindsym $mod+Return exec kitty
 
 # Application launcher
-bindsym $mod+d exec fuzzel
+bindsym $mod+d exec rofi -show run
+bindsym $mod+g exec rofi -show window
 
 # File manager
 bindsym $mod+t exec thunar
@@ -206,7 +208,7 @@ bindsym $mod+Shift+q kill
 # System Controls
 # --------------------
 # Lock screen
-bindsym Control+Mod1+l exec swaylock -f -c 000000
+bindsym Control+Mod1+l exec swaylock -f
 
 # Reload config
 bindsym $mod+Shift+r reload
@@ -229,7 +231,7 @@ bindsym $mod+b bar mode toggle
 bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +10%
 bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -10%
 bindsym XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
-bindsym XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
+bindsym XF86AudioPrev exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
 
 # Brightness
 bindsym XF86MonBrightnessUp exec light -A 5
@@ -260,18 +262,29 @@ bar {
 # --------------------
 # Autostart Applications
 # --------------------
+# Display
+exec_always "systemctl --user restart kanshi.service"
+
 # Background
 exec swaybg -i $HOME/Pictures/background.png -m fill
 
 # Night light
-exec gammastep-indicator
+exec --no-startup-id gammastep-indicator
+
+# Network Manager
+exec --no-startup-id nm-applet --indicator
+
+# Bluetooth
+exec --no-startup-id blueman-applet
 
 # Screen locking and power management
 exec swayidle -w \
-    timeout 900 'swaylock -f -c 000000' \
-    timeout 905 'swaymsg "output * dpms off"' \
+    timeout 900 'swaylock -f' \
+    timeout 915 'swaymsg "output * dpms off"' \
+    timeout 930 'if grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
+    timeout 3600 'if ! grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
     resume 'swaymsg "output * dpms on"' \
-    before-sleep 'swaylock -f -c 000000'
+    before-sleep 'swaylock -f'
 
 # --------------------
 # Include system config
