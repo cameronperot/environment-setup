@@ -11,6 +11,9 @@ vim.keymap.set("n", "<leader>bb", "<cmd>ls<cr><cmd>b<Space>", opts_noremap)
 vim.keymap.set("n", "<leader><tab>", "<C-^>", opts)
 -- copy current line to clipboard
 vim.keymap.set("n", "<leader>yy", '<cmd>normal "+yy<cr>', opts_noremap)
+vim.keymap.set("n", "<leader>yip", '<cmd>normal "+yip<cr>', opts_noremap)
+vim.keymap.set("n", "<leader>yaf", '<cmd>normal "+yaf<cr>', opts_noremap)
+vim.keymap.set("n", "<leader>yac", '<cmd>normal "+yac<cr>', opts_noremap)
 vim.keymap.set("n", "<leader>yb", "<cmd>%y+<CR>", opts_noremap)
 vim.keymap.set("n", "<leader>bp", function()
     vim.cmd("bprevious")
@@ -80,3 +83,6 @@ vim.keymap.set("n", "<leader>xQ", "<cmd>Trouble qflist toggle<cr>", opts_noremap
 -- Vimspector
 vim.keymap.set("n", "<leader>di", "<Plug>VimspectorBalloonEval", opts_remap)
 vim.keymap.set("x", "<leader>di", "<Plug>VimspectorBalloonEval", opts_remap)
+
+-- Zen-mode
+vim.keymap.set("n", "<leader>zm", "<cmd>ZenMode<cr>", opts_noremap)

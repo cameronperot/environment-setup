@@ -1,0 +1,22 @@
+output "BOE 0x0BCA Unknown" {
+    mode 2256x1504
+    scale 1.25
+    position 0,0
+    alias $LAPTOP
+}
+
+output DP-2 {
+    mode 3840x2160
+    scale 1.0
+    position 2256,0
+    alias $TV
+}
+
+profile laptop {
+    output $LAPTOP enable
+}
+
+profile tv {
+    output $LAPTOP enable
+    output $TV enable
+}
