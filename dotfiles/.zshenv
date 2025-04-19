@@ -23,8 +23,8 @@ export BUNDLE_FORCE_RUBY_PLATFORM=true
 export GEM_HOME="$HOME/gems"
 
 # Editor
-export VISUAL=nvim
-export EDITOR=nvim
+export VISUAL="nvim"
+export EDITOR="nvim"
 export JULIA_EDITOR="nvim"
 
 # Language

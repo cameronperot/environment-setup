@@ -1,14 +1,14 @@
 # Download antigen if it doesn't exist
-if [ ! -f "$HOME/antigen.zsh" ]; then
-    wget -O "$HOME/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
+if [ ! -f "${HOME}/antigen.zsh" ]; then
+    wget -O "${HOME}/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 fi
 
 # Initialize
-source "$HOME/antigen.zsh"
+source "${HOME}/antigen.zsh"
 for file in .profile .bash_aliases .secret_exports
 do
-    if [ -f "$HOME/$file" ]; then
-        source "$HOME/$file"
+    if [ -f "${HOME}/$file" ]; then
+        source "${HOME}/$file"
     fi
 done
 
@@ -58,11 +58,6 @@ if [ -x "$(command -v kitty)" ]; then
     source <(kitty + complete setup zsh)
 fi
 
-# Misc.
-unalias rm
-bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
-bindkey -s "^n" " cadev && nvim^M"   # bind ctrl-n to nvim
-
 # HSTR configuration - add this to ~/.bashrc
 bindkey -s "^h" " hstr^M"        # bind ctrl-h to hstr
 alias hh=hstr                    # hh to be alias for hstr
@@ -73,4 +68,31 @@ if [ -x "$(command -v zoxide)" ]; then
         __zoxide_z "$@"
     }
     eval "$(zoxide init zsh --no-cmd)"
+fi
+
+# Ensure conda environment
+conda_env() {
+    local env_name="$1"
+    if ! command -v conda &> /dev/null; then
+        . "${HOME}/miniconda3/etc/profile.d/conda.sh"
+    fi
+    if [[ "${CONDA_DEFAULT_ENV}" != "${env_name}" ]]; then
+        conda activate "${env_name}"
+    fi
+}
+
+# Neovim with conda
+nvim_conda() {
+    conda_env dev && nvim "$@"
+}
+ranger_conda() {
+    conda_env dev && ranger "$@"
+}
+
+# Aliases
+unalias rm
+bindkey -s "^r" " ranger_conda^M" # bind ctrl-r to ranger
+bindkey -s "^n" " nvim_conda^M"   # bind ctrl-n to nvim
+if [ -f "${HOME}/.bash_aliases" ]; then
+    source "${HOME}/.bash_aliases"
 fi
