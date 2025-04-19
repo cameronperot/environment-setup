@@ -2,7 +2,7 @@
 alias clearbashhist="cat /dev/null > ~/.bash_history && history -c && exit"
 alias clearnvimswap="rm ~/.local/share/nvim/swap/*.swp"
 alias sshk="kitty +kitten ssh"
-alias vi="nvim"
+alias vi="nvim_conda"
 alias vin="nvim --clean"
 alias svi="sudoedit"
 alias ta="tmux a -t"
