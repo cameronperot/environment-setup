@@ -121,4 +121,8 @@
         "command": "-editor.action.organizeImports",
         "when": "textInputFocus && !editorReadonly && supportedCodeAction =~ /(\\s|^)source\\.organizeImports\\b/"
     },
+    {
+        "key": "ctrl+p",
+        "command": "workbench.action.quickOpen"
+    }
 ]
