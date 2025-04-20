@@ -32,13 +32,6 @@ client.urgent                 $rd        $rd         $tx     $rd         $rd
 # Set default workspace layout
 workspace_layout tabbed
 
-# Set GTK theme
-exec_always {
-    import-gsettings
-    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-    gsettings set org.gnome.desktop.interface gtk-theme 'Greybird-dark'
-}
-
 # --------------------
 # Input Configuration
 # --------------------
