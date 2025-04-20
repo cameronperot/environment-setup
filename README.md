@@ -29,10 +29,9 @@ and initialized with:
 ```bash
 ~/micromamba/bin/micromamba shell init --root-prefix ~/micromamba
 ```
-
-Miniconda can be initialized with zsh by running:
+The environment can be installed by running:
 ```bash
-~/miniconda3/bin/conda init zsh
+micromamba create -f environment.yml
 ```
 
 ### Rust
@@ -47,11 +46,11 @@ Julia can be downloaded and installed from the [Julia downloads page](https://ju
 ## Misc.
 Zoxide is a nice alternative to using `cd`:
 ```bash
-conda install -c conda-forge zoxide
+cargo install zoxide --locked
 ```
 or
 ```bash
-cargo install zoxide --locked
+micromamba install -c conda-forge zoxide
 ```
 
 ## Customization
