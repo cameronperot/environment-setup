@@ -34,6 +34,7 @@ workspace_layout tabbed
 
 # Set GTK theme
 exec_always {
+    import-gsettings
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
     gsettings set org.gnome.desktop.interface gtk-theme 'Greybird-dark'
 }
@@ -265,23 +266,17 @@ exec_always "systemctl --user restart kanshi.service"
 # Background
 exec swaybg -i $HOME/Pictures/background.png -m fill
 
-# Polkit
-exec --no-startup-id /usr/libexec/xfce-polkit
-
-# Notifications
-exec --no-startup-id mako
-
 # Night light
-exec --no-startup-id gammastep-indicator
+exec gammastep-indicator
 
 # Network Manager
-exec --no-startup-id nm-applet --indicator
+exec nm-applet --indicator
 
 # Bluetooth
-exec --no-startup-id blueman-applet
+exec blueman-applet
 
 # Nextcloud
-exec --no-startup-id nextcloud
+exec nextcloud
 
 # Screen locking and power management
 exec swayidle -w \
@@ -295,4 +290,10 @@ exec swayidle -w \
 # --------------------
 # Include system config
 # --------------------
-include /etc/sway/config.d/*
+include '$(\
+    /usr/libexec/sway/layered-include \
+    $(ls /etc/sway/config.d/* 2>/dev/null) \
+    $(ls /usr/share/sway/config.d/*.conf 2>/dev/null | grep -Ev "bar|bindings|swayidle") \
+    $(ls /etc/sway/config.d/*.conf 2>/dev/null) \
+    $(ls "${XDG_CONFIG_HOME:-$HOME/.config}/sway/config.d/"*.conf 2>/dev/null) \
+)'
