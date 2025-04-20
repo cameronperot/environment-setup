@@ -23,6 +23,7 @@ rsync -a --mkpath "${HOME}/.config/nvim/lua/" "${DIR}/dotfiles/.config/nvim/lua/
 rsync -a --mkpath "${HOME}/.config/ranger/" "${DIR}/dotfiles/.config/ranger/"
 rsync -a --mkpath "${HOME}/.config/sway/config" "${DIR}/dotfiles/.config/sway/config"
 rsync -a --mkpath "${HOME}/.config/swaylock/config" "${DIR}/dotfiles/.config/swaylock/config"
+rsync -a --mkpath "${HOME}/.mamba_init.sh" "${DIR}/dotfiles/.mamba_init.sh"
 rsync -a --mkpath "${HOME}/.tmux.conf" "${DIR}/dotfiles/.tmux.conf"
 rsync -a --mkpath "${HOME}/.zshenv" "${DIR}/dotfiles/.zshenv"
 rsync -a --mkpath "${HOME}/.zshrc" "${DIR}/dotfiles/.zshrc"
