@@ -265,6 +265,12 @@ exec_always "systemctl --user restart kanshi.service"
 # Background
 exec swaybg -i $HOME/Pictures/background.png -m fill
 
+# Polkit
+exec --no-startup-id /usr/libexec/xfce-polkit
+
+# Notifications
+exec --no-startup-id mako
+
 # Night light
 exec --no-startup-id gammastep-indicator
 
@@ -273,6 +279,9 @@ exec --no-startup-id nm-applet --indicator
 
 # Bluetooth
 exec --no-startup-id blueman-applet
+
+# Nextcloud
+exec --no-startup-id nextcloud
 
 # Screen locking and power management
 exec swayidle -w \
