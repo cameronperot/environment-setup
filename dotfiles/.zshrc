@@ -73,7 +73,7 @@ fi
 # Aliases
 unalias rm
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
-bindkey -s "^n" " conda^M"   # bind ctrl-n to nvim
+bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
 if [ -f "${HOME}/.bash_aliases" ]; then
     source "${HOME}/.bash_aliases"
 fi
