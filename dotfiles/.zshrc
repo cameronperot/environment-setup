@@ -18,7 +18,6 @@ antigen use oh-my-zsh
 # Plugins
 antigen bundle git
 antigen bundle vi-mode
-antigen bundle docker
 antigen bundle dnf
 antigen bundle rsync
 antigen bundle ssh-agent
