@@ -70,29 +70,16 @@ if [ -x "$(command -v zoxide)" ]; then
     eval "$(zoxide init zsh --no-cmd)"
 fi
 
-# Ensure conda environment
-conda_env() {
-    local env_name="$1"
-    if ! command -v conda &> /dev/null; then
-        . "${HOME}/miniconda3/etc/profile.d/conda.sh"
-    fi
-    if [[ "${CONDA_DEFAULT_ENV}" != "${env_name}" ]]; then
-        conda activate "${env_name}"
-    fi
-}
-
-# Neovim with conda
-nvim_conda() {
-    conda_env dev && nvim "$@"
-}
-ranger_conda() {
-    conda_env dev && ranger "$@"
-}
-
 # Aliases
 unalias rm
-bindkey -s "^r" " ranger_conda^M" # bind ctrl-r to ranger
-bindkey -s "^n" " nvim_conda^M"   # bind ctrl-n to nvim
+bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
+bindkey -s "^n" " conda^M"   # bind ctrl-n to nvim
 if [ -f "${HOME}/.bash_aliases" ]; then
     source "${HOME}/.bash_aliases"
+fi
+
+# Micromamba
+if [ -f "${HOME}/.mamba_init.sh" ]; then
+    source "${HOME}/.mamba_init.sh"
+    micromamba activate dev
 fi

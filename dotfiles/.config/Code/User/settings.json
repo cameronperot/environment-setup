@@ -43,8 +43,7 @@
     },
     "editor.acceptSuggestionOnEnter": "smart",
     "editor.cursorBlinking": "solid",
-    "editor.cursorStyle": "block",
-    "editor.fontFamily": "'JuliaMono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'JetBrainsMonoNL Nerd Font', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.fontSize": 13,
     "editor.formatOnSave": true,
     "editor.lineNumbers": "relative",
@@ -94,8 +93,8 @@
     "pylint.args": [
         "--max-line-length=98"
     ],
-    "python.condaPath": "/home/user/miniconda3/bin/conda",
-    "python.defaultInterpreterPath": "/home/user/miniconda3/envs/dev/bin/python",
+    "python.condaPath": "/home/user/micromamba/bin/micromamba",
+    "python.defaultInterpreterPath": "/home/user/micromamba/envs/dev/bin/python",
     "telemetry.telemetryLevel": "off",
     "terminal.external.linuxExec": "kitty",
     "terminal.integrated.commandsToSkipShell": [
