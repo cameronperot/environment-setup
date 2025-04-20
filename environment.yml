@@ -1,0 +1,36 @@
+name: dev
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - flake8
+  - ipykernel
+  - ipython
+  - jax
+  - joblib
+  - jupyterlab
+  - matplotlib
+  - mypy
+  - nodejs
+  - numpy
+  - pandas-stubs
+  - pandas>=2.0.0
+  - pip
+  - pre-commit
+  - psutil
+  - pydantic
+  - pylint
+  - pytest
+  - pytest-cov
+  - requests
+  - scipy
+  - tqdm
+  - yarn
+  - pip:
+    - black[jupyter]
+    - isort
+    - nbqa
+    - polars
+    - pynvim
+    - ranger-fm
+    - seaborn

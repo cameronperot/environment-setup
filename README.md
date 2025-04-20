@@ -21,11 +21,13 @@ cargo install tree-sitter-cli stylua
 
 ## Programming Languages
 ### Python
-Miniconda can be installed with the `miniconda.sh` script.
-After install, it is recommended to install the following packages:
+Micromamba can be installed by running:
 ```bash
-conda install black flake8 pylint mypy pydantic nodejs yarn
-pip install pynvim ranger-fm
+curl -Ls https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
+```
+and initialized with:
+```bash
+~/micromamba/bin/micromamba shell init --root-prefix ~/micromamba
 ```
 
 Miniconda can be initialized with zsh by running:
