@@ -285,8 +285,7 @@ exec swayidle -w \
 # --------------------
 include '$(\
     /usr/libexec/sway/layered-include \
-    $(ls /etc/sway/config.d/* 2>/dev/null) \
     $(ls /usr/share/sway/config.d/*.conf 2>/dev/null | grep -Ev "bar|bindings|swayidle") \
-    $(ls /etc/sway/config.d/*.conf 2>/dev/null) \
-    $(ls "${XDG_CONFIG_HOME:-$HOME/.config}/sway/config.d/"*.conf 2>/dev/null) \
+    "/etc/sway/config.d/*.conf" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/sway/config.d/"*.conf \
 )'
