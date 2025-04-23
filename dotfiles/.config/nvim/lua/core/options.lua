@@ -33,7 +33,6 @@ vim.opt.spell = true -- Enable spell checking
 vim.opt.spelllang = "en_us" -- US English spelling
 vim.opt.termguicolors = true -- 24-bit color support
 vim.opt.ttyfast = true -- Speed up scrolling
-vim.opt.mouse = "" -- Disable mouse
 vim.cmd("syntax enable") -- Syntax highlighting
 vim.cmd("filetype plugin indent on") -- Enable filetype
 vim.cmd(
@@ -46,6 +45,11 @@ vim.api.nvim_create_autocmd("FileType", { -- Disable auto continuing comment on 
     end,
 })
 vim.cmd("colorscheme onedark")
+
+-- Scratch
+vim.api.nvim_create_user_command("Scratch", function()
+    vim.cmd("edit ~/scratch.md")
+end, {})
 
 -- Python
 vim.g.python3_host_prog = vim.env.HOME .. "/micromamba/envs/dev/bin/python" -- Python interpreter
