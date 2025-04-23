@@ -2,7 +2,7 @@
 # Core settings
 # --------------------
 set $mod Mod4
-font pango:JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Medium 12
+font pango:JetBrainsMonoNL Nerd Font Medium 12
 
 # --------------------
 # Appearance
@@ -41,7 +41,7 @@ input "type:touchpad" {
     natural_scroll enabled
     middle_emulation disabled
     accel_profile "adaptive"
-    pointer_accel 0.15
+    pointer_accel 0.2
 }
 
 input "type:pointer" {
@@ -155,6 +155,7 @@ bindsym $mod+Shift+a focus child
 # Scratchpad
 bindsym $mod+x move scratchpad
 bindsym $mod+z scratchpad show
+bindsym $mod+p [app_id="org.keepassxc.KeePassXC"] scratchpad show, resize set 70ppt 70ppt, move position center, border none
 
 # --------------------
 # Resize Mode
@@ -237,7 +238,7 @@ bindsym Control+Print exec grim -g "$(slurp)" ~/Pictures/screenshots/$(date +'%Y
 # --------------------
 bar {
     position bottom
-    font pango:JetBrainsMonoNL Nerd Font,JetBrainsMonoNL NF,JetBrainsMonoNL NF Medium 12
+    font pango:JetBrainsMonoNL Nerd Font Medium 12
     status_command ~/.cargo/bin/i3status-rs ~/.config/i3status-rust/config.toml
     colors {
         background          $bg

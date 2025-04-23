@@ -24,7 +24,7 @@ block = "scratchpad"
 block = "net"
 interval = 10
 format = " ↓$speed_down ↑$speed_up "
-device = "wlp1s0"
+device = "wlan0"
 [[block.click]]
 button = "left"
 cmd = "kitty -e nmtui"
