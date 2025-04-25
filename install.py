@@ -50,9 +50,7 @@ class EnvironmentInstaller:
         self._logger.info(f"⟩ {' '.join(str(x) for x in command)}")
 
         # run the command and log the STDOUT
-        result = subprocess.run(
-            command, check=True, capture_output=True, encoding="utf-8"
-        )
+        result = subprocess.run(command, check=True, capture_output=True, encoding="utf-8")
         if result.stdout:
             self._logger.info(result.stdout)
 
@@ -101,13 +99,13 @@ class EnvironmentInstaller:
 
     def install_tmux_resurrect(self):
         """
-        Install tmux-resurrect to the user's home directory (~/tmux-resurrect).
+        Install tmux-resurrect to the user's home directory (~/.tmux-resurrect).
         """
         self._logger.info("Installing tmux-resurrect")
 
         # repo url and path to clone the repo to
         url = "https://github.com/tmux-plugins/tmux-resurrect"
-        clone_path = self._home_dir / "tmux-resurrect"
+        clone_path = self._home_dir / ".tmux-resurrect"
 
         # run the command
         command = ["git", "clone", url, clone_path]
