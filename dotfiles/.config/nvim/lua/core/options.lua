@@ -52,7 +52,7 @@ vim.api.nvim_create_user_command("Scratch", function()
 end, {})
 
 -- Python
-vim.g.python3_host_prog = vim.env.HOME .. "/micromamba/envs/dev/bin/python" -- Python interpreter
+vim.g.python3_host_prog = vim.env.HOME .. "/.micromamba/envs/dev/bin/python"
 
 -- Markdown
 vim.api.nvim_create_autocmd("FileType", {
