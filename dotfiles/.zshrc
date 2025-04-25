@@ -1,10 +1,11 @@
 # Download antigen if it doesn't exist
-if [ ! -f "${HOME}/antigen.zsh" ]; then
-    wget -O "${HOME}/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
+if [ ! -f "${HOME}/.antigen/antigen.zsh" ]; then
+    mkdir -p "${HOME}/.antigen"
+    wget -O "${HOME}/.antigen/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 fi
 
 # Initialize
-source "${HOME}/antigen.zsh"
+source "${HOME}/.antigen/antigen.zsh"
 for file in .profile .bash_aliases .secret_exports
 do
     if [ -f "${HOME}/$file" ]; then
