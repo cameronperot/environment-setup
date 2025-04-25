@@ -21,6 +21,7 @@ require("lazy").setup("plugins")
 -- Load configurations
 require("core.options")
 require("core.keymaps")
+require("core.commands")
 require("core.diagnostics")
 
 -- Fedora installs: sudo dnf install luarocks cmake ctags

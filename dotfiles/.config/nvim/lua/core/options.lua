@@ -46,11 +46,6 @@ vim.api.nvim_create_autocmd("FileType", { -- Disable auto continuing comment on 
 })
 vim.cmd("colorscheme onedark")
 
--- Scratch
-vim.api.nvim_create_user_command("Scratch", function()
-    vim.cmd("edit ~/scratch.md")
-end, {})
-
 -- Python
 vim.g.python3_host_prog = vim.env.HOME .. "/.micromamba/envs/dev/bin/python"
 
