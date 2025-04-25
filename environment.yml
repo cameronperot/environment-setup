@@ -1,16 +1,21 @@
 name: dev
 channels:
   - defaults
+  - conda-forge
+channel_priority: strict
 dependencies:
   - python=3.12
+  - black
   - flake8
   - ipykernel
   - ipython
+  - isort
   - jax
   - joblib
   - jupyterlab
   - matplotlib
   - mypy
+  - nbqa
   - nodejs
   - numpy
   - pandas-stubs
@@ -20,17 +25,13 @@ dependencies:
   - psutil
   - pydantic
   - pylint
+  - pynvim
   - pytest
   - pytest-cov
+  - ranger-fm
   - requests
   - scipy
+  - seaborn
   - tqdm
   - yarn
-  - pip:
-    - black[jupyter]
-    - isort
-    - nbqa
-    - polars
-    - pynvim
-    - ranger-fm
-    - seaborn
+  - poppler
