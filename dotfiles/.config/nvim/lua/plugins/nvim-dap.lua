@@ -27,32 +27,39 @@ local M = {
                 desc = "Debug: Continue",
             },
             {
-                "<leader>dl",
+                "<leader>dp",
                 function()
                     require("dap").run_last()
                 end,
                 desc = "Debug: Run Last",
             },
             {
-                "<leader>ds",
+                "<leader>dh",
                 function()
-                    require("dap").step_over()
+                    require("dap").step_back()
                 end,
-                desc = "Debug: Step Over",
+                desc = "Debug: Step Back",
             },
             {
-                "<leader>di",
+                "<leader>dj",
                 function()
                     require("dap").step_into()
                 end,
                 desc = "Debug: Step Into",
             },
             {
-                "<leader>do",
+                "<leader>dk",
                 function()
                     require("dap").step_out()
                 end,
                 desc = "Debug: Step Out",
+            },
+            {
+                "<leader>dl",
+                function()
+                    require("dap").step_over()
+                end,
+                desc = "Debug: Step Over",
             },
             {
                 "<leader>db",
@@ -60,6 +67,13 @@ local M = {
                     require("dap").toggle_breakpoint()
                 end,
                 desc = "Debug: Toggle Breakpoint",
+            },
+            {
+                "<leader>dB",
+                function()
+                    require("dap").clear_breakpoints()
+                end,
+                desc = "Debug: Clear Breakpoints",
             },
             {
                 "<leader>dw",

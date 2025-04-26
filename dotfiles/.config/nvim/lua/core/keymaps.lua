@@ -1,98 +1,98 @@
 -- Buffers
 vim.keymap.set(
     "n",
-    "<leader>bd",
-    "<cmd>bd<cr>",
-    { noremap = true, silent = true, desc = "Delete current buffer" }
+    "<Leader>bd",
+    "<Cmd>bd<CR>",
+    { noremap = true, silent = true, desc = "Buffer: Delete current" }
 )
 vim.keymap.set(
     "n",
-    "<leader>bD",
-    "<cmd>bd!<cr>",
-    { noremap = true, silent = true, desc = "Force delete current buffer" }
+    "<Leader>bD",
+    "<Cmd>bd!<CR>",
+    { noremap = true, silent = true, desc = "Buffer: Force delete current" }
 )
 vim.keymap.set(
     "n",
-    "<leader><tab>",
+    "<Leader><Tab>",
     "<C-^>",
-    { silent = true, desc = "Switch to last used buffer" }
+    { silent = true, desc = "Buffer: Switch to last used buffer" }
 )
-vim.keymap.set("n", "<leader>bp", function()
+vim.keymap.set("n", "<Leader>bp", function()
     vim.cmd("bprevious")
-end, { silent = true, desc = "Go to previous buffer" })
-vim.keymap.set("n", "<leader>bn", function()
+end, { silent = true, desc = "Buffer: Go to previous" })
+vim.keymap.set("n", "<Leader>bn", function()
     vim.cmd("bnext")
-end, { silent = true, desc = "Go to next buffer" })
+end, { silent = true, desc = "Buffer: Go to next" })
 
 -- Yanking to clipboard
 vim.keymap.set(
     "n",
-    "<leader>yy",
-    '<cmd>normal "+yy<cr>',
-    { noremap = true, silent = true, desc = "Yank current line to clipboard" }
+    "<Leader>yy",
+    '<Cmd>normal "+yy<CR>',
+    { noremap = true, silent = true, desc = "Yank: Current line" }
 )
 vim.keymap.set(
     "n",
-    "<leader>yip",
-    '<cmd>normal "+yip<cr>',
-    { noremap = true, silent = true, desc = "Yank inner paragraph to clipboard" }
+    "<Leader>yip",
+    '<Cmd>normal "+yip<CR>',
+    { noremap = true, silent = true, desc = "Yank: Inner paragraph" }
 )
 vim.keymap.set(
     "n",
-    "<leader>yaf",
-    '<cmd>normal "+yaf<cr>',
-    { noremap = true, silent = true, desc = "Yank around function to clipboard" }
+    "<Leader>yaf",
+    '<Cmd>normal "+yaf<CR>',
+    { noremap = true, silent = true, desc = "Yank: Function" }
 )
 vim.keymap.set(
     "n",
-    "<leader>yac",
-    '<cmd>normal "+yac<cr>',
-    { noremap = true, silent = true, desc = "Yank around class to clipboard" }
+    "<Leader>yac",
+    '<Cmd>normal "+yac<CR>',
+    { noremap = true, silent = true, desc = "Yank: Class" }
 )
 vim.keymap.set(
     "n",
-    "<leader>yb",
-    "<cmd>%y+<CR>",
-    { noremap = true, silent = true, desc = "Yank entire buffer to clipboard" }
+    "<Leader>yb",
+    "<Cmd>%y+<CR>",
+    { noremap = true, silent = true, desc = "Yank: Buffer" }
 )
 
 -- Windows
-vim.keymap.set(
-    "n",
-    "<C-j>",
-    "<C-w>j",
-    { noremap = true, silent = true, desc = "Move to window below" }
-)
-vim.keymap.set(
-    "n",
-    "<C-k>",
-    "<C-w>k",
-    { noremap = true, silent = true, desc = "Move to window above" }
-)
+vim.keymap.set("n", "<C-j>", "<C-w>j", { noremap = true, silent = true, desc = "Window: Down" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { noremap = true, silent = true, desc = "Window: Up" })
 vim.keymap.set(
     "n",
     "<C-l>",
     "<C-w>l",
-    { noremap = true, silent = true, desc = "Move to window right" }
+    { noremap = true, silent = true, desc = "Window: Right" }
+)
+vim.keymap.set("n", "<C-h>", "<C-w>h", { noremap = true, silent = true, desc = "Window: Left" })
+
+-- LSP
+vim.keymap.set(
+    "n",
+    "gd",
+    vim.lsp.buf.definition,
+    { silent = true, desc = "LSP: Go to definition" }
 )
 vim.keymap.set(
     "n",
-    "<C-h>",
-    "<C-w>h",
-    { noremap = true, silent = true, desc = "Move to window left" }
+    "gr",
+    vim.lsp.buf.references,
+    { silent = true, desc = "LSP: Find references" }
 )
-
--- LSP
-vim.keymap.set("n", "gd", vim.lsp.buf.definition, { silent = true, desc = "Go to definition" })
-vim.keymap.set("n", "gr", vim.lsp.buf.references, { silent = true, desc = "Find references" })
-vim.keymap.set("n", "K", vim.lsp.buf.hover, { silent = true, desc = "Show documentation" })
-vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, { silent = true, desc = "Rename symbol" })
+vim.keymap.set("n", "K", vim.lsp.buf.hover, { silent = true, desc = "LSP: Show documentation" })
+vim.keymap.set(
+    "n",
+    "<Leader>rn",
+    vim.lsp.buf.rename,
+    { silent = true, desc = "LSP: Rename symbol" }
+)
 
 -- Misc.
 vim.keymap.set(
     "n",
-    "<leader>nh",
-    "<cmd>nohlsearch<cr>",
+    "<Leader>nh",
+    "<Cmd>nohlsearch<CR>",
     { noremap = true, silent = true, desc = "Clear search highlighting" }
 )
 vim.keymap.set("", "<c-q>", "<nop>", { silent = true, desc = "Disable Ctrl-Q" })
@@ -101,86 +101,101 @@ vim.keymap.set("", "<c-q>", "<nop>", { silent = true, desc = "Disable Ctrl-Q" })
 -- ALE
 vim.keymap.set(
     "n",
-    "<leader>af",
-    "<cmd>ALEFix<cr>",
-    { noremap = true, silent = true, desc = "Run ALEFix" }
-)
-
--- DOGE
-vim.keymap.set(
-    "n",
-    "<Leader>dg",
-    "<Plug>(doge-generate)",
-    { silent = true, noremap = false, desc = "Generate documentation" }
+    "<Leader>af",
+    "<Cmd>ALEFix<CR>",
+    { noremap = true, silent = true, desc = "ALE: Fix" }
 )
 
 -- Lualine tabs
 for i = 1, 9 do
-    vim.keymap.set("n", "<leader>" .. i, function()
+    vim.keymap.set("n", "<Leader>" .. i, function()
         local buffers = vim.fn.getbufinfo({ buflisted = 1 })
         if #buffers >= i then
             vim.api.nvim_set_current_buf(buffers[i].bufnr)
         end
-    end, { silent = true, desc = "Go to buffer " .. i })
+    end, { silent = true, desc = "Buffer: Go to " .. i })
 end
+
+-- NeoGen
+vim.keymap.set("n", "<Leader>gd", require("neogen").generate, { desc = "Neogen: Generate" })
 
 -- Nvim-tree
 vim.keymap.set(
     "n",
     "<C-n>",
-    "<cmd>NvimTreeToggle<cr>",
-    { noremap = true, silent = true, desc = "Toggle NvimTree" }
+    "<Cmd>NvimTreeToggle<CR>",
+    { noremap = true, silent = true, desc = "NvimTree: Toggle" }
 )
 
 -- Telescope
-local builtin = require("telescope.builtin")
-vim.keymap.set("n", "<leader>ff", builtin.find_files, { silent = true, desc = "Find files" })
-vim.keymap.set("n", "<leader>fg", builtin.live_grep, { silent = true, desc = "Live grep" })
-vim.keymap.set("n", "<leader>fb", builtin.buffers, { silent = true, desc = "Find buffers" })
-vim.keymap.set("n", "<leader>fh", builtin.help_tags, { silent = true, desc = "Find help tags" })
+local telescope_builtin = require("telescope.builtin")
+vim.keymap.set(
+    "n",
+    "<Leader>ff",
+    telescope_builtin.find_files,
+    { silent = true, desc = "Telescope: Find files" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>fg",
+    telescope_builtin.live_grep,
+    { silent = true, desc = "Telescope: Live grep" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>fb",
+    telescope_builtin.buffers,
+    { silent = true, desc = "Telescope: Find buffers" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>fh",
+    telescope_builtin.help_tags,
+    { silent = true, desc = "Telescope: Find help tags" }
+)
 
 -- Trouble
 vim.keymap.set(
     "n",
-    "<leader>xX",
-    "<cmd>Trouble diagnostics toggle<cr>",
-    { noremap = true, silent = true, desc = "Toggle workspace diagnostics" }
+    "<Leader>xX",
+    "<Cmd>Trouble diagnostics toggle<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle workspace diagnostics" }
 )
 vim.keymap.set(
     "n",
-    "<leader>xx",
-    "<cmd>Trouble diagnostics toggle filter.buf=0<cr>",
-    { noremap = true, silent = true, desc = "Toggle buffer diagnostics" }
+    "<Leader>xx",
+    "<Cmd>Trouble diagnostics toggle filter.buf=0<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle buffer diagnostics" }
 )
 vim.keymap.set(
     "n",
-    "<leader>xs",
-    "<cmd>Trouble symbols toggle focus=false<cr>",
-    { noremap = true, silent = true, desc = "Toggle document symbols" }
+    "<Leader>xs",
+    "<Cmd>Trouble symbols toggle focus=false<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle document symbols" }
 )
 vim.keymap.set(
     "n",
-    "<leader>xl",
-    "<cmd>Trouble lsp toggle focus=false win.position=right<cr>",
-    { noremap = true, silent = true, desc = "Toggle LSP references" }
+    "<Leader>xl",
+    "<Cmd>Trouble lsp toggle focus=false win.position=right<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle LSP references" }
 )
 vim.keymap.set(
     "n",
-    "<leader>xL",
-    "<cmd>Trouble loclist toggle<cr>",
-    { noremap = true, silent = true, desc = "Toggle location list" }
+    "<Leader>xL",
+    "<Cmd>Trouble loclist toggle<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle location list" }
 )
 vim.keymap.set(
     "n",
-    "<leader>xQ",
-    "<cmd>Trouble qflist toggle<cr>",
-    { noremap = true, silent = true, desc = "Toggle quickfix list" }
+    "<Leader>xQ",
+    "<Cmd>Trouble qflist toggle<CR>",
+    { noremap = true, silent = true, desc = "Trouble: Toggle quickfix list" }
 )
 
 -- Zen-mode
 vim.keymap.set(
     "n",
-    "<leader>zm",
-    "<cmd>ZenMode<cr>",
-    { noremap = true, silent = true, desc = "Toggle Zen Mode" }
+    "<Leader>zm",
+    "<Cmd>ZenMode<CR>",
+    { noremap = true, silent = true, desc = "ZenMode: Toggle" }
 )
