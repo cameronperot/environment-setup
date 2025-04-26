@@ -1,25 +1,21 @@
--- local M = {
---     "folke/which-key.nvim",
---     event = "VeryLazy",
---     config = function()
---         require("which-key").setup({
---             plugins = {
---                 spelling = { enabled = true },
---             },
---             window = {
---                 border = "rounded",
---                 padding = { 1, 1, 1, 1 },
---             },
---         })
---         require("which-key").register({
---             ["<leader>f"] = { name = "Find (Telescope)" },
---             ["<leader>b"] = { name = "Buffers" },
---             ["<leader>g"] = { name = "Git" },
---             ["<leader>x"] = { name = "Diagnostics/Trouble" },
---             ["<leader>d"] = { name = "Debug" },
---         })
---     end,
--- }
---
--- return { M }
-return {}
+local M = {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    config = function(_, opts)
+        local wk = require("which-key")
+        wk.setup(opts)
+
+        -- Register groups using the new syntax format from the README
+        wk.add({
+            { "<leader>b", group = "buffer" },
+            { "<leader>y", group = "yank to clipboard" },
+            { "<leader>r", group = "rename" },
+            { "<leader>f", group = "find" },
+            { "<leader>x", group = "trouble/diagnostics" },
+            { "<leader>d", group = "debug" },
+            { "g", group = "goto" },
+        })
+    end,
+}
+
+return { M }
