@@ -117,7 +117,20 @@ for i = 1, 9 do
 end
 
 -- NeoGen
-vim.keymap.set("n", "<Leader>gd", require("neogen").generate, { desc = "Neogen: Generate" })
+vim.keymap.set(
+    "n",
+    "<Leader>dg",
+    require("neogen").generate,
+    { silent = true, desc = "Neogen: Generate" }
+)
+
+-- Outline
+vim.keymap.set(
+    "n",
+    "<Leader>o",
+    "<Cmd>Outline<CR>",
+    { silent = true, desc = "Outline: Toggle" }
+)
 
 -- Nvim-tree
 vim.keymap.set(
