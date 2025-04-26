@@ -96,6 +96,13 @@ local M = {
                 end,
                 desc = "Debug: Set Conditional Breakpoint",
             },
+            {
+                "<leader>dq",
+                function()
+                    require("dap").terminate()
+                end,
+                desc = "Debug: Terminate",
+            },
         },
         config = function()
             local dap = require("dap")
