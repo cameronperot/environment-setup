@@ -21,42 +21,15 @@ local M = {
                 },
             },
             highlights = {
-                buffer_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                numbers_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                diagnostic_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                info_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                warning_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                error_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                hint_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                pick_selected = {
-                    bold = true,
-                    italic = false,
-                },
-                modified_selected = {
-                    bold = true,
-                    italic = false,
-                },
+                buffer_selected = { bold = true, italic = false },
+                numbers_selected = { bold = true, italic = false },
+                diagnostic_selected = { bold = true, italic = false },
+                info_selected = { bold = true, italic = false },
+                warning_selected = { bold = true, italic = false },
+                error_selected = { bold = true, italic = false },
+                hint_selected = { bold = true, italic = false },
+                pick_selected = { bold = true, italic = false },
+                modified_selected = { bold = true, italic = false },
             },
         })
         for i = 1, 9 do
