@@ -6,6 +6,7 @@ channel_priority: strict
 dependencies:
   - python=3.12
   - black
+  - debugpy
   - flake8
   - ipykernel
   - ipython

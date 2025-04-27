@@ -8,35 +8,40 @@ local M = {
         { "<Leader>bml", "<Cmd>BufferLineMovePrev<CR>", desc = "BufferLine: Move tab left" },
     },
     config = function()
-        require("bufferline").setup({
+        local bufferline = require("bufferline")
+        bufferline.setup({
             options = {
+                style_preset = bufferline.style_preset.no_italic,
                 numbers = function(opts)
-                    return string.format("%d", opts.ordinal, opts.id)
+                    return string.format("%s", opts.ordinal, opts.id)
                 end,
-                separator_style = "slant",
                 hover = {
                     enabled = true,
                     delay = 200,
                     reveal = { "close" },
                 },
+                offsets = {
+                    {
+                        filetype = "NvimTree",
+                        separator = false,
+                        highlight = "NvimTreeNormal",
+                    },
+                },
             },
             highlights = {
-                buffer_selected = { bold = true, italic = false },
-                numbers_selected = { bold = true, italic = false },
-                diagnostic_selected = { bold = true, italic = false },
-                info_selected = { bold = true, italic = false },
-                warning_selected = { bold = true, italic = false },
-                error_selected = { bold = true, italic = false },
-                hint_selected = { bold = true, italic = false },
-                pick_selected = { bold = true, italic = false },
-                modified_selected = { bold = true, italic = false },
+                fill = { bg = "NONE" },
+                background = { bg = "NONE" },
+                numbers = { bg = "NONE" },
+                close_button = { bg = "NONE" },
+                separator = { bg = "NONE" },
+                indicator_selected = { fg = "#98c379" },
             },
         })
         for i = 1, 9 do
             vim.api.nvim_set_keymap(
                 "n",
                 string.format("<Leader>%d", i),
-                string.format(":BufferLineGoToBuffer %d<CR>", i),
+                string.format("<Cmd>BufferLineGoToBuffer %d<CR>", i),
                 { noremap = true, silent = true, desc = "BufferLine: Go to " }
             )
         end

@@ -57,15 +57,39 @@ vim.keymap.set(
 )
 
 -- Windows
-vim.keymap.set("n", "<C-j>", "<C-w>j", { noremap = true, silent = true, desc = "Window: Down" })
 vim.keymap.set("n", "<C-k>", "<C-w>k", { noremap = true, silent = true, desc = "Window: Up" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { noremap = true, silent = true, desc = "Window: Down" })
+vim.keymap.set("n", "<C-h>", "<C-w>h", { noremap = true, silent = true, desc = "Window: Left" })
 vim.keymap.set(
     "n",
     "<C-l>",
     "<C-w>l",
     { noremap = true, silent = true, desc = "Window: Right" }
 )
-vim.keymap.set("n", "<C-h>", "<C-w>h", { noremap = true, silent = true, desc = "Window: Left" })
+vim.keymap.set(
+    "n",
+    "<C-Up>",
+    "<Cmd>resize +2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Up" }
+)
+vim.keymap.set(
+    "n",
+    "<C-Down>",
+    "<Cmd>resize -2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Down" }
+)
+vim.keymap.set(
+    "n",
+    "<C-Left>",
+    "<Cmd>vertical resize -2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Left" }
+)
+vim.keymap.set(
+    "n",
+    "<C-Right>",
+    "<Cmd>vertical resize +2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Right" }
+)
 
 -- Misc.
 vim.keymap.set(
