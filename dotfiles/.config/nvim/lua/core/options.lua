@@ -1,6 +1,5 @@
 -- Options
-vim.opt.encoding = "utf-8" -- Encoding
-vim.opt.fileencoding = "utf-8" -- File encoding
+vim.opt.encoding = "utf-8" -- File encoding
 vim.opt.foldenable = true -- Enable folding
 vim.opt.foldlevel = 99 -- Start with all folds open
 vim.opt.fillchars:append({
