@@ -12,7 +12,7 @@ local M = {
         "nvim-lua/plenary.nvim",
     },
     keys = {
-        { "<leader>gg", "<cmd>LazyGit<cr>", desc = "LazyGit" },
+        { "<Leader>gg", "<Cmd>LazyGit<CR>", desc = "LazyGit" },
     },
 }
 

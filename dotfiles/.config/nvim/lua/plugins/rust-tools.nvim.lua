@@ -1,26 +1,26 @@
 local M = {
     "simrat39/rust-tools.nvim",
     ft = "rust",
+    keys = {
+        {
+            "<Leader>rh",
+            function()
+                require("rust-tools").hover_actions.hover_actions()
+            end,
+            desc = "Rust: Hover actions",
+            ft = "rust",
+        },
+        {
+            "<Leader>ra",
+            function()
+                require("rust-tools").code_action_group.code_action_group()
+            end,
+            desc = "Rust: Code actions",
+            ft = "rust",
+        },
+    },
     config = function()
-        local rt = require("rust-tools")
-        rt.setup({
-            server = {
-                on_attach = function(_, bufnr)
-                    vim.keymap.set(
-                        "n",
-                        "<C-space>",
-                        rt.hover_actions.hover_actions,
-                        { buffer = bufnr }
-                    )
-                    vim.keymap.set(
-                        "n",
-                        "<Leader>a",
-                        rt.code_action_group.code_action_group,
-                        { buffer = bufnr }
-                    )
-                end,
-            },
-        })
+        require("rust-tools").setup({})
     end,
 }
 

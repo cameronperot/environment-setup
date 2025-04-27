@@ -15,6 +15,36 @@ local M = {
         "toml",
         "yaml",
     },
+    keys = {
+        {
+            "gd",
+            vim.lsp.buf.definition,
+            desc = "LSP: Go to definition",
+            mode = "n",
+            silent = true,
+        },
+        {
+            "gr",
+            vim.lsp.buf.references,
+            desc = "LSP: Find references",
+            mode = "n",
+            silent = true,
+        },
+        {
+            "K",
+            vim.lsp.buf.hover,
+            desc = "LSP: Show documentation",
+            mode = "n",
+            silent = true,
+        },
+        {
+            "<Leader>rn",
+            vim.lsp.buf.rename,
+            desc = "LSP: Rename symbol",
+            mode = "n",
+            silent = true,
+        },
+    },
     config = function()
         local capabilities = require("cmp_nvim_lsp").default_capabilities()
         local lspconfig = require("lspconfig")

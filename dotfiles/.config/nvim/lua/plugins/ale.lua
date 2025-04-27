@@ -1,6 +1,9 @@
 local M = {
     "dense-analysis/ale",
     event = { "BufReadPost", "BufWritePre" },
+    keys = {
+        { "<Leader>af", "<Cmd>ALEFix<CR>", desc = "ALE: Fix", noremap = true, silent = true },
+    },
     config = function()
         vim.g.ale_linters = {
             cpp = { "clang" },

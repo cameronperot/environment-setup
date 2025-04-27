@@ -1,5 +1,6 @@
 -- Options
-vim.opt.encoding = "utf-8" -- File encoding
+vim.opt.encoding = "utf-8" -- Encoding
+vim.opt.fileencoding = "utf-8" -- File encoding
 vim.opt.foldenable = true -- Enable folding
 vim.opt.foldlevel = 99 -- Start with all folds open
 vim.opt.fillchars:append({
@@ -33,6 +34,7 @@ vim.opt.spell = true -- Enable spell checking
 vim.opt.spelllang = "en_us" -- US English spelling
 vim.opt.termguicolors = true -- 24-bit color support
 vim.opt.ttyfast = true -- Speed up scrolling
+vim.opt.mousemoveevent = true -- Mouse movement events
 vim.cmd("syntax enable") -- Syntax highlighting
 vim.cmd("filetype plugin indent on") -- Enable filetype
 vim.cmd(

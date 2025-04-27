@@ -4,16 +4,20 @@ local M = {
     config = function(_, opts)
         local wk = require("which-key")
         wk.setup(opts)
-
-        -- Register groups using the new syntax format from the README
         wk.add({
-            { "<leader>b", group = "buffer" },
-            { "<leader>y", group = "yank to clipboard" },
-            { "<leader>r", group = "rename" },
-            { "<leader>f", group = "find" },
-            { "<leader>x", group = "trouble/diagnostics" },
-            { "<leader>d", group = "debug" },
+            { "<Leader>a", group = "code actions/parameter swap" },
+            { "<Leader>b", group = "buffer" },
+            { "<Leader>d", group = "debug/documentation" },
+            { "<Leader>f", group = "find/telescope" },
+            { "<Leader>g", group = "git/lazygit" },
+            { "<Leader>h", group = "hunks/gitsigns" },
+            { "<Leader>r", group = "rename/refactor" },
+            { "<Leader>t", group = "toggle" },
+            { "<Leader>x", group = "trouble/diagnostics" },
+            { "<Leader>y", group = "yank to clipboard" },
             { "g", group = "goto" },
+            { "]", group = "next" },
+            { "[", group = "previous" },
         })
     end,
 }
