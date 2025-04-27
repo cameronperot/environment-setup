@@ -1,13 +1,13 @@
 # misc.
 alias clearbashhist="cat /dev/null > ~/.bash_history && history -c && exit"
-alias clearnvimswap="rm ~/.local/share/nvim/swap/*.swp"
+alias clearnvimswap="rm ~/.local/state/nvim/swap/*.swp"
 alias sshk="kitty +kitten ssh"
 alias mm="micromamba"
-alias vi="nvim"
-alias vin="nvim --clean"
-alias svi="sudoedit"
+alias n="nvim"
+alias nn="nvim --clean"
+alias sn="sudoedit"
 alias ta="tmux a -t"
-alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
+alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/stable/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
 
 # podman
 alias pm="podman"

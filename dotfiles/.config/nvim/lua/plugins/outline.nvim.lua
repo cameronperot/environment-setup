@@ -2,7 +2,11 @@ local M = {
     "hedyhli/outline.nvim",
     lazy = true,
     cmd = { "Outline", "OutlineOpen" },
-    opts = {},
+    opts = {
+        outline_window = {
+            show_numbers = true,
+        },
+    },
     keys = {
         {
             "<Leader>o",
