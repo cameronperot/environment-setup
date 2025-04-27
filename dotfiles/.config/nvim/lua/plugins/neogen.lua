@@ -6,6 +6,15 @@ local M = {
         "rust",
     },
     cmd = { "Neogen" },
+    keys = {
+        {
+            "<Leader>dg",
+            function()
+                require("neogen").generate()
+            end,
+            desc = "Neogen: Generate",
+        },
+    },
     config = function()
         require("neogen").setup({
             enabled = true,

@@ -2,6 +2,15 @@ return {
     "nvim-tree/nvim-tree.lua",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     cmd = { "NvimTreeToggle" },
+    keys = {
+        {
+            "<C-n>",
+            "<Cmd>NvimTreeToggle<CR>",
+            desc = "NvimTree: Toggle",
+            noremap = true,
+            silent = true,
+        },
+    },
     config = function()
         vim.g.loaded_netrw = 1
         vim.g.loaded_netrwPlugin = 1
