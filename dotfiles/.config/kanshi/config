@@ -1,22 +1,22 @@
 output "BOE 0x0BCA Unknown" {
-    mode 2256x1504
+    mode 2256x1504@59.999Hz
     scale 1.25
     position 0,0
     alias $LAPTOP
 }
 
-output DP-2 {
-    mode 3840x2160
+output "LG Electronics LG HDR WQHD 502NTLE1H968" {
+    mode 3440x1440@99.982Hz
     scale 1.0
-    position 2256,0
-    alias $TV
+    position 0,-1440
+    alias $MONITOR
 }
 
 profile laptop {
     output $LAPTOP enable
 }
 
-profile tv {
+profile monitor {
     output $LAPTOP enable
-    output $TV enable
+    output $MONITOR enable
 }

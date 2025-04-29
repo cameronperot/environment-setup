@@ -1,0 +1,228 @@
+/* Main configuration settings */
+configuration {
+    font: "JetBrainsMonoNL Nerd Font 12";
+    terminal: "kitty";
+    transparency: "real";
+
+    /* Display modes */
+    modes: "window,run,drun";
+    display-run: "r";
+    display-drun: "d";
+    display-window: "w";
+
+    /* Behavior settings */
+    matching: "fuzzy";
+    scroll-method: 1;
+    cycle: true;
+    show-icons: true;
+}
+
+/* Color scheme and styling */
+* {
+    /* Base colors */
+    bg-color: rgba(44, 44, 46, 80%);
+    fg-color: rgba(159, 159, 159, 100%);
+    text-color: rgba(209, 209, 209, 100%);
+
+    /* Accent colors */
+    accent-blue: rgba(18, 91, 142, 50%);
+    accent-red: rgba(201, 36, 36, 80%);
+    accent-green: rgba(136, 176, 144, 80%);
+    accent-yellow: rgba(204, 220, 144, 80%);
+
+    /* Highlight */
+    highlight: rgba(239, 239, 143, 80%);
+
+    /* Status colors */
+    status-good: rgba(64, 232, 46, 80%);
+    status-warning: rgba(252, 151, 20, 80%);
+    status-critical: rgba(249, 69, 69, 80%);
+
+    /* Separator */
+    separator: rgba(71, 71, 71, 80%);
+
+    /* Transparent background for layers */
+    transparent-bg: rgba(44, 44, 46, 0%);
+
+    /* Element styling */
+    border-color: @accent-blue;
+    background-color: rgba(0, 0, 0, 0%);
+    spacing: 2;
+
+    /* Normal state */
+    normal-background: @transparent-bg;
+    normal-foreground: @fg-color;
+    alternate-normal-background: @transparent-bg;
+    alternate-normal-foreground: @fg-color;
+    selected-normal-background: @accent-blue;
+    selected-normal-foreground: @text-color;
+
+    /* Urgent state */
+    urgent-background: @transparent-bg;
+    urgent-foreground: @status-critical;
+    alternate-urgent-background: @transparent-bg;
+    alternate-urgent-foreground: @status-critical;
+    selected-urgent-background: @accent-red;
+    selected-urgent-foreground: @text-color;
+
+    /* Active state */
+    active-background: @transparent-bg;
+    active-foreground: @accent-blue;
+    alternate-active-background: @transparent-bg;
+    alternate-active-foreground: @accent-blue;
+    selected-active-background: @accent-blue;
+    selected-active-foreground: @text-color;
+
+    /* Other styling */
+    lightbg: rgba(71, 71, 71, 80%);
+    lightfg: rgba(143, 143, 143, 80%);
+    bordercolor: @bg-color;
+    separatorcolor: @separator;
+}
+
+/* Window styling */
+window {
+    background-color: @bg-color;
+    border: 1;
+    padding: 5;
+    border-radius: 10px;
+    width: 40%;
+}
+
+/* Main container */
+mainbox {
+    border: 0;
+    padding: 0;
+}
+
+/* Message area */
+message {
+    border: 1px dash 0px 0px;
+    border-color: @separatorcolor;
+    padding: 1px;
+}
+
+textbox {
+    text-color: @text-color;
+}
+
+/* List view styling */
+listview {
+    fixed-height: 0;
+    border: 2px dash 0px 0px;
+    border-color: @separatorcolor;
+    spacing: 2px;
+    scrollbar: true;
+    padding: 2px 0px 0px;
+    lines: 11;
+}
+
+/* Element styling */
+element {
+    border: 0;
+    padding: 1px;
+    border-radius: 5px;
+}
+
+element-text {
+    background-color: inherit;
+    text-color: inherit;
+}
+
+/* Element states - normal */
+element.normal.normal {
+    background-color: @normal-background;
+    text-color: @normal-foreground;
+}
+
+element.normal.urgent {
+    background-color: @urgent-background;
+    text-color: @urgent-foreground;
+}
+
+element.normal.active {
+    background-color: @active-background;
+    text-color: @active-foreground;
+}
+
+/* Element states - selected */
+element.selected.normal {
+    background-color: @selected-normal-background;
+    text-color: @selected-normal-foreground;
+}
+
+element.selected.urgent {
+    background-color: @selected-urgent-background;
+    text-color: @selected-urgent-foreground;
+}
+
+element.selected.active {
+    background-color: @selected-active-background;
+    text-color: @selected-active-foreground;
+}
+
+/* Element states - alternate */
+element.alternate.normal {
+    background-color: @alternate-normal-background;
+    text-color: @alternate-normal-foreground;
+}
+
+element.alternate.urgent {
+    background-color: @alternate-urgent-background;
+    text-color: @alternate-urgent-foreground;
+}
+
+element.alternate.active {
+    background-color: @alternate-active-background;
+    text-color: @alternate-active-foreground;
+}
+
+/* Scrollbar styling */
+scrollbar {
+    width: 4px;
+    border: 0;
+    handle-width: 8px;
+    padding: 0;
+    border-radius: 3px;
+}
+
+/* Mode switcher */
+mode-switcher {
+    border: 2px dash 0px 0px;
+    border-color: @separatorcolor;
+}
+
+button.selected {
+    background-color: @selected-normal-background;
+    text-color: @selected-normal-foreground;
+}
+
+/* Input bar */
+inputbar {
+    spacing: 0;
+    text-color: @normal-foreground;
+    padding: 1px;
+    children: [prompt, textbox-prompt-colon, entry, case-indicator];
+}
+
+case-indicator {
+    spacing: 0;
+    text-color: @normal-foreground;
+}
+
+entry {
+    spacing: 0;
+    text-color: @text-color;
+}
+
+prompt {
+    spacing: 0;
+    text-color: @normal-foreground;
+}
+
+textbox-prompt-colon {
+    expand: false;
+    str: " ⟩ ";
+    margin: 0px 0.3em 0em 0em;
+    text-color: @normal-foreground;
+}

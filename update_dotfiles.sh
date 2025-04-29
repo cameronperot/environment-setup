@@ -22,6 +22,7 @@ rsync -a --mkpath "${HOME}/.config/mako/config" "${DIR}/dotfiles/.config/mako/co
 rsync -a --mkpath "${HOME}/.config/nvim/init.lua" "${DIR}/dotfiles/.config/nvim/init.lua"
 rsync -a --mkpath "${HOME}/.config/nvim/lua/" "${DIR}/dotfiles/.config/nvim/lua/"
 rsync -a --mkpath "${HOME}/.config/ranger/" "${DIR}/dotfiles/.config/ranger/"
+rsync -a --mkpath "${HOME}/.config/rofi/" "${DIR}/dotfiles/.config/rofi/"
 rsync -a --mkpath "${HOME}/.config/sway/config" "${DIR}/dotfiles/.config/sway/config"
 rsync -a --mkpath "${HOME}/.config/swaylock/config" "${DIR}/dotfiles/.config/swaylock/config"
 rsync -a --mkpath "${HOME}/.mamba_init.sh" "${DIR}/dotfiles/.mamba_init.sh"
