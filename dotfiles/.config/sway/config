@@ -269,16 +269,13 @@ exec nm-applet --indicator
 # Bluetooth
 exec blueman-applet
 
-# Nextcloud
-exec nextcloud
-
 # Screen locking and power management
 exec swayidle -w \
     timeout 900 'swaylock -f' \
     timeout 915 'swaymsg "output * dpms off"' \
+        resume 'swaymsg "output * dpms on"' \
     timeout 930 'if grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
     timeout 3600 'if ! grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
-    resume 'swaymsg "output * dpms on"' \
     before-sleep 'swaylock -f'
 
 # --------------------
