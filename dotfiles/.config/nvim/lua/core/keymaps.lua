@@ -55,6 +55,48 @@ vim.keymap.set(
     "<Cmd>%y+<CR>",
     { noremap = true, silent = true, desc = "Yank: Buffer" }
 )
+vim.keymap.set(
+    "n",
+    "<Leader>yw",
+    '<Cmd>normal "+yiw<CR>',
+    { noremap = true, silent = true, desc = "Yank: Current word" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>yW",
+    '<Cmd>normal "+yiW<CR>',
+    { noremap = true, silent = true, desc = "Yank: Current WORD" }
+)
+vim.keymap.set(
+    "v",
+    "<Leader>y",
+    '"+y',
+    { noremap = true, silent = true, desc = "Yank: Visual selection" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>yas",
+    '<Cmd>normal "+yas<CR>',
+    { noremap = true, silent = true, desc = "Yank: Sentence" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>yab",
+    '<Cmd>normal "+yab<CR>',
+    { noremap = true, silent = true, desc = "Yank: Block" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>y$",
+    '<Cmd>normal "+y$<CR>',
+    { noremap = true, silent = true, desc = "Yank: To end of line" }
+)
+vim.keymap.set(
+    "n",
+    "<Leader>y0",
+    '<Cmd>normal "+y0<CR>',
+    { noremap = true, silent = true, desc = "Yank: To start of line" }
+)
 
 -- Windows
 vim.keymap.set("n", "<C-k>", "<C-w>k", { noremap = true, silent = true, desc = "Window: Up" })
