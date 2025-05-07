@@ -1,11 +1,11 @@
-output "BOE 0x0BCA Unknown" {
+output eDP-1 {
     mode 2256x1504@59.999Hz
     scale 1.25
     position 0,0
     alias $LAPTOP
 }
 
-output "LG Electronics LG HDR WQHD 502NTLE1H968" {
+output DP-1 {
     mode 3440x1440@99.982Hz
     scale 1.0
     position 0,-1440

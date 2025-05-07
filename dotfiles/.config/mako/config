@@ -12,7 +12,8 @@ max-icon-size=48
 # Position
 layer=overlay
 anchor=top-right
-width=350
+width=600
+height=400
 margin=10,10,0,0
 
 # Behavior
