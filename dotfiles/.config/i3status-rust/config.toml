@@ -45,18 +45,6 @@ fi
 """
 json = true
 
-[[block]]
-block = "custom"
-interval = 10
-command = """
-if ip a show wg0-mullvad up > /dev/null 2>&1; then
-  echo '{"text": "mv", "state": "Good"}'
-else
-  echo '{"text": "mv", "state": "Critical"}'
-fi
-"""
-json = true
-
 # CPU
 [[block]]
 block = "cpu"

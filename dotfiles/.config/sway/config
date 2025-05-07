@@ -32,6 +32,12 @@ client.urgent                 $rd        $rd         $tx     $rd         $rd
 # Set default workspace layout
 workspace_layout tabbed
 
+# Dark theme
+exec_always {
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+}
+
 # --------------------
 # Input Configuration
 # --------------------
@@ -157,6 +163,9 @@ bindsym $mod+x move scratchpad
 bindsym $mod+z scratchpad show
 bindsym $mod+p [app_id="org.keepassxc.KeePassXC"] scratchpad show, resize set 70ppt 70ppt, move position center, border none
 
+# Dismiss notifications and urgent window alerts
+bindsym $mod+m exec "makoctl dismiss -a; swaymsg '[urgent=latest] urgent disable'"
+
 # --------------------
 # Resize Mode
 # --------------------
@@ -238,6 +247,7 @@ bindsym Control+Print exec grim -g "$(slurp)" ~/Pictures/screenshots/$(date +'%Y
 # --------------------
 bar {
     position bottom
+    tray_output *
     font pango:JetBrainsMonoNL Nerd Font Medium 12
     status_command ~/.cargo/bin/i3status-rs ~/.config/i3status-rust/config.toml
     colors {
@@ -276,7 +286,12 @@ exec swayidle -w \
         resume 'swaymsg "output * dpms on"' \
     timeout 930 'if grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
     timeout 3600 'if ! grep -q "Discharging" /sys/class/power_supply/*/status 2>/dev/null; then systemctl suspend; fi' \
-    before-sleep 'swaylock -f'
+    before-sleep 'swaylock -f' \
+    lock 'swaylock -f'
+
+# Power button
+exec systemd-inhibit --what=handle-power-key sleep infinity
+bindsym XF86PowerOff exec 'swaylock -f; systemctl suspend'
 
 # --------------------
 # Include system config
