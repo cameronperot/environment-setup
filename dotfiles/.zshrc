@@ -3,15 +3,7 @@ if [ ! -f "${HOME}/.antigen/antigen.zsh" ]; then
     mkdir -p "${HOME}/.antigen"
     wget -O "${HOME}/.antigen/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
 fi
-
-# Initialize
 source "${HOME}/.antigen/antigen.zsh"
-for file in .profile .bash_aliases .secret_exports
-do
-    if [ -f "${HOME}/$file" ]; then
-        source "${HOME}/$file"
-    fi
-done
 
 # Antigen config
 antigen use oh-my-zsh
@@ -53,6 +45,19 @@ setopt HIST_VERIFY
 setopt HIST_SAVE_NO_DUPS
 unsetopt SHARE_HISTORY
 
+# Aliases
+unalias rm
+bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
+bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
+
+# Source files
+for file in .bash_aliases .profile .secret_exports
+do
+    if [ -f "${HOME}/$file" ]; then
+        source "${HOME}/$file"
+    fi
+done
+
 # Kitty complete
 if [ -x "$(command -v kitty)" ]; then
     source <(kitty + complete setup zsh)
@@ -70,16 +75,10 @@ if [ -x "$(command -v zoxide)" ]; then
     eval "$(zoxide init zsh --no-cmd)"
 fi
 
-# Aliases
-unalias rm
-bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
-bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
-if [ -f "${HOME}/.bash_aliases" ]; then
-    source "${HOME}/.bash_aliases"
-fi
-
 # Micromamba
 if [ -f "${HOME}/.mamba_init.sh" ]; then
     source "${HOME}/.mamba_init.sh"
-    micromamba activate dev
+    if [ -d "${HOME}/.micromamba/envs/dev" ]; then
+        micromamba activate dev
+    fi
 fi
