@@ -65,6 +65,13 @@ vim.opt.completeopt = { "menuone", "noselect", "noinsert" }
 vim.opt.shortmess = vim.opt.shortmess + { c = true }
 vim.api.nvim_set_option("updatetime", 300)
 
+-- No spellcheck in terminal
+vim.api.nvim_create_autocmd("TermOpen", {
+    callback = function()
+        vim.opt_local.spell = false
+    end,
+})
+
 -- Remove trailing whitespace and new lines
 vim.api.nvim_create_autocmd("BufWritePre", {
     pattern = "*",
