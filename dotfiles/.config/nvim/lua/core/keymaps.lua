@@ -17,12 +17,6 @@ vim.keymap.set(
     "<C-^>",
     { silent = true, desc = "Buffer: Switch to last used buffer" }
 )
-vim.keymap.set("n", "<Leader>bp", function()
-    vim.cmd("bprevious")
-end, { silent = true, desc = "Buffer: Go to previous" })
-vim.keymap.set("n", "<Leader>bn", function()
-    vim.cmd("bnext")
-end, { silent = true, desc = "Buffer: Go to next" })
 
 -- Yanking to clipboard
 vim.keymap.set(
@@ -99,20 +93,44 @@ vim.keymap.set(
 )
 
 -- Windows
-vim.keymap.set("n", "<C-k>", "<C-w>k", { noremap = true, silent = true, desc = "Window: Up" })
-vim.keymap.set("n", "<C-j>", "<C-w>j", { noremap = true, silent = true, desc = "Window: Down" })
 vim.keymap.set("n", "<C-h>", "<C-w>h", { noremap = true, silent = true, desc = "Window: Left" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { noremap = true, silent = true, desc = "Window: Down" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { noremap = true, silent = true, desc = "Window: Up" })
 vim.keymap.set(
     "n",
     "<C-l>",
     "<C-w>l",
     { noremap = true, silent = true, desc = "Window: Right" }
 )
+vim.api.nvim_set_keymap(
+    "t",
+    "<C-h>",
+    "<C-\\><C-n><C-w>h",
+    { noremap = true, silent = true, desc = "Window: Left (from terminal)" }
+)
+vim.api.nvim_set_keymap(
+    "t",
+    "<C-j>",
+    "<C-\\><C-n><C-w>j",
+    { noremap = true, silent = true, desc = "Window: Down (from terminal)" }
+)
+vim.api.nvim_set_keymap(
+    "t",
+    "<C-k>",
+    "<C-\\><C-n><C-w>k",
+    { noremap = true, silent = true, desc = "Window: Up (from terminal)" }
+)
+vim.api.nvim_set_keymap(
+    "t",
+    "<C-l>",
+    "<C-\\><C-n><C-w>l",
+    { noremap = true, silent = true, desc = "Window: Left (from terminal)" }
+)
 vim.keymap.set(
     "n",
-    "<C-Up>",
-    "<Cmd>resize +2<CR>",
-    { noremap = true, silent = true, desc = "Window: Resize Up" }
+    "<C-Left>",
+    "<Cmd>vertical resize -2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Left" }
 )
 vim.keymap.set(
     "n",
@@ -122,9 +140,9 @@ vim.keymap.set(
 )
 vim.keymap.set(
     "n",
-    "<C-Left>",
-    "<Cmd>vertical resize -2<CR>",
-    { noremap = true, silent = true, desc = "Window: Resize Left" }
+    "<C-Up>",
+    "<Cmd>resize +2<CR>",
+    { noremap = true, silent = true, desc = "Window: Resize Up" }
 )
 vim.keymap.set(
     "n",

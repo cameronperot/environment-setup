@@ -8,4 +8,3 @@ else
     alias micromamba="$MAMBA_EXE"
 fi
 unset __mamba_setup
-micromamba activate dev

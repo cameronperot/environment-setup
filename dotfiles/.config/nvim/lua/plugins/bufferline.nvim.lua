@@ -4,8 +4,10 @@ local M = {
     dependencies = { "nvim-tree/nvim-web-devicons" },
     event = "VeryLazy",
     keys = {
-        { "<Leader>bmr", "<Cmd>BufferLineMoveNext<CR>", desc = "BufferLine: Move tab right" },
-        { "<Leader>bml", "<Cmd>BufferLineMovePrev<CR>", desc = "BufferLine: Move tab left" },
+        { "[b", "<Cmd>BufferLineCyclePrev<CR>", desc = "BufferLine: Cycle tab left" },
+        { "]b", "<Cmd>BufferLineCycleNext<CR>", desc = "BufferLine: Cycle tab right" },
+        { "[B", "<Cmd>BufferLineMovePrev<CR>", desc = "BufferLine: Move tab left" },
+        { "]B", "<Cmd>BufferLineMoveNext<CR>", desc = "BufferLine: Move tab right" },
     },
     config = function()
         local bufferline = require("bufferline")
@@ -31,9 +33,12 @@ local M = {
             highlights = {
                 fill = { bg = "NONE" },
                 background = { bg = "NONE" },
+                tab = { bg = "NONE" },
                 numbers = { bg = "NONE" },
                 close_button = { bg = "NONE" },
                 separator = { bg = "NONE" },
+                modified = { bg = "NONE" },
+                duplicate = { bg = "NONE" },
                 indicator_selected = { fg = "#98c379" },
             },
         })
