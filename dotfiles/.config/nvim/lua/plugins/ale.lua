@@ -1,6 +1,19 @@
 local M = {
     "dense-analysis/ale",
     event = { "BufReadPost", "BufWritePre" },
+    ft = {
+        "c",
+        "cpp",
+        "json",
+        "julia",
+        "lua",
+        "python",
+        "rust",
+        "sh",
+        "tex",
+        "toml",
+        "yaml",
+    },
     keys = {
         { "<Leader>af", "<Cmd>ALEFix<CR>", desc = "ALE: Fix", noremap = true, silent = true },
     },
@@ -8,7 +21,7 @@ local M = {
         vim.g.ale_linters = {
             cpp = { "clang" },
             lua = { "luacheck" },
-            python = { "flake8", "pylint", "mypy" },
+            python = { "ruff", "mypy" },
             rust = { "analyzer" },
             sh = { "shellcheck" },
             vim = { "vint" },
@@ -17,15 +30,12 @@ local M = {
         vim.g.ale_fixers = {
             cpp = { "clang-format" },
             lua = { "stylua" },
-            python = { "black", "isort" },
+            python = { "ruff", "ruff_format" },
             rust = { "rustfmt" },
             sh = { "shfmt" },
         }
-        vim.g.ale_python_pylint_options =
-            "--disable=missing-module-docstring,wrong-import-position"
-        vim.g.ale_python_flake8_options = "--max-line-length=98 --extend-ignore=E203"
-        vim.g.ale_python_black_options = "--config=$HOME/.config/black.conf"
-        vim.g.ale_python_isort_options = "--profile=black --line-length=98"
+
+        vim.g.ale_python_ruff_options = "--line-length=98"
         vim.g.ale_python_mypy_options = ""
         vim.g.ale_sh_shfmt_options = "-i 4"
         vim.g.ale_c_clangformat_options =
@@ -35,6 +45,9 @@ local M = {
         vim.g.ale_linters_explicit = 1
         vim.g.ale_fix_on_save = 1
         vim.g.ale_lint_on_insert_leave = 1
+        vim.g.ale_pattern_options = {
+            ["lsq/ccxt"] = { ale_fix_on_save = 0 },
+        }
     end,
 }
 

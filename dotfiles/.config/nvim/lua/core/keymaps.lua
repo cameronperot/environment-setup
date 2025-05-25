@@ -13,6 +13,18 @@ vim.keymap.set(
 )
 vim.keymap.set(
     "n",
+    "<leader>bx",
+    "<Cmd>%bd<CR>",
+    { noremap = true, silent = true, desc = "Buffer: Delete all buffers" }
+)
+vim.keymap.set(
+    "n",
+    "<leader>bX",
+    "<Cmd>%bd!<CR>",
+    { noremap = true, silent = true, desc = "Buffer: Force delete all buffers" }
+)
+vim.keymap.set(
+    "n",
     "<Leader><Tab>",
     "<C-^>",
     { silent = true, desc = "Buffer: Switch to last used buffer" }
@@ -159,3 +171,17 @@ vim.keymap.set(
     { noremap = true, silent = true, desc = "Clear search highlighting" }
 )
 vim.keymap.set("", "<c-q>", "<nop>", { silent = true, desc = "Disable Ctrl-Q" })
+
+-- Keymaps to clear the terminal since <C-l> is already bound
+vim.keymap.set("t", "<C-\\><C-l>", function()
+    local term_chan = vim.b.terminal_job_id
+    if term_chan then
+        vim.api.nvim_chan_send(term_chan, "\x0c")
+    end
+end, { noremap = true, silent = true, desc = "Terminal: Clear terminal screen" })
+vim.keymap.set("n", "<C-\\><C-l>", function()
+    local term_chan = vim.b.terminal_job_id
+    if term_chan then
+        vim.api.nvim_chan_send(term_chan, "\x0c")
+    end
+end, { noremap = true, silent = true, desc = "Terminal: Clear terminal screen" })
