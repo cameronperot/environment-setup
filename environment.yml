@@ -4,13 +4,10 @@ channels:
   - conda-forge
 channel_priority: strict
 dependencies:
-  - python=3.12
-  - black
+  - python=3.13
   - debugpy
-  - flake8
   - ipykernel
   - ipython
-  - isort
   - jax
   - joblib
   - jupyterlab
@@ -21,18 +18,20 @@ dependencies:
   - numpy
   - pandas-stubs
   - pandas>=2.0.0
-  - pip
+  - poppler
   - pre-commit
   - psutil
   - pydantic
-  - pylint
   - pynvim
   - pytest
   - pytest-cov
   - ranger-fm
   - requests
+  - ruff
   - scipy
   - seaborn
   - tqdm
   - yarn
-  - poppler
+  - pip:
+    - aider-install
+    - llm
