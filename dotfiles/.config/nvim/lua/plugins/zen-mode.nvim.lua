@@ -12,7 +12,7 @@ local M = {
     },
     opts = {
         window = {
-            width = 0.75,
+            width = 0.50,
         },
     },
 }

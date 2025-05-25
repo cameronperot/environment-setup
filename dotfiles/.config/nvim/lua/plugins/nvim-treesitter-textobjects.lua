@@ -1,5 +1,19 @@
 local M = {
     "nvim-treesitter/nvim-treesitter-textobjects",
+    event = { "BufReadPost", "BufNewFile" },
+    ft = {
+        "c",
+        "cpp",
+        "json",
+        "julia",
+        "lua",
+        "python",
+        "rust",
+        "sh",
+        "tex",
+        "toml",
+        "yaml",
+    },
     dependencies = {
         "nvim-treesitter/nvim-treesitter",
     },
