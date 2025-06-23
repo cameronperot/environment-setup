@@ -122,7 +122,49 @@
         "when": "textInputFocus && !editorReadonly && supportedCodeAction =~ /(\\s|^)source\\.organizeImports\\b/"
     },
     {
-        "key": "ctrl+p",
-        "command": "workbench.action.quickOpen"
-    }
+        "key": "ctrl+shift+/",
+        "command": "vscode-neovim.restart"
+    },
+    // {
+    //     "key": "ctrl+u",
+    //     "command": "runCommands",
+    //     "args": {
+    //         "commands": [
+    //             {
+    //                 "command": "editorScroll",
+    //                 "args": {
+    //                     "to": "up",
+    //                     "by": "halfPage"
+    //                 }
+    //             },
+    //             {
+    //                 "command": "cursorMove",
+    //                 "args": {
+    //                     "to": "viewPortCenter"
+    //                 }
+    //             }
+    //         ]
+    //     }
+    // },
+    // {
+    //     "key": "ctrl+d",
+    //     "command": "runCommands",
+    //     "args": {
+    //         "commands": [
+    //             {
+    //                 "command": "editorScroll",
+    //                 "args": {
+    //                     "to": "down",
+    //                     "by": "halfPage"
+    //                 }
+    //             },
+    //             {
+    //                 "command": "cursorMove",
+    //                 "args": {
+    //                     "to": "viewPortCenter"
+    //                 }
+    //             }
+    //         ]
+    //     }
+    // },
 ]
