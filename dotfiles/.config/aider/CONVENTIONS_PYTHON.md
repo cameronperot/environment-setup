@@ -12,6 +12,7 @@ write or modify code):
     - Do **not** include blocks of code from existing files unless the user explicitly requests it.
     - This guideline does not affect your behavior when the primary instruction is to generate, add, or modify code within the project
     files.
+- Avoid unnecessary complexity.
 - Avoid any third-party libraries licensed under the GPL.
 
 ## Python
@@ -51,3 +52,5 @@ write or modify code):
     - Prefer `logger.exception()` inside of `except` blocks instead of `logger.error()`.
     - Avoid truthiness of `None` and use `is [not] None` when applicable.
     - Avoid mutable default arguments.
+    - Do NOT change any variable names unless absolutely necessary or explicitly asked to do so.
+    - Write functions with clear purposes and don't let them get too long, but also not too small with too many, find the right balance.

@@ -6,7 +6,6 @@
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true
     },
-    "autoDocstring.customTemplatePath": "/home/user/.config/Code/sphinx.template",
     "autoDocstring.docstringFormat": "one-line-sphinx",
     "autoDocstring.generateDocstringOnEnter": true,
     "autoDocstring.guessTypes": true,
@@ -16,7 +15,6 @@
         "--line-length=98",
         "--extend-exclude=\\.json",
     ],
-    "breadcrumbs.enabled": false,
     "cSpell.languageSettings": [
         // https://github.com/streetsidesoftware/vscode-spell-checker/issues/107
         {
@@ -43,7 +41,7 @@
     },
     "editor.acceptSuggestionOnEnter": "smart",
     "editor.cursorBlinking": "solid",
-    "editor.fontFamily": "'JetBrainsMonoNL Nerd Font', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'JetBrainsMono Nerd Font', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.fontSize": 13,
     "editor.formatOnSave": true,
     "editor.lineNumbers": "relative",
@@ -67,6 +65,16 @@
     "isort.args": [
         "--profile=black",
         "--line-length=98",
+        "--project=lsq",
+        "--project=lsq_db",
+        "--project=rd72",
+        "--project=rd65",
+        "--project=rd1062",
+        "--project=rd1487",
+        "--project=rd1487_elk",
+        "--project=rd3246",
+        "--project=rd3311",
+        "--project=lsq_crypto",
     ],
     "isort.check": true,
     "isort.importStrategy": "fromEnvironment",
@@ -77,24 +85,20 @@
     "jupyter.kernels.excludePythonEnvironments": [
         "/usr/bin/python3",
     ],
-    "jupyter.interactiveWindow.creationMode": "perFile",
-    "jupyter.interactiveWindow.textEditor.executeSelection": true,
-    "mypy-type-checker.showNotifications": "always",
-    "notebook.cellToolbarLocation": {
-        "default": "right",
-        "jupyter-notebook": "right"
-    },
     "notebook.codeActionsOnSave": {
         "source.organizeImports": true
     },
+    "jupyter.interactiveWindow.creationMode": "perFile",
+    "jupyter.interactiveWindow.textEditor.executeSelection": true,
     "notebook.formatOnSave.enabled": true,
     "notebook.globalToolbar": false,
     "notebook.lineNumbers": "on",
+    "notebook.output.textLineLimit": 100,
     "pylint.args": [
         "--max-line-length=98"
     ],
-    "python.condaPath": "/home/user/micromamba/bin/micromamba",
-    "python.defaultInterpreterPath": "/home/user/micromamba/envs/dev/bin/python",
+    "python.condaPath": "/home/cameron/.micromamba/bin/micromamba",
+    "python.defaultInterpreterPath": "/home/cameron/.micromamba/envs/dev/bin/python",
     "telemetry.telemetryLevel": "off",
     "terminal.external.linuxExec": "kitty",
     "terminal.integrated.commandsToSkipShell": [
@@ -134,12 +138,19 @@
         "w",
     ],
     "vscode-neovim.neovimExecutablePaths.linux": "/usr/bin/nvim",
-    "window.commandCenter": false,
-    "window.customTitleBarVisibility": "auto",
-    "window.titleBarStyle": "custom",
-    "workbench.activityBar.location": "top",
+    "vscode-neovim.neovimInitVimPaths.linux": "/home/cameron/.config/nvim/init.lua",
+    "window.zoomLevel": 1,
     "workbench.colorTheme": "One Dark Pro Darker",
-    "workbench.sideBar.location": "right",
     "workbench.startupEditor": "none",
     "zenMode.hideLineNumbers": false,
+    "notebook.cellToolbarLocation": {
+        "default": "right",
+        "jupyter-notebook": "right"
+    },
+    "mypy-type-checker.showNotifications": "always",
+    "workbench.activityBar.location": "top",
+    "workbench.sideBar.location": "right",
+    "window.commandCenter": false,
+    "window.titleBarStyle": "custom",
+    "window.customTitleBarVisibility": "auto",
 }
