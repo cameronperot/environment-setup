@@ -53,4 +53,4 @@ write or modify code):
     - Avoid truthiness of `None` and use `is [not] None` when applicable.
     - Avoid mutable default arguments.
     - Do NOT change any variable names unless absolutely necessary or explicitly asked to do so.
-    - Write functions with clear purposes and don't let them get too long, but also not too small with too many, find the right balance.
+    - Write functions with clear purposes and don't let them get too long, but also not too small with too many; find the right balance.
