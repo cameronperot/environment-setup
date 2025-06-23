@@ -25,7 +25,6 @@ dependencies:
   - pynvim
   - pytest
   - pytest-cov
-  - ranger-fm
   - requests
   - ruff
   - scipy
@@ -35,3 +34,5 @@ dependencies:
   - pip:
     - aider-install
     - llm
+    - ranger-fm
+    - uv
