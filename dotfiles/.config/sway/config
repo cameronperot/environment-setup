@@ -216,7 +216,7 @@ bindsym $mod+c exec zenity --calendar
 bindsym $mod+Shift+q kill
 
 # Julia
-bindsym $mod+backslash exec "kitty -e $HOME/bin/julia"
+bindsym $mod+backslash exec "kitty -e ${HOME}/.juliaup/bin/julia"
 
 # --------------------
 # System Controls

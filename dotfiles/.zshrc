@@ -82,3 +82,7 @@ if [ -f "${HOME}/.mamba_init.sh" ]; then
         micromamba activate dev
     fi
 fi
+
+# Julia
+path=('/home/user/.juliaup/bin' $path)
+export PATH
