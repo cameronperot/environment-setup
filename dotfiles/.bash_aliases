@@ -1,4 +1,4 @@
-# misc.
+# Misc.
 alias clearbashhist="cat /dev/null > ~/.bash_history && history -c && exit"
 alias clearnvimswap="rm ~/.local/state/nvim/swap/*.swp"
 alias sshk="kitty +kitten ssh"
@@ -9,7 +9,7 @@ alias sn="sudoedit"
 alias ta="tmux a -t"
 alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/stable/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
 
-# podman
+# Podman
 alias pm="podman"
 alias pma="podman attach"
 alias pmc="podman container"
@@ -19,6 +19,13 @@ alias pmp="podman pull"
 alias pmr="podman run"
 alias pmv="podman volume"
 alias pmcom="podman-compose"
+alias svc="systemctl --user"
+alias svc-logs="journalctl --user -u"
+alias svc-reload="systemctl --user daemon-reload"
+alias svc-restart="systemctl --user restart"
+alias svc-start="systemctl --user start"
+alias svc-status="systemctl --user status"
+alias svc-stop="systemctl --user stop"
 
 # LSD
 alias l="lsd -lFh"
@@ -32,7 +39,3 @@ alias lart="lsd -1Fcart"
 alias lrt="lsd -1Fcrt"
 alias lsr="lsd -lARFh"
 alias lsn="lsd -1"
-
-# conda
-alias ca="source ~/.conda_init.sh"
-alias cadev="source ~/.conda_init.sh && conda activate dev"
