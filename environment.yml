@@ -4,23 +4,19 @@ channels:
   - conda-forge
 channel_priority: strict
 dependencies:
-  - python=3.13
+  - python=3.14
   - debugpy
   - ipykernel
   - ipython
-  - jax
   - joblib
-  - jupyterlab
   - matplotlib
   - mypy
-  - nbqa
   - nodejs
   - numpy
   - pandas-stubs
   - pandas>=2.0.0
   - poppler
   - pre-commit
-  - psutil
   - pydantic
   - pynvim
   - pytest
@@ -29,10 +25,6 @@ dependencies:
   - ruff
   - scipy
   - seaborn
-  - tqdm
-  - yarn
   - pip:
-    - aider-install
-    - llm
     - ranger-fm
     - uv
