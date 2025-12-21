@@ -25,6 +25,7 @@ dependencies:
   - ruff
   - scipy
   - seaborn
+  - yarn
   - pip:
     - ranger-fm
     - uv
