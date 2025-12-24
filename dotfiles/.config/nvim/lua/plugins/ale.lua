@@ -18,34 +18,8 @@ local M = {
         { "<Leader>af", "<Cmd>ALEFix<CR>", desc = "ALE: Fix", noremap = true, silent = true },
     },
     config = function()
-        -- Define and register the JuliaFormatter fixer
-        -- Define the fixer function globally in Vimscript namespace
-        vim.cmd([[
-            function! JuliaFormatterFixer(buffer) abort
-                return {
-                \   'command': 'julia -e "using JuliaFormatter; format_file(ARGS[1])" %t',
-                \   'read_temporary_file': 1,
-                \}
-            endfunction
-        ]])
-
-        -- Register the fixer after ALE is loaded (using function name as string)
-        vim.api.nvim_create_autocmd("User", {
-            pattern = "ALEWantResults",
-            once = true,
-            callback = function()
-                vim.fn["ale#fix#registry#Add"](
-                    "juliaformatter",
-                    "JuliaFormatterFixer",
-                    { "julia" },
-                    "Format Julia code with JuliaFormatter"
-                )
-            end,
-        })
-
         vim.g.ale_linters = {
             cpp = { "clang" },
-            julia = { "julials" },
             lua = { "luacheck" },
             python = { "ruff", "mypy" },
             rust = { "analyzer" },
@@ -55,7 +29,6 @@ local M = {
 
         vim.g.ale_fixers = {
             cpp = { "clang-format" },
-            julia = { "juliaformatter" },
             lua = { "stylua" },
             python = { "ruff", "ruff_format" },
             rust = { "rustfmt" },
@@ -75,7 +48,6 @@ local M = {
         vim.g.ale_pattern_options = {
             ["lsq/ccxt"] = { ale_fix_on_save = 0 },
         }
-        vim.g.ale_disable_lsp = 0
     end,
 }
 

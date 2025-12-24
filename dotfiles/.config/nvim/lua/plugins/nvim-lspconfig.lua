@@ -1,21 +1,6 @@
 local M = {
     "neovim/nvim-lspconfig",
     dependencies = { "hrsh7th/cmp-nvim-lsp" },
-    event = { "BufReadPost", "BufNewFile" },
-    ft = {
-        "c",
-        "cpp",
-        "json",
-        "julia",
-        "latex",
-        "lua",
-        "python",
-        "rust",
-        "sh",
-        "tex",
-        "toml",
-        "yaml",
-    },
     keys = {
         {
             "gd",
@@ -47,18 +32,22 @@ local M = {
         },
     },
     config = function()
+        -- Set capabilities for all servers
         local capabilities = require("cmp_nvim_lsp").default_capabilities()
-        local lspconfig = require("lspconfig")
-        lspconfig.pyright.setup({
+        vim.lsp.config("*", {
             capabilities = capabilities,
+        })
+
+        -- Configure servers with specific settings
+        vim.lsp.config("pyright", {
             settings = {
                 python = {
                     pythonPath = vim.g.python3_host_prog,
                 },
             },
         })
-        lspconfig.rust_analyzer.setup({
-            capabilities = capabilities,
+
+        vim.lsp.config("rust_analyzer", {
             settings = {
                 ["rust-analyzer"] = {
                     checkOnSave = {
@@ -73,10 +62,8 @@ local M = {
                 },
             },
         })
-        lspconfig.clangd.setup({ capabilities = capabilities })
-        lspconfig.julials.setup({ capabilities = capabilities })
-        lspconfig.lua_ls.setup({
-            capabilities = capabilities,
+
+        vim.lsp.config("lua_ls", {
             settings = {
                 Lua = {
                     diagnostics = {
@@ -85,10 +72,19 @@ local M = {
                 },
             },
         })
-        lspconfig.jsonls.setup({ capabilities = capabilities })
-        lspconfig.texlab.setup({ capabilities = capabilities })
-        lspconfig.yamlls.setup({ capabilities = capabilities })
-        lspconfig.taplo.setup({ capabilities = capabilities })
+
+        -- Enable all servers
+        vim.lsp.enable({
+            "pyright",
+            "rust_analyzer",
+            "clangd",
+            -- "julials",
+            "lua_ls",
+            "jsonls",
+            "texlab",
+            "yamlls",
+            "taplo",
+        })
     end,
 }
 
