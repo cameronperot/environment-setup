@@ -9,7 +9,7 @@ vim.opt.fillchars:append({
 })
 vim.opt.foldcolumn = "1" -- Show fold column
 vim.opt.foldmethod = "expr" -- Use Treesitter for folding
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()" -- Treesitter folding expression
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()" -- Treesitter folding expression
 vim.opt.splitbelow = true -- Horizontal splits below
 vim.opt.splitright = true -- Vertical splits to the right
 vim.opt.smartindent = true -- Smart indentation
