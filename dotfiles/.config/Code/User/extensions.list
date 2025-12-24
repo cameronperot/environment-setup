@@ -1,4 +1,5 @@
 asvetliakov.vscode-neovim
+charliermarsh.ruff
 docker.docker
 eamodio.gitlens
 julialang.language-julia

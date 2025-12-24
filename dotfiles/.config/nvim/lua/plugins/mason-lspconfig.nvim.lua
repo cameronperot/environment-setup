@@ -7,7 +7,7 @@ local M = {
                 "pyright",
                 "rust_analyzer",
                 "clangd",
-                "julials",
+                -- "julials",
                 "jsonls",
                 "texlab",
                 "yamlls",
