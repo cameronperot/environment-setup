@@ -1,42 +1,40 @@
 local M = {
     "nvim-treesitter/nvim-treesitter",
-    event = { "BufReadPost", "BufNewFile" },
-    ft = {
-        "c",
-        "cpp",
-        "json",
-        "julia",
-        "lua",
-        "python",
-        "rust",
-        "sh",
-        "tex",
-        "toml",
-        "yaml",
-    },
-    build = function()
-        require("nvim-treesitter.install").update({ with_sync = true })()
-    end,
+    branch = "main",
+    lazy = false,
+    build = ":TSUpdate",
     config = function()
-        local configs = require("nvim-treesitter.configs")
-        configs.setup({
-            ensure_installed = {
+        require("nvim-treesitter").install({
+            "bash",
+            "c",
+            "cpp",
+            "json",
+            "julia",
+            "lua",
+            "python",
+            "rust",
+            "toml",
+            "yaml",
+        })
+
+        -- Enable treesitter highlighting
+        vim.api.nvim_create_autocmd("FileType", {
+            pattern = {
                 "bash",
+                "c",
                 "cpp",
                 "json",
                 "julia",
                 "lua",
                 "python",
                 "rust",
+                "sh",
                 "toml",
                 "yaml",
             },
-            ignore_install = {},
-            highlight = {
-                enable = true,
-                disable = {},
-            },
-            fold = { enable = true },
+            callback = function()
+                vim.treesitter.start()
+            end,
         })
     end,
 }
