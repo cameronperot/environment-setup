@@ -35,6 +35,7 @@ MODE_INDICATOR="%F{yellow}+%f"
 RPROMPT=''
 
 # http://zsh.sourceforge.net/Doc/Release/Options.html#Description-of-Options
+setopt EXTENDED_GLOB
 setopt EXTENDED_HISTORY
 setopt HIST_IGNORE_SPACE
 setopt HIST_IGNORE_DUPS
@@ -44,6 +45,7 @@ setopt HIST_REDUCE_BLANKS
 setopt HIST_VERIFY
 setopt HIST_SAVE_NO_DUPS
 unsetopt SHARE_HISTORY
+HISTORY_IGNORE="*secret*"
 
 # Aliases
 unalias rm
