@@ -49,6 +49,8 @@ local M = {
             ["lsq/ccxt"] = { ale_fix_on_save = 0 },
         }
         vim.g.ale_python_auto_uv = 1
+        vim.g.ale_python_mypy_auto_uv = 1
+        vim.g.ale_python_ruff_auto_uv = 1
     end,
 }
 
