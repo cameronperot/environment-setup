@@ -153,4 +153,8 @@
     "window.commandCenter": false,
     "window.titleBarStyle": "custom",
     "window.customTitleBarVisibility": "auto",
+    "security.workspace.trust.untrustedFiles": "open",
+    "containers.environment": {
+        "HOST": "unix:///run/user/1000/podman/podman.sock"
+    },
 }
