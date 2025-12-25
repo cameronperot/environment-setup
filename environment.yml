@@ -2,7 +2,6 @@ name: dev
 channels:
   - defaults
   - conda-forge
-channel_priority: strict
 dependencies:
   - python=3.14
   - debugpy
@@ -21,11 +20,10 @@ dependencies:
   - pynvim
   - pytest
   - pytest-cov
+  - ranger-fm
   - requests
   - ruff
   - scipy
   - seaborn
+  - uv
   - yarn
-  - pip:
-    - ranger-fm
-    - uv
