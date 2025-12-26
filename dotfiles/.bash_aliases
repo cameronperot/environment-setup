@@ -29,14 +29,14 @@ alias svc-status="systemctl --user status"
 alias svc-stop="systemctl --user stop"
 
 # LSD
-alias l="lsd -lFh"
-alias la="lsd -lAFh"
-alias lr="lsd -tRFh"
-alias lt="lsd -ltFh"
-alias ll="lsd -l"
-alias ldot="lsd -ld .*"
-alias lS="lsd -1FSsh"
-alias lart="lsd -1Fcart"
-alias lrt="lsd -1Fcrt"
-alias lsr="lsd -lARFh"
-alias lsn="lsd -1"
+alias l="lsd -lFh"      # long, classify, human-readable
+alias la="lsd -lAFh"    # long, almost-all, classify, human-readable
+alias lr="lsd -tRFh"    # tree, recursive, classify, human-readable
+alias lt="lsd -ltFh"    # long, tree, classify, human-readable
+alias ll="lsd -l"       # long
+alias ldot="lsd -ld .*" # long, directory, dotfiles
+alias lS="lsd -1FSh"    # one-per-line, classify, size-sort, human-readable
+alias lart="lsd -1Fart" # one-per-line, classify, almost-all, reverse, timesort
+alias lrt="lsd -1Frt"   # one-per-line, classify, reverse, timesort
+alias lsr="lsd -lARFh"  # long, almost-all, recursive, classify, human-readable
+alias lsn="lsd -1"      # one-per-line
