@@ -26,5 +26,5 @@ dependencies:
   - seaborn
   - uv
   - yarn
-  pip:
+  - pip:
     - ranger-fm
