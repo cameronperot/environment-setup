@@ -20,10 +20,11 @@ dependencies:
   - pynvim
   - pytest
   - pytest-cov
-  - ranger-fm
   - requests
   - ruff
   - scipy
   - seaborn
   - uv
   - yarn
+  pip:
+    - ranger-fm
