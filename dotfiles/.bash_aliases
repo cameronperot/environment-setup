@@ -6,7 +6,7 @@ alias mm="micromamba"
 alias n="nvim"
 alias nn="nvim --clean"
 alias sn="sudoedit"
-alias ta="tmux a -t"
+alias ta="tmux a"
 alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/stable/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
 alias bcat="batcat"
 
