@@ -9,6 +9,7 @@ alias sn="sudoedit"
 alias ta="tmux a"
 alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/stable/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
 alias bcat="batcat"
+alias fd="fdfind"
 
 # Podman
 alias pm="podman"
@@ -24,9 +25,12 @@ alias svc="systemctl --user"
 alias svc-logs="journalctl --user -u"
 alias svc-reload="systemctl --user daemon-reload"
 alias svc-restart="systemctl --user restart"
+alias svc-restart-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user restart"
 alias svc-start="systemctl --user start"
 alias svc-status="systemctl --user status"
 alias svc-stop="systemctl --user stop"
+alias svc-stop-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user stop"
+alias svc-list="systemctl --user list-units --type=service --state=running | grep -v -i 'healthcheck'"
 
 # LSD
 alias l="lsd -lFh"      # long, classify, human-readable
