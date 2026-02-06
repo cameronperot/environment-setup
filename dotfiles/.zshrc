@@ -88,3 +88,6 @@ fi
 # Julia
 path=('/home/user/.juliaup/bin' $path)
 export PATH
+
+# Amp CLI
+export PATH="/home/user/.amp/bin:$PATH"

@@ -171,7 +171,7 @@ bindsym $mod+Shift+a focus child
 # Scratchpad
 bindsym $mod+x move scratchpad
 bindsym $mod+z scratchpad show
-bindsym $mod+p [app_id="org.keepassxc.KeePassXC"] scratchpad show, resize set 70ppt 70ppt, move position center, border none
+bindsym $mod+p [app_id="org.keepassxc.KeePassXC"] scratchpad show, resize set 80ppt 80ppt, move position center, border none
 
 # Dismiss notifications and urgent window alerts
 bindsym $mod+m exec "makoctl dismiss -a; swaymsg '[urgent=latest] urgent disable'"

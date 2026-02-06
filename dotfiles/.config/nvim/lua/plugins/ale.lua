@@ -35,7 +35,7 @@ local M = {
             sh = { "shfmt" },
         }
 
-        vim.g.ale_python_ruff_options = "--line-length=98"
+        vim.g.ale_python_ruff_options = "--line-length=88"
         vim.g.ale_python_mypy_options = ""
         vim.g.ale_sh_shfmt_options = "-i 4"
         vim.g.ale_c_clangformat_options =
