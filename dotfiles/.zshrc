@@ -48,15 +48,15 @@ unsetopt SHARE_HISTORY
 HISTORY_IGNORE="*secret*"
 
 # Aliases
-unalias rm
+unalias rm 2>/dev/null
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
 bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
 
 # Source files
 for file in .bash_aliases .profile .secret_exports
 do
-    if [ -f "${HOME}/$file" ]; then
-        source "${HOME}/$file"
+    if [ -f "${HOME}/${file}" ]; then
+        source "${HOME}/${file}"
     fi
 done
 
@@ -78,16 +78,11 @@ if [ -x "$(command -v zoxide)" ]; then
 fi
 
 # Micromamba
-if [ -f "${HOME}/.mamba_init.sh" ]; then
+if [[ -d "${HOME}/.micromamba" && -f "${HOME}/.mamba_init.sh" ]]; then
     source "${HOME}/.mamba_init.sh"
     if [ -d "${HOME}/.micromamba/envs/dev" ]; then
         micromamba activate dev
+    else
+        micromamba activate base 2>/dev/null
     fi
 fi
-
-# Julia
-path=('/home/user/.juliaup/bin' $path)
-export PATH
-
-# Amp CLI
-export PATH="/home/user/.amp/bin:$PATH"
