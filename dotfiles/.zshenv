@@ -41,3 +41,4 @@ export RANGER_LOAD_DEFAULT_RC=FALSE
 export GPG_TTY=$(tty)
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 export SHELL=/usr/bin/zsh
+export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"

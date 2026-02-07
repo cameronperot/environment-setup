@@ -21,6 +21,8 @@ alias pmp="podman pull"
 alias pmr="podman run"
 alias pmv="podman volume"
 alias pmcom="podman-compose"
+
+# systemctl user
 alias svc="systemctl --user"
 alias svc-logs="journalctl --user -u"
 alias svc-reload="systemctl --user daemon-reload"
