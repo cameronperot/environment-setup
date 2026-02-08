@@ -50,7 +50,9 @@ class EnvironmentInstaller:
         self._logger.info(f"⟩ {' '.join(str(x) for x in command)}")
 
         # run the command and log the STDOUT
-        result = subprocess.run(command, check=True, capture_output=True, encoding="utf-8")
+        result = subprocess.run(
+            command, check=True, capture_output=True, encoding="utf-8"
+        )
         if result.stdout:
             self._logger.info(result.stdout)
 
@@ -169,7 +171,8 @@ class EnvironmentInstaller:
         """
         Run all install methods in sequence.
         """
-        self.install_neovim()
+        if self._neovim_version.lower() not in ("0", "none"):
+            self.install_neovim()
         self.install_tmux_resurrect()
         self.modify_zshrc()
         self.copy_doftiles()
