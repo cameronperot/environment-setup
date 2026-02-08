@@ -19,6 +19,12 @@ Some packages that might be required:
 cargo install tree-sitter-cli stylua
 ```
 
+## Devcontainers
+Devcontainers CLI can be installed with:
+```bash
+npm install -g @devcontainers/cli
+```
+
 ## Programming Languages
 ### Python
 Micromamba can be installed by running:
