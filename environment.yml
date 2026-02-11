@@ -8,6 +8,7 @@ dependencies:
   - ipykernel
   - ipython
   - joblib
+  - jupyterlab
   - matplotlib
   - mypy
   - nodejs
