@@ -25,6 +25,7 @@ export GEM_HOME="$HOME/gems"
 # Editor
 export VISUAL="nvim"
 export EDITOR="nvim"
+export SYSTEMD_EDITOR="nvim"
 export JULIA_EDITOR="nvim"
 
 # Language
