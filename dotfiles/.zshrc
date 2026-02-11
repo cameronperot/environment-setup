@@ -49,6 +49,7 @@ HISTORY_IGNORE="*secret*"
 
 # Aliases
 unalias rm 2>/dev/null
+unalias fd 2>/dev/null
 bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
 bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
 
