@@ -149,6 +149,23 @@ class EnvironmentInstaller:
         with open(file_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
 
+        # if MAMBA_ROOT_PREFIX is set on the host, update .mamba_init.sh to use it
+        mamba_root_prefix = os.environ.get("MAMBA_ROOT_PREFIX")
+        if mamba_root_prefix:
+            mamba_init_path = self._repo_dir / "dotfiles/.mamba_init.sh"
+            with open(mamba_init_path, "r", encoding="utf-8") as f:
+                mamba_lines = f.readlines()
+
+            mamba_lines = [
+                f'export MAMBA_ROOT_PREFIX="{mamba_root_prefix}"\n'
+                if line.startswith("export MAMBA_ROOT_PREFIX=")
+                else line
+                for line in mamba_lines
+            ]
+
+            with open(mamba_init_path, "w", encoding="utf-8") as f:
+                f.writelines(mamba_lines)
+
         self._logger.info("Successfully modified .zshrc")
 
     def copy_doftiles(self):
