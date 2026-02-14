@@ -79,11 +79,6 @@ if [ -x "$(command -v zoxide)" ]; then
 fi
 
 # Micromamba
-if [[ -d "${HOME}/.micromamba" && -f "${HOME}/.mamba_init.sh" ]]; then
+if [[ -f "${HOME}/.mamba_init.sh" ]]; then
     source "${HOME}/.mamba_init.sh"
-    if [ -d "${HOME}/.micromamba/envs/dev" ]; then
-        micromamba activate dev
-    else
-        micromamba activate base 2>/dev/null
-    fi
 fi
