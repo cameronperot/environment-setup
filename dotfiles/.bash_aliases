@@ -49,7 +49,7 @@ alias svc-list="systemctl --user list-units --type=service --state=running | gre
 alias c='podman run \
   -it \
   --rm \
-  --userns=keep-id \
+  --userns keep-id \
   --security-opt label=disable \
   -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
   -e OPENROUTER_API_KEY="${OPENROUTER_API_KEY}" \
