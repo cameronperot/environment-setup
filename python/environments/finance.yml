@@ -1,0 +1,19 @@
+name: finance
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - ta-lib
+  - pip:
+    - alphalens-reloaded
+    - backtrader
+    - empyrical-reloaded
+    - openbb
+    - pandas-datareader
+    - pandas_market_calendars
+    - pandas_ta
+    - pyfolio-reloaded
+    - pysabr
+    - quantstats
+    - riskfolio-lib
+    - web3

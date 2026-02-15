@@ -1,0 +1,17 @@
+name: jupyter
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - ipympl
+  - ipywidgets
+  - jupyterlab
+  - nodejs
+  - yarn
+  - pip:
+    - aquirdturtle_collapsible_headings
+    - jupyter-server-proxy
+    - jupyterlab-drawio
+    - jupyterlab-execute-time
+    - jupyterlab_vim
+    - lckr-jupyterlab-variableinspector

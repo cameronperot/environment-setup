@@ -1,0 +1,11 @@
+name: dev
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - flake8
+  - memray
+  - nbqa
+  - pre-commit
+  - pylint
+  - ruff
