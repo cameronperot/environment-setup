@@ -1,0 +1,27 @@
+name: ml
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - lightgbm
+  - mlflow
+  - optuna
+  - optuna-integration
+  - python-graphviz
+  - pytorch::cpuonly
+  - pytorch::pytorch
+  - pytorch::torchaudio
+  - pytorch::torchvision
+  - scikit-learn-intelex
+  - xgboost
+  - pip:
+    - corr-shap
+    - darts
+    - interpret
+    - ml_insights
+    - mlforecast
+    - neuralforecast
+    - puncc
+    - statsforecast
+    - utilsforecast
+    - venn-abers

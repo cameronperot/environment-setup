@@ -1,5 +1,8 @@
-# Environment Setup
-This repo automates the setup of a programming environment consisting of zsh, tmux, neovim, and ranger.
+# Development Environment
+This repository contains configs and instructions for a development environment using zsh, tmux, neovim, ranger, containers, VMs, and virtual environments.
+
+- [Dev Container](dev-container/README.md)
+- [Dev VM](dev-vm/README.md)
 
 ## Usage
 Clone the repo and run the install script:
@@ -19,12 +22,6 @@ Some packages that might be required:
 cargo install tree-sitter-cli stylua
 ```
 
-## Devcontainers
-Devcontainers CLI can be installed with:
-```bash
-npm install -g @devcontainers/cli
-```
-
 ## Programming Languages
 ### Python
 Micromamba can be installed by running:
@@ -33,7 +30,7 @@ curl -Ls https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads
 ```
 and initialized with:
 ```bash
-~/micromamba/bin/micromamba shell init --root-prefix ~/micromamba
+~/.micromamba/bin/micromamba shell init --root-prefix ~/.micromamba
 ```
 The environment can be installed by running:
 ```bash
@@ -47,7 +44,14 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ### Julia
-Julia can be downloaded and installed from the [Julia downloads page](https://julialang.org/downloads/).
+Julia can be installed using [Juliaup](https://docs.julialang.org/en/v1/manual/installation/) with:
+```bash
+curl -fsSL https://install.julialang.org | sh
+```
+The environment can be installed by running:
+```bash
+julia julia/julia-setup.jl
+```
 
 ## Misc.
 Zoxide is a nice alternative to using `cd`:

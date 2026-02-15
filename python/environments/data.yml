@@ -1,0 +1,14 @@
+name: data
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - alembic
+  - cvxpy
+  - dask>=2023.1.0
+  - networkx
+  - pandera
+  - psutil
+  - pyspark
+  - pytz
+  - tributary

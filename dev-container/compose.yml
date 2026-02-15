@@ -1,0 +1,42 @@
+name: dev_container
+x-podman:
+  in_pod: false
+services:
+  dev_container:
+    image: dev:latest
+    container_name: dev_container
+    userns_mode: keep-id
+    security_opt:
+      - label=disable
+    restart: on-failure
+    command: micromamba run -n dev jupyter lab
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    ports:
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - .:/work
+      - dev-antigen:/home/dev/.antigen
+      - dev-amp-config:/home/dev/.config/amp
+      - dev-amp-data:/home/dev/.local/share/amp
+      - dev-claude-config:/home/dev/.claude
+      - dev-gemini-config:/home/dev/.gemini
+      - dev-opencode-config:/home/dev/.config/opencode
+      - dev-opencode-data:/home/dev/.local/share/opencode
+
+volumes:
+  dev-antigen:
+    name: dev-antigen
+  dev-amp-config:
+    name: dev-amp-config
+  dev-amp-data:
+    name: dev-amp-data
+  dev-claude-config:
+    name: dev-claude-config
+  dev-gemini-config:
+    name: dev-gemini-config
+  dev-opencode-config:
+    name: dev-opencode-config
+  dev-opencode-data:
+    name: dev-opencode-data

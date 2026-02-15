@@ -1,0 +1,40 @@
+name: dev
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.13
+  - ipykernel
+  - jax
+  - joblib
+  - jupyterlab
+  - mapie
+  - matplotlib
+  - mypy
+  - nodejs
+  - numba
+  - numpy
+  - pandas-stubs
+  - pandas>=2.0.0
+  - pip
+  - plotly
+  - polars
+  - psycopg2
+  - pydantic
+  - pynvim
+  - pytest
+  - pytest-cov
+  - requests
+  - ruff
+  - scikit-learn
+  - scipy
+  - seaborn
+  - shap
+  - sqlalchemy
+  - sqlalchemy-utils
+  - statsmodels
+  - tqdm
+  - uv
+  - yarn
+  - pip:
+    - ranger-fm
