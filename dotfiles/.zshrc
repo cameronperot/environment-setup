@@ -45,7 +45,7 @@ setopt HIST_REDUCE_BLANKS
 setopt HIST_VERIFY
 setopt HIST_SAVE_NO_DUPS
 unsetopt SHARE_HISTORY
-HISTORY_IGNORE="*secret*"
+HISTORY_IGNORE="*password*:*secret*:*PASSWORD*:*SECRET*"
 
 # Aliases
 unalias rm 2>/dev/null
