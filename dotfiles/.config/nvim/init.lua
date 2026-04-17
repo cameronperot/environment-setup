@@ -1,6 +1,6 @@
 -- Bootstrap Lazy
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
+if not vim.uv.fs_stat(lazypath) then
     vim.fn.system({
         "git",
         "clone",
@@ -32,6 +32,3 @@ require("core.diagnostics")
 -- Nerd Fonts
 -- https://www.nerdfonts.com/font-downloads
 -- https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip
-
--- Plugins to look into:
--- https://nvimdev.github.io/lspsaga/

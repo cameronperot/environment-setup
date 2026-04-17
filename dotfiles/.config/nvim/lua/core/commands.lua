@@ -1,3 +1,5 @@
 vim.api.nvim_create_user_command("Scratch", function()
-    vim.cmd("edit ~/tmp/scratch.md")
+    local dir = vim.fn.expand("~/tmp")
+    vim.fn.mkdir(dir, "p")
+    vim.cmd("edit " .. dir .. "/scratch.md")
 end, {})

@@ -36,9 +36,9 @@ local M = {
             {
                 "<Leader>dh",
                 function()
-                    require("dap").step_back()
+                    require("dap").run_to_cursor()
                 end,
-                desc = "Debug: Step Back",
+                desc = "Debug: Run to Cursor",
             },
             {
                 "<Leader>dj",
@@ -189,6 +189,10 @@ local M = {
                     name = "Launch file",
                     program = "${file}",
                     pythonPath = function()
+                        local ok, vs = pcall(require, "venv-selector")
+                        if ok and vs.python() then
+                            return vs.python()
+                        end
                         return vim.g.python3_host_prog or "python"
                     end,
                 },

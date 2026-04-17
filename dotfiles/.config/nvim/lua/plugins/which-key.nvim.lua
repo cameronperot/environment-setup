@@ -5,8 +5,9 @@ local M = {
         local wk = require("which-key")
         wk.setup(opts)
         wk.add({
-            { "<Leader>a", group = "code actions/parameter swap" },
+            { "<Leader>a", group = "ALE/parameter swap" },
             { "<Leader>b", group = "buffer" },
+            { "<Leader>c", group = "code" },
             { "<Leader>d", group = "debug/documentation" },
             { "<Leader>f", group = "find/telescope" },
             { "<Leader>g", group = "git/lazygit" },
@@ -15,8 +16,11 @@ local M = {
             { "<Leader>t", group = "toggle" },
             { "<Leader>p", group = "python" },
             { "<Leader>u", group = "uv" },
+            { "<Leader>n", group = "search" },
+            { "<Leader>o", group = "outline" },
             { "<Leader>x", group = "trouble/diagnostics" },
             { "<Leader>y", group = "yank to clipboard" },
+            { "<Leader>z", group = "zen" },
             { "g", group = "goto" },
             { "]", group = "next" },
             { "[", group = "previous" },
