@@ -24,6 +24,23 @@ local M = {
             },
         },
     },
+    config = function(_, opts)
+        require("venv-selector").setup(opts)
+        local activated = false
+        vim.api.nvim_create_autocmd("FileType", {
+            pattern = "python",
+            callback = function()
+                if activated then
+                    return
+                end
+                local venv_python = vim.fn.getcwd() .. "/.venv/bin/python"
+                if vim.fn.filereadable(venv_python) == 1 then
+                    require("venv-selector").activate_from_path(venv_python)
+                    activated = true
+                end
+            end,
+        })
+    end,
 }
 
 return { M }

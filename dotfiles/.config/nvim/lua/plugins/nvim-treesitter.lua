@@ -15,6 +15,8 @@ local M = {
             "rust",
             "toml",
             "yaml",
+            "markdown",
+            "markdown_inline",
         })
 
         -- Enable treesitter highlighting
@@ -26,6 +28,7 @@ local M = {
                 "json",
                 "julia",
                 "lua",
+                "markdown",
                 "python",
                 "rust",
                 "sh",

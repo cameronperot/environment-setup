@@ -114,29 +114,29 @@ vim.keymap.set(
     "<C-w>l",
     { noremap = true, silent = true, desc = "Window: Right" }
 )
-vim.api.nvim_set_keymap(
+vim.keymap.set(
     "t",
     "<C-h>",
     "<C-\\><C-n><C-w>h",
     { noremap = true, silent = true, desc = "Window: Left (from terminal)" }
 )
-vim.api.nvim_set_keymap(
+vim.keymap.set(
     "t",
     "<C-j>",
     "<C-\\><C-n><C-w>j",
     { noremap = true, silent = true, desc = "Window: Down (from terminal)" }
 )
-vim.api.nvim_set_keymap(
+vim.keymap.set(
     "t",
     "<C-k>",
     "<C-\\><C-n><C-w>k",
     { noremap = true, silent = true, desc = "Window: Up (from terminal)" }
 )
-vim.api.nvim_set_keymap(
+vim.keymap.set(
     "t",
     "<C-l>",
     "<C-\\><C-n><C-w>l",
-    { noremap = true, silent = true, desc = "Window: Left (from terminal)" }
+    { noremap = true, silent = true, desc = "Window: Right (from terminal)" }
 )
 vim.keymap.set(
     "n",

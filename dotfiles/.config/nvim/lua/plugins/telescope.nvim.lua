@@ -1,6 +1,6 @@
 local M = {
     "nvim-telescope/telescope.nvim",
-    version = "0.2.0",
+    version = "0.2.1",
     dependencies = { "nvim-lua/plenary.nvim" },
     keys = {
         {
@@ -33,6 +33,14 @@ local M = {
                 require("telescope.builtin").help_tags()
             end,
             desc = "Telescope: Find help tags",
+            silent = true,
+        },
+        {
+            "<Leader>fd",
+            function()
+                require("telescope.builtin").current_buffer_fuzzy_find()
+            end,
+            desc = "Telescope: Fuzzy find in current buffer",
             silent = true,
         },
     },

@@ -109,6 +109,19 @@ handle_extension() {
             python -m json.tool -- "${FILE_PATH}" && exit 5
             ;;
 
+        ## Lua (file(1) often misidentifies .nvim.lua as application/javascript)
+        lua)
+            if [[ "$( stat --printf='%s' -- "${FILE_PATH}" )" -gt "${HIGHLIGHT_SIZE_MAX}" ]]; then
+                exit 2
+            fi
+            env HIGHLIGHT_OPTIONS="${HIGHLIGHT_OPTIONS}" highlight \
+                --out-format=xterm256 --syntax=lua --force -- "${FILE_PATH}" && exit 5
+            env COLORTERM=8bit bat --color=always --style="plain" \
+                --language=lua -- "${FILE_PATH}" && exit 5
+            pygmentize -f terminal256 -O "style=${PYGMENTIZE_STYLE}" -l lua \
+                -- "${FILE_PATH}" && exit 5
+            exit 2;;
+
         ## Direct Stream Digital/Transfer (DSDIFF) and wavpack aren't detected
         ## by file(1).
         dff|dsf|wv|wvc)

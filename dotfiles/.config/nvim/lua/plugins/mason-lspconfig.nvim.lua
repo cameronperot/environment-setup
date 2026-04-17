@@ -14,7 +14,6 @@ local M = {
                 "taplo",
                 "lua_ls",
             },
-            automatic_installation = true,
         })
     end,
 }

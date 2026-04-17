@@ -1,5 +1,4 @@
 -- Options
-vim.opt.encoding = "utf-8" -- File encoding
 vim.opt.foldenable = true -- Enable folding
 vim.opt.foldlevel = 99 -- Start with all folds open
 vim.opt.fillchars:append({
@@ -13,16 +12,16 @@ vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()" -- Treesitter folding expre
 vim.opt.splitbelow = true -- Horizontal splits below
 vim.opt.splitright = true -- Vertical splits to the right
 vim.opt.smartindent = true -- Smart indentation
+vim.opt.signcolumn = "yes" -- Always show sign column
 vim.opt.cursorline = true -- Highlight current line
 vim.opt.expandtab = true -- Tabs to spaces
 vim.opt.tabstop = 4 -- 4 spaces per tab
 vim.opt.shiftwidth = 4 -- 4 spaces for indentation
 vim.opt.number = true -- Line numbers
 vim.opt.relativenumber = true -- Relative line numbers
-vim.opt.colorcolumn = "88" -- Column limit marker
+vim.opt.colorcolumn = "98" -- Column limit marker
 vim.opt.ignorecase = true -- Case-insensitive search
 vim.opt.smartcase = true -- Case-sensitive if uppercase in search
-vim.opt.hidden = true -- Allow hidden buffers
 vim.opt.scrolloff = 8 -- Lines above/below cursor
 vim.opt.list = true -- Show special characters
 vim.opt.listchars = { tab = "»·", trail = "·" } -- Tab and trailing space markers
@@ -32,24 +31,22 @@ vim.opt.showbreak = " ↪" -- Wrapped line indicator
 vim.opt.spell = true -- Enable spell checking
 vim.opt.spelllang = "en_us" -- US English spelling
 vim.opt.termguicolors = true -- 24-bit color support
-vim.opt.ttyfast = true -- Speed up scrolling
 vim.opt.mousemoveevent = true -- Mouse movement events
 vim.opt.undofile = true
-vim.cmd("syntax enable") -- Syntax highlighting
-vim.cmd("filetype plugin indent on") -- Enable filetype
-vim.cmd(
-    "highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE"
-)
 vim.api.nvim_create_autocmd("FileType", { -- Disable auto continuing comment on next line
     pattern = "*",
     callback = function()
         vim.opt_local.formatoptions:remove({ "c", "r", "o" })
     end,
 })
+vim.cmd(
+    "highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE gui=NONE guifg=DarkGrey guibg=NONE"
+)
 vim.cmd("colorscheme onedark")
 
 -- Python
 vim.g.python3_host_prog = vim.env.HOME .. "/.micromamba/envs/dev/bin/python"
+vim.g.no_python_maps = 1 -- Disable python.vim ftplugin's ]] [[ ]m [m maps so snacks.words can bind ]] [[
 
 -- Markdown
 vim.api.nvim_create_autocmd("FileType", {
@@ -63,12 +60,19 @@ vim.api.nvim_create_autocmd("FileType", {
 -- Completion (:help completeopt)
 vim.opt.completeopt = { "menuone", "noselect", "noinsert" }
 vim.opt.shortmess = vim.opt.shortmess + { c = true }
-vim.api.nvim_set_option("updatetime", 300)
+vim.opt.updatetime = 300
 
 -- No spellcheck in terminal
 vim.api.nvim_create_autocmd("TermOpen", {
     callback = function()
         vim.opt_local.spell = false
+    end,
+})
+
+-- Highlight yanked text
+vim.api.nvim_create_autocmd("TextYankPost", {
+    callback = function()
+        vim.hl.on_yank({ timeout = 500 })
     end,
 })
 
