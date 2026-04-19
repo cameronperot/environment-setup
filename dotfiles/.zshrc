@@ -70,15 +70,15 @@ fi
 bindkey -s "^h" " hstr^M"        # bind ctrl-h to hstr
 alias hh=hstr                    # hh to be alias for hstr
 
+# Micromamba
+if [[ -f "${HOME}/.mamba_init.sh" ]]; then
+    source "${HOME}/.mamba_init.sh"
+fi
+
 # zoxide
 if [ -x "$(command -v zoxide)" ]; then
     function z () {
         __zoxide_z "$@"
     }
     eval "$(zoxide init zsh --no-cmd)"
-fi
-
-# Micromamba
-if [[ -f "${HOME}/.mamba_init.sh" ]]; then
-    source "${HOME}/.mamba_init.sh"
 fi
