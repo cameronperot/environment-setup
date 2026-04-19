@@ -202,6 +202,9 @@ bindsym $mod+r mode "resize"
 # Terminal
 bindsym $mod+Return exec kitty
 
+# /tmp/nvim
+bindsym $mod+n exec kitty sh -c 'f=/tmp/nvim/$(date +%Y%m%d_%H%M%S); mkdir -p /tmp/nvim; nvim "$f"'
+
 # Application launcher
 bindsym $mod+d exec rofi -show run
 bindsym $mod+g exec rofi -show window
