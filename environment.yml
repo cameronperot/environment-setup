@@ -25,7 +25,9 @@ dependencies:
   - ruff
   - scipy
   - seaborn
+  - tree-sitter-cli
   - uv
   - yarn
+  - zoxide
   - pip:
     - ranger-fm

@@ -16,12 +16,6 @@ For more information on the CLI args, run
 ./install.py --help
 ```
 
-## Neovim
-Some packages that might be required:
-```bash
-cargo install tree-sitter-cli stylua
-```
-
 ## Programming Languages
 ### Python
 Micromamba can be installed by running:
@@ -51,16 +45,6 @@ curl -fsSL https://install.julialang.org | sh
 The environment can be installed by running:
 ```bash
 julia julia/julia-setup.jl
-```
-
-## Misc.
-Zoxide is a nice alternative to using `cd`:
-```bash
-cargo install zoxide --locked
-```
-or
-```bash
-micromamba install -c conda-forge zoxide
 ```
 
 ## Customization
