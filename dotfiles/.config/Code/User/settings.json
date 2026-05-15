@@ -3,7 +3,7 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
         },
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true
     },
     "autoDocstring.docstringFormat": "one-line-sphinx",
@@ -11,10 +11,6 @@
     "autoDocstring.guessTypes": true,
     "autoDocstring.includeExtendedSummary": true,
     "autoDocstring.startOnNewLine": true,
-    "black-formatter.args": [
-        "--line-length=98",
-        "--extend-exclude=\\.json",
-    ],
     "cSpell.languageSettings": [
         // https://github.com/streetsidesoftware/vscode-spell-checker/issues/107
         {
@@ -62,22 +58,6 @@
         "--max-line-length=98",
     ],
     "git.enableCommitSigning": true,
-    "isort.args": [
-        "--profile=black",
-        "--line-length=98",
-        "--project=lsq",
-        "--project=lsq_db",
-        "--project=rd72",
-        "--project=rd65",
-        "--project=rd1062",
-        "--project=rd1487",
-        "--project=rd1487_elk",
-        "--project=rd3246",
-        "--project=rd3311",
-        "--project=lsq_crypto",
-    ],
-    "isort.check": true,
-    "isort.importStrategy": "fromEnvironment",
     "julia.enableCrashReporter": false,
     "julia.enableTelemetry": false,
     "julia.symbolCacheDownload": true,
@@ -97,8 +77,9 @@
     "pylint.args": [
         "--max-line-length=98"
     ],
-    "python.condaPath": "/home/cameron/.micromamba/bin/micromamba",
-    "python.defaultInterpreterPath": "/home/cameron/.micromamba/envs/dev/bin/python",
+    "python.condaPath": "/home/user/.micromamba/bin/micromamba",
+    "python.defaultInterpreterPath": "/home/user/.micromamba/envs/dev/bin/python",
+    "python.terminal.activateEnvironment": false,
     "telemetry.telemetryLevel": "off",
     "terminal.external.linuxExec": "kitty",
     "terminal.integrated.commandsToSkipShell": [
@@ -137,8 +118,8 @@
         "u",
         "w",
     ],
-    "vscode-neovim.neovimExecutablePaths.linux": "/usr/bin/nvim",
-    "vscode-neovim.neovimInitVimPaths.linux": "/home/cameron/.config/nvim/init.lua",
+    "vscode-neovim.neovimExecutablePaths.linux": "/home/user/bin/nvim",
+    "vscode-neovim.neovimInitVimPaths.linux": "/home/user/.config/nvim/init.lua",
     "window.zoomLevel": 1,
     "workbench.colorTheme": "One Dark Pro Darker",
     "workbench.startupEditor": "none",
@@ -153,8 +134,14 @@
     "window.commandCenter": false,
     "window.titleBarStyle": "custom",
     "window.customTitleBarVisibility": "auto",
-    "security.workspace.trust.untrustedFiles": "open",
     "containers.environment": {
         "HOST": "unix:///run/user/1000/podman/podman.sock"
     },
+    "files.autoSaveDelay": 30000,
+    "workbench.secondarySideBar.defaultVisibility": "visible",
+    "terminal.integrated.initialHint": false,
+    "markdown-preview-enhanced.revealjsTheme": "simple.css",
+    "markdown-preview-enhanced.previewTheme": "atom-light.css",
+    "markdown-preview-enhanced.enablePreviewZenMode": true,
+    "markdown-preview-enhanced.codeBlockTheme": "auto.css",
 }
