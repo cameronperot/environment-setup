@@ -119,7 +119,7 @@
         "w",
     ],
     "vscode-neovim.neovimExecutablePaths.linux": "/home/user/bin/nvim",
-    "vscode-neovim.neovimInitVimPaths.linux": "/home/user/.config/nvim/init.lua",
+    "vscode-neovim.neovimInitVimPaths.linux": "/home/user/.config/nvim/init-vscode.lua",
     "window.zoomLevel": 1,
     "workbench.colorTheme": "One Dark Pro Darker",
     "workbench.startupEditor": "none",
