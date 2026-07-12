@@ -1,6 +1,7 @@
 {
     "[python]": {
         "editor.codeActionsOnSave": {
+            "source.organizeImports.ruff": "explicit",
             "source.organizeImports": "explicit"
         },
         "editor.defaultFormatter": "charliermarsh.ruff",
@@ -66,7 +67,8 @@
         "/usr/bin/python3",
     ],
     "notebook.codeActionsOnSave": {
-        "source.organizeImports": true
+        "notebook.source.organizeImports.ruff": "explicit",
+        "notebook.source.fixAll.ruff": "explicit"
     },
     "jupyter.interactiveWindow.creationMode": "perFile",
     "jupyter.interactiveWindow.textEditor.executeSelection": true,
@@ -78,7 +80,7 @@
         "--max-line-length=98"
     ],
     "python.condaPath": "/home/user/.micromamba/bin/micromamba",
-    "python.defaultInterpreterPath": "/home/user/.micromamba/envs/dev/bin/python",
+    "python.defaultInterpreterPath": "/home/user/.micromamba/envs/dev",
     "python.terminal.activateEnvironment": false,
     "telemetry.telemetryLevel": "off",
     "terminal.external.linuxExec": "kitty",
@@ -128,7 +130,7 @@
         "default": "right",
         "jupyter-notebook": "right"
     },
-    "mypy-type-checker.showNotifications": "always",
+    "mypy-type-checker.showNotifications": "off",
     "workbench.activityBar.location": "top",
     "workbench.sideBar.location": "right",
     "window.commandCenter": false,
@@ -144,4 +146,6 @@
     "markdown-preview-enhanced.previewTheme": "atom-light.css",
     "markdown-preview-enhanced.enablePreviewZenMode": true,
     "markdown-preview-enhanced.codeBlockTheme": "auto.css",
+    "git.openRepositoryInParentFolders": "always",
+    "security.workspace.trust.untrustedFiles": "open",
 }
