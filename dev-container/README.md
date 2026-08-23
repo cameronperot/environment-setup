@@ -4,9 +4,10 @@ This dev container is designed for LLM-assisted coding to restrict the data and 
 Note: Containers are not a security measure. If you need security isolation then consider using a VM.
 
 ## Building
-Run the following command in this directory to build the image:
+The Containerfile copies the repository root into the image, so the build context is the
+repository root (the parent of this directory). Run the provided script from anywhere:
 ```bash
-podman build -t dev:latest .
+./dev-container/build.sh
 ```
 
 ## Usage

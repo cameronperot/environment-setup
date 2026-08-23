@@ -2,10 +2,10 @@ FROM debian:13
 
 # Args
 ARG TZ=UTC
-ARG DEV_USER=dev
-ARG DEV_UID=1000
-ARG DEV_GID=1000
-ARG HOME_DIR=/home/${DEV_USER}
+ARG NEW_USER=user
+ARG NEW_UID=1000
+ARG NEW_GID=1000
+ARG HOME_DIR=/home/${NEW_USER}
 ARG GIT_DELTA_VERSION=0.18.2
 
 # Env vars
@@ -19,7 +19,7 @@ ENV COLORTERM=truecolor \
     TERM=tmux-256color \
     TZ="${TZ}" \
     VISUAL=nvim
-ENV PATH="${HOME_DIR}/.local/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}"
+ENV PATH="${HOME_DIR}/.local/bin:${MAMBA_ROOT_PREFIX}/envs/dev/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}"
 
 # Debian packages
 RUN apt-get update \
@@ -36,6 +36,7 @@ RUN apt-get update \
     fd-find \
     fontconfig \
     fzf \
+    gdb \
     gh \
     git \
     gnupg2 \
@@ -57,15 +58,34 @@ RUN apt-get update \
     netbase \
     netcat-openbsd \
     openssh-client \
+    pkg-config \
     procps \
     ripgrep \
     rsync \
+    sd \
     shfmt \
     sudo \
+    tar \
     traceroute \
+    tree \
     unzip \
     wget \
+    zip \
     zsh \
+    # Chromium/Playwright
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libxkbcommon0 \
+    libcups2 \
+    libdrm2 \
+    libxshmfence1 \
     && apt-get clean all \
     && apt-get autoremove \
     && rm -rf /var/lib/apt/lists/* \
@@ -82,10 +102,10 @@ RUN ARCH=$(dpkg --print-architecture) \
     && rm /tmp/git-delta.deb
 
 # Create dev user with sudo access
-RUN groupadd -g "${DEV_GID}" "${DEV_USER}" \
-    && useradd -l -m -u "${DEV_UID}" -g "${DEV_GID}" -d "${HOME_DIR}" -s /usr/bin/zsh "${DEV_USER}" \
-    && echo "${DEV_USER}:${DEV_USER}" | chpasswd \
-    && usermod -aG sudo "${DEV_USER}"
+RUN groupadd -g "${NEW_GID}" "${NEW_USER}" \
+    && useradd -l -m -u "${NEW_UID}" -g "${NEW_GID}" -d "${HOME_DIR}" -s /usr/bin/zsh "${NEW_USER}" \
+    && echo "${NEW_USER}:${NEW_USER}" | chpasswd \
+    && usermod -aG sudo "${NEW_USER}"
 
 # Make required directories
 RUN mkdir -p \
@@ -93,23 +113,32 @@ RUN mkdir -p \
     /work \
     "${HOME_DIR}/.ssh" \
     && chmod 700 "${HOME_DIR}/.ssh" \
-    && chown -R "${DEV_USER}:${DEV_USER}" "${MAMBA_ROOT_PREFIX}" /work "${HOME_DIR}"
+    && chown -R "${NEW_USER}:${NEW_USER}" "${MAMBA_ROOT_PREFIX}" /work "${HOME_DIR}"
 
-USER "${DEV_USER}"
+USER "${NEW_USER}"
 
-# Install micromamba
+# Install uv and micromamba
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && uv python install 3.13 3.14
 RUN curl -fsSL https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
 RUN curl -L -o /tmp/environment.yml https://raw.githubusercontent.com/cameronperot/environment-setup/refs/heads/main/environment.yml \
     && micromamba env create -f /tmp/environment.yml \
     && micromamba clean --all --yes \
     && rm /tmp/environment.yml
-COPY --chown="${DEV_USER}:${DEV_USER}" ./jupyter_server_config.py "${HOME_DIR}/.jupyter/jupyter_server_config.py"
 
 # Configure dev environment
-RUN git clone https://github.com/cameronperot/environment-setup.git /tmp/environment-setup \
-    && "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
+COPY --chown="${NEW_USER}:${NEW_USER}" . /tmp/environment-setup/
+RUN "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
     && rm -rf "${HOME_DIR}/.config/nvim" \
-    && echo "source ${HOME_DIR}/.bash_aliases" >> "${HOME_DIR}/.bashrc"
+    && echo "source ${HOME_DIR}/.bash_aliases" >> "${HOME_DIR}/.bashrc" \
+    && mkdir -p "${HOME_DIR}/.jupyter" \
+    && cp /tmp/environment-setup/dev-container/jupyter_server_config.py "${HOME_DIR}/.jupyter/jupyter_server_config.py"
+
+# Configure agents
+RUN rm -rf "${HOME_DIR}/.pi/agent/prompts" "${HOME_DIR}/.pi/agent/skills" "${HOME_DIR}/.omp/agent/prompts" "${HOME_DIR}/.omp/agent/skills" \
+    && ln -s "${HOME_DIR}/.agent/skills" "${HOME_DIR}/.pi/agent/skills" \
+    && ln -s "${HOME_DIR}/.agent/skills" "${HOME_DIR}/.omp/agent/skills" \
+    && ln -s "${HOME_DIR}/.agent/prompts" "${HOME_DIR}/.pi/agent/prompts" \
+    && ln -s "${HOME_DIR}/.agent/prompts" "${HOME_DIR}/.omp/agent/prompts"
 
 # Configure root environment
 USER root
@@ -118,13 +147,13 @@ RUN chown -R root:root /tmp/environment-setup \
     && rm -rf "/root/.config/nvim" \
     && rm -rf /tmp/environment-setup \
     && echo "source /root/.bash_aliases" >> /root/.bashrc
-USER "${DEV_USER}"
+USER "${NEW_USER}"
 
 # Install coding agents
-RUN curl -fsSL https://claude.ai/install.sh | bash
-RUN curl -fsSL https://ampcode.com/install.sh | bash
 RUN curl -fsSL https://opencode.ai/install | bash \
     && ln -s "${HOME_DIR}/.opencode/bin/opencode" "${HOME_DIR}/.local/bin/opencode"
+RUN curl -fsSL https://pi.dev/install.sh | sh
+RUN curl -fsSL https://omp.sh/install | sh
 
 # Set the working directory
 WORKDIR /work
