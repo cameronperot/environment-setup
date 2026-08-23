@@ -100,22 +100,6 @@ class EnvironmentInstaller:
 
         self._logger.info("Successfully installed Neovim")
 
-    def install_tmux_resurrect(self):
-        """
-        Install tmux-resurrect to the user's home directory (~/.tmux-resurrect).
-        """
-        self._logger.info("Installing tmux-resurrect")
-
-        # repo url and path to clone the repo to
-        url = "https://github.com/tmux-plugins/tmux-resurrect"
-        clone_path = self._home_dir / ".tmux-resurrect"
-
-        # run the command
-        command = ["git", "clone", url, clone_path]
-        self._run_command(command)
-
-        self._logger.info("Successfully installed tmux-resurrect")
-
     def modify_zshrc(self):
         """
         Modify the .zshrc file to comment out any lines that might cause issues on
@@ -191,7 +175,6 @@ class EnvironmentInstaller:
         """
         if self._neovim_version.lower() not in ("0", "none"):
             self.install_neovim()
-        self.install_tmux_resurrect()
         self.modify_zshrc()
         self.copy_doftiles()
 
