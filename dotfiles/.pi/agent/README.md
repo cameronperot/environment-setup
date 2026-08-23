@@ -10,10 +10,8 @@ Project-level files layer on top rather than replacing this: a repo's `AGENTS.md
 |---|---|
 | `settings.json` | Provider, default model, default tool set, npm packages, TUI |
 | `models.json` | Per-provider overrides — OpenRouter routing only |
-| `presets.json` | The `dsv4-flash` → `dsv4-pro` → `review` mode ladder |
 | `guard-rules.json` | Path and bash-command policy the guard extensions enforce |
 | `AGENTS.md` | Prepended to every request; describes the extension tools and the subagent roles |
-| `agents/` | `scout` and `reviewer` subagent role definitions |
 | `extensions/` | 21 local extensions plus shared modules — see [`extensions/README.md`](extensions/README.md) |
 
 ## Models and providers
@@ -24,17 +22,9 @@ The default provider, model and `thinkingLevel` live in `settings.json` and chan
 
 ## Presets
 
-The operating model of this config: pick the cheapest tier that can actually do the job, and move up deliberately. `/preset` switches (`preset.ts`).
+The `preset` extension (`preset.ts`) reads named presets from `~/.pi/agent/presets.json`, with `<cwd>/.pi/presets.json` overriding by name, and switches provider, model, thinking level, tool set and instructions via `/preset`, `--preset` or Ctrl+Shift+U. A preset's `instructions` are appended to the system prompt while it is active, so they cost tokens only then.
 
-| Preset | Tier | Thinking | Tools | For |
-|---|---|---|---|---|
-| `dsv4-flash` | cheap | xhigh | full set | Default working mode. Grep and read targeted ranges rather than whole files; delegate wide recon to `scout` so its summary, not the files, lands in context. |
-| `dsv4-pro` | capable | xhigh | full set | Subtle bugs, unclear requirements, design decisions with consequences. Materially more expensive per token, so hand mechanical follow-up back down. |
-| `review` | capable | xhigh | **no `edit`/`write`** | Report findings, do not fix them. Correctness → security → reliability, with file and line for every finding. |
-
-Which provider and model each tier resolves to is in `presets.json` — read it there rather than assuming, since the models change.
-
-A preset's `instructions` are appended to the system prompt while it is active, so they cost tokens only then. `review` is read-only by *construction* — it removes `edit` and `write` from the tool set rather than instructing the model not to use them.
+No `presets.json` exists, so no presets are defined: every session runs the default provider and model from `settings.json`, and `/preset` reports "No presets defined". A preset that should be read-only achieves it by *construction* — it removes `edit` and `write` from its `tools` list rather than instructing the model not to use them.
 
 ## Modes
 
@@ -50,7 +40,7 @@ Session modes, all off or neutral at start and all toggles — running the comma
 
 Plan mode, presets and `/tools` all drive the same active tool set, so use one at a time. The approve modes are a separate axis: they gate calls rather than removing tools, and they stay quiet when a guard is already going to block or ask about the same call, so turning one on can only add confirmations.
 
-Together the modes cover three different controls. Plan mode and the `review` preset **prevent** by removing tools outright; the approve modes **confirm** at the moment of use; `/rewind` **undoes** after the fact. Note that both approve modes need a UI to ask through — under `-p` a gated call blocks instead, and the mode is restored from the session, so a resumed `/approve-all` session blocks every gated call.
+Together the modes cover three different controls. Plan mode **prevents** by removing tools outright; the approve modes **confirm** at the moment of use; `/rewind` **undoes** after the fact. Note that both approve modes need a UI to ask through — under `-p` a gated call blocks instead, and the mode is restored from the session, so a resumed `/approve-all` session blocks every gated call.
 
 ## Guard policy
 
@@ -60,8 +50,8 @@ Together the modes cover three different controls. Plan mode and the `review` pr
 |---|---|---|
 | `zeroAccessPaths` | No read, no write, no bash reference | `.env*`, `secrets.*`, `credentials.*`, `*.pem`, `*.p12`, `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.netrc`, git credentials |
 | `zeroAccessAllowPaths` | Exceptions to the above | `.env.example`, `.env-example`, `.env.template`, `.env.sample` |
-| `readOnlyPaths` | Reads fine; writes refused | `.git/`, lockfiles, `node_modules/`, venvs, `__pycache__/`, `dist/`, `build/`, `/etc` `/usr` `/bin` `/sbin`, shell rc and history files |
-| `noDeletePaths` | Deletion and move-away refused | `.git/`, `.github/`, `.gitignore`, `README.md`, `LICENSE`, `CLAUDE.md`, `AGENTS.md`, `pyproject.toml`, `uv.lock`, `Dockerfile`, `docker-compose.yml` |
+| `readOnlyPaths` | Reads fine; writes refused | `.git/`, lockfiles (`poetry.lock`, `package-lock.json`, `Cargo.lock`), `dist/`, `build/`, `/etc` `/usr` `/bin` `/sbin`, shell rc and history files |
+| `noDeletePaths` | Deletion and move-away refused | `.git/`, `.github/`, `Dockerfile`, `docker-compose.yml` |
 | `bashPatterns` | Regexes over the command string | Destructive `rm`, `sudo`, `chmod 777`; history-rewriting and work-discarding git; unqualified SQL `DROP` / `TRUNCATE` / `DELETE`; `curl \| sh`; `mkfs`; `dd of=/dev/` |
 
 Severity belongs to the rule, not to the extension enforcing it: `ask: true` prompts for confirmation, its absence blocks outright. That is how `git reset --hard` can confirm while `git filter-branch` refuses, from one list. Path classes have no per-rule `ask` — severity is fixed per class. A missing or malformed policy falls back to a `SAFETY_FLOOR` in `extensions/shared/rules.ts` rather than to no protection.
@@ -70,20 +60,9 @@ These are speed bumps, not a security boundary. Indirection through `sh -c` or `
 
 ## Subagents
 
-`subagent` reads role definitions from `agents/*.md`. Two are defined:
+`subagent` reads role definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), with `user` the default. No `agents/` directory exists, so no roles are defined: the `scout` and `reviewer` roles [`AGENTS.md`](#agentsmd) describes are not on disk, and every delegation is rejected with `Unknown agent`.
 
-| Agent | Tier | Tools | Role |
-|---|---|---|---|
-| [`scout`](agents/scout.md) | cheap | read, grep, find, ls | Recon — locating code, tracing dependencies. Returns a compressed summary with file and line ranges so the caller never reads the files. |
-| [`reviewer`](agents/reviewer.md) | capable | read, grep, find, ls | Review against the correctness → security → reliability priority order, in a fixed output format. |
-
-Both are read-only by design, with three consequences worth planning around:
-
-- No `bash`, so `reviewer` cannot produce its own `git diff` — pass the diff text or the changed file paths in the task.
-- No `subagent`, so delegation cannot recurse. Split wide work into parallel tasks from the parent.
-- A child cannot see the parent conversation and the parent cannot see the child's, so each task must be self-contained.
-
-Each role pins its own model in its frontmatter, and that `model:` string needs the provider prefix. The agent name must match a file exactly, since an unknown name is rejected rather than guessed at.
+A role is a Markdown file with `name` and `description` frontmatter, optional `tools` and `model`, and a system-prompt body. Three constraints are worth planning around once roles exist: `tools` becomes a strict allowlist for the child, so a role without `bash` cannot run commands and a role without `subagent` cannot delegate further; a child cannot see the parent conversation and the parent cannot see the child's, so each task must be self-contained; and a `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`). The agent name must match a defined role exactly, since an unknown name is rejected rather than guessed at.
 
 ## AGENTS.md
 

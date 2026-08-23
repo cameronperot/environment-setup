@@ -10,8 +10,8 @@ The extensions themselves, by what they do:
   - [Guard policy](#guard-policy) — the `guard-rules.json` classes they enforce
 - [Tools](#tools) — `built-in-tool-renderer.ts`, `todo.ts`, `questionnaire.ts`
 - [Workflow](#workflow) — `preset.ts`, `plan-mode/`, `tools.ts`, `handoff.ts`, `commands.ts`, `subagent/`
-  - [Subagent roles](#subagent-roles) — the `scout` and `reviewer` definitions `subagent/` reads
-- [Display](#display) — `custom-footer.ts`, `notify.ts`, `system-prompt-header.ts`, `system-prompt-dump.ts`
+  - [Subagent roles](#subagent-roles) — where `subagent/` reads its agent definitions (none currently defined)
+- [Display](#display) — `custom-footer.ts`, `notify.ts`, `system-prompt-header.ts`, `system-prompt-dump.ts.disabled`
 - [Context](#context) — `claude-rules.ts`, `rules-loader.ts`, `shake.ts`
 - [Session](#session) — `session-name.ts`, `bookmark.ts`
 - [npm packages](#npm-packages) — `pi-rewind`, installed rather than staged here
@@ -95,7 +95,7 @@ Plan mode only ever *removes* tools (`edit`, `write`), so entering it can never 
 | `custom-footer.ts` | Footer with live `↑input ↓output $cost` summed from session usage, plus model id and git branch. **Off until you run `/footer`.** | `/footer` |
 | `notify.ts` | Desktop notification when the agent finishes — OSC 777 (Ghostty/iTerm2/WezTerm), OSC 99 (Kitty), WSL toast. Interactive sessions only. | — |
 | `system-prompt-header.ts` | Status widget showing system prompt length in chars — a watchdog on prompt bloat. | — |
-| `system-prompt-dump.ts` | Appends the **full** system prompt to `~/.pi/agent/system-prompt.log` on every model request; `/system-prompt` prints the current one to standard out. | `/system-prompt` |
+| `system-prompt-dump.ts.disabled` | **Not loaded** — renamed so Pi's loader skips it. When re-enabled, it appends the **full** system prompt to `~/.pi/agent/system-prompt.log` on every model request; `/system-prompt` prints the current one to standard out. | `/system-prompt` |
 
 ## Context
 
@@ -120,16 +120,9 @@ Two consequences to plan around. Rewriting an old message invalidates the provid
 
 ## Subagent roles
 
-`subagent/` reads its agent definitions from `~/.pi/agent/agents/*.md`, outside this directory.
+`subagent/` reads its agent definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), outside this directory. No `agents/` directory currently exists, so no roles are defined and every delegation is rejected with `Unknown agent`; the `scout` and `reviewer` roles `../AGENTS.md` describes are not on disk.
 
-| Agent | Model | Tools | Role |
-|---|---|---|---|
-| `scout` | `openrouter/deepseek/deepseek-v4-flash` | read, grep, find, ls | Recon; returns a compressed summary so the caller never reads the files. |
-| `reviewer` | `openrouter/deepseek/deepseek-v4-pro` | read, grep, find, ls | Review against the correctness → security → reliability priority order. |
-
-Both roles are read-only by design. Restricting `tools` also means no child can call `subagent`, so delegation cannot recurse. `reviewer` has no `bash`, so it cannot run `git diff` — pass the diff or the changed file paths in the task text.
-
-Model strings need the provider prefix, since the extension builds `${provider}/${id}`.
+When roles are defined: a `tools:` list in frontmatter becomes the child's `--tools` allowlist, so a role without `subagent` cannot recurse and a role without `bash` cannot run commands. A `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`).
 
 ## npm packages
 
@@ -151,7 +144,7 @@ Everything that reaches the model on every request, as opposed to on demand:
 | `rules-loader.ts` | full text of `~/.agent/rules/*.md` (~3 KB here) | Always-on global rules, in every request. |
 | `preset.ts` | length of `instructions` | Only while a preset is active. |
 | `shake.ts` | negative | Removes tokens rather than adding them. Its `context` handler runs before every request, so it stays O(messages) with no I/O. |
-| `system-prompt-dump.ts` | none | Registers a command only; its `context` handler adds nothing to the prompt but writes the full prompt to disk every request. Runs before every request by construction — disable it if the log grows unwanted. |
+| `system-prompt-dump.ts.disabled` | none | Renamed to `.disabled`, so it does not load. |
 
 Everything else registers commands, shortcuts or renderers only, and costs nothing per request.
 
@@ -166,7 +159,7 @@ These diverge from their `examples/extensions/` counterparts:
 - **`notify.ts`** — returns early unless `ctx.hasUI`. `subagent/` spawns children with extensions loaded, and their stdout is the JSON protocol stream the parent parses; an OSC sequence written there corrupts whichever event line it lands in.
 - **`protected-paths.ts`** and **`permission-gate.ts`** — rule-driven rather than carrying their path lists and regexes as source literals, with the `ask` distinction, the audit entry, and path-segment matching added.
 - **`protected-paths-bash.ts`**, **`shared/rules.ts`**, **`shared/access-log.ts`**, **`shake.ts`** and **`approve-gate.ts`** — authored here, no upstream equivalent.
-- **`system-prompt-dump.ts`** — authored here, no upstream equivalent. The `context` hook (before every model call) calls `ctx.getSystemPrompt()` and appends the prompt to `~/.pi/agent/system-prompt.log`; `/system-prompt` prints the current prompt to stdout on demand. It writes to a file rather than the TUI/console because the prompt is large and a per-call dump into a live render or a `-p` protocol stream would be unusable. Note `ctx.getSystemPrompt()` reflects Pi's system prompt, not provider-payload rewrites other extensions make later in the chain.
+- **`system-prompt-dump.ts`** — authored here, no upstream equivalent. Currently staged as `system-prompt-dump.ts.disabled`, so it does not load. The `context` hook (before every model call) calls `ctx.getSystemPrompt()` and appends the prompt to `~/.pi/agent/system-prompt.log`; `/system-prompt` prints the current prompt to stdout on demand. It writes to a file rather than the TUI/console because the prompt is large and a per-call dump into a live render or a `-p` protocol stream would be unusable. Note `ctx.getSystemPrompt()` reflects Pi's system prompt, not provider-payload rewrites other extensions make later in the chain.
 
 Two shipped examples were staged and later removed: `inline-bash.ts` (its `!{cmd}` expansion runs through `pi.exec`, which is not a `tool_call`, so it bypassed every guard on this page including plan mode) and `modal-editor.ts` (it swallowed the first Escape, breaking single-Escape abort, `doubleEscapeAction` and `pi-rewind`'s Esc Esc at once).
 
@@ -178,4 +171,4 @@ Two shipped examples were staged and later removed: `inline-bash.ts` (its `!{cmd
 - `approve-gate.ts` is **additive** to the other guards, not layered over them: all `tool_call` handlers run in sequence, the first to block wins and the rest never run, and load order is unsorted `readdir`. Because that order is not controllable, the gate checks the policy itself before prompting and stays quiet when a guard is going to block or ask about the same call — so a call `guard-rules.json` refuses is never presented for approval, and an `ask` rule produces one prompt rather than two. Turning a mode on can therefore only ever *add* confirmations.
 - Both modes are TUI/RPC only. With no UI to ask through, a gated call blocks, the way every `ask` rule degrades. Note the mode is restored from the session, so resuming an `/approve-all` session under `-p` blocks every gated tool.
 - The gate does **not** reach subagent children. They spawn `--no-session`, so no restored mode state reaches them and they always start with it off — gating the parent's `subagent` call is the only control point over the child's session, which is why it is gated under `/approve-all`.
-- `subagent/` spawns children without `--no-extensions`, so each child re-discovers this whole directory and re-pays the load time. It does *not* re-pay the tool-definition tokens: both agents set `tools:` in frontmatter, which becomes `--tools`, a strict allowlist across built-in and extension tools alike. The guards still apply to children — a scout that reads a `.env` is refused and logged to the same `read-access.log`. Children run `--no-session`, so nothing is served from your prompt cache.
+- `subagent/` spawns children without `--no-extensions`, so each child re-discovers this whole directory and re-pays the load time. It does *not* re-pay the tool-definition tokens: a role's `tools:` frontmatter becomes `--tools`, a strict allowlist across built-in and extension tools alike. The guards still apply to children — one that reads a `.env` is refused and logged to the same `read-access.log`. Children run `--no-session`, so nothing is served from your prompt cache.
