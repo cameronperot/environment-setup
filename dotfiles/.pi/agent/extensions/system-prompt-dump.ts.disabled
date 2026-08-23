@@ -1,0 +1,35 @@
+/**
+ * System Prompt Dump Extension
+ *
+ * Dumps the full system prompt that each model request carries to
+ * `~/.pi/agent/system_prompt.md`, refreshed on every LLM call via the
+ * `context` event (overwriting the previous capture). The `/system-prompt`
+ * command prints the current prompt to standard out on demand.
+ */
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { getAgentDir, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+
+const LOG_FILE = join(getAgentDir(), "system_prompt.md");
+
+export default function (pi: ExtensionAPI) {
+	pi.on("context", async (_event, ctx) => {
+		const prompt = ctx.getSystemPrompt();
+
+		try {
+			await withFileMutationQueue(LOG_FILE, async () => {
+				await writeFile(LOG_FILE, prompt);
+			});
+		} catch {
+			// A logging failure must never take the request down with it.
+		}
+	});
+
+	pi.registerCommand("system-prompt", {
+		description: "Print the current full system prompt to standard out",
+		handler: (_args, ctx) => {
+			console.log(ctx.getSystemPrompt());
+		},
+	});
+}

@@ -1,0 +1,57 @@
+/**
+ * System Prompt Dump Extension
+ *
+ * Dumps the full system prompt that each model request carries to
+ * `~/.omp/agent/system_prompt.md`, refreshed on every LLM call via the
+ * `context` event (overwriting the previous capture). The `/system-prompt`
+ * command prints the current prompt to standard out on demand.
+ */
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+const LOG_FILE = path.join(os.homedir(), ".omp", "agent", "system_prompt.md");
+
+interface ExtensionContext {
+  getSystemPrompt(): string | string[];
+}
+
+interface AgentAPI {
+  on(
+    event: string,
+    handler: (event: unknown, ctx: ExtensionContext) => void | Promise<unknown>,
+  ): void;
+  registerCommand(
+    name: string,
+    options: {
+      description: string;
+      handler: (args: string, ctx: ExtensionContext) => void | Promise<unknown>;
+    },
+  ): void;
+}
+
+export default function (agent: AgentAPI) {
+  agent.on("context", async (_event: unknown, ctx: ExtensionContext) => {
+    try {
+      // Refresh the dump on every LLM call so it always reflects the current
+      // effective system prompt, including extension-injected sections.
+      fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+      fs.writeFileSync(LOG_FILE, normalize(ctx.getSystemPrompt()), "utf8");
+    } catch {
+      // A logging failure must never take the request down with it.
+    }
+  });
+
+  agent.registerCommand("system-prompt", {
+    description: "Print the current full system prompt to standard out",
+    handler: (_args, ctx) => {
+      console.log(normalize(ctx.getSystemPrompt()));
+    },
+  });
+}
+
+// getSystemPrompt returns the prompt as either a single string or an array of
+// system-prompt blocks; flatten to one string.
+function normalize(prompt: string | string[]): string {
+  return Array.isArray(prompt) ? prompt.join("\n") : prompt;
+}

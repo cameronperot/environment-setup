@@ -1,0 +1,78 @@
+{
+  "zeroAccessAllowPaths": [".env.example", ".env-example", ".env.template", ".env.sample"],
+
+  "zeroAccessPaths": [
+    ".env",
+    ".env.*",
+    "*.env",
+    ".envrc",
+    "secrets.json",
+    "secrets.yaml",
+    "secrets.yml",
+    "secrets.toml",
+    "credentials.json",
+    "credentials.yaml",
+    "credentials.yml",
+    "credentials.toml",
+    "*.pem",
+    "*.p12",
+    "~/.ssh/",
+    "~/.aws/",
+    "~/.gnupg/",
+    "~/.netrc",
+    "~/.git-credentials",
+    ".git-credentials"
+  ],
+
+  "readOnlyPaths": [
+    ".git/",
+    "poetry.lock",
+    "package-lock.json",
+    "Cargo.lock",
+    "dist/",
+    "build/",
+    "/etc/",
+    "/usr/",
+    "/bin/",
+    "/sbin/",
+    "~/.zshrc",
+    "~/.bashrc",
+    "~/.profile",
+    "~/.zsh_history",
+    "~/.bash_history"
+  ],
+
+  "noDeletePaths": [
+    ".git/",
+    ".github/",
+    "Dockerfile",
+    "docker-compose.yml"
+  ],
+
+  "bashPatterns": [
+    { "pattern": "\\brm\\s+(-[^\\s]*)*-[rRf]", "reason": "rm with recursive or force flags", "ask": true },
+    { "pattern": "\\brm\\s+--(recursive|force)\\b", "reason": "rm with --recursive or --force", "ask": true },
+    { "pattern": "\\bsudo\\b", "reason": "sudo (runs as root)", "ask": true },
+    { "pattern": "\\b(chmod|chown)\\b[^|;]*\\b777\\b", "reason": "chmod/chown 777 (world writable)", "ask": true },
+
+    { "pattern": "\\bgit\\s+reset\\s+--hard\\b", "reason": "git reset --hard discards uncommitted work (use --soft or stash)", "ask": true },
+    { "pattern": "\\bgit\\s+clean\\s+(-[^\\s]*)*-[fd]", "reason": "git clean -f/-d deletes untracked files", "ask": true },
+    { "pattern": "\\bgit\\s+checkout\\s+--\\s*\\.", "reason": "git checkout -- . discards all uncommitted changes", "ask": true },
+    { "pattern": "\\bgit\\s+restore\\s+\\.", "reason": "git restore . discards all uncommitted changes", "ask": true },
+    { "pattern": "\\bgit\\s+branch\\s+(-[^\\s]*)*-D\\b", "reason": "git branch -D force-deletes an unmerged branch", "ask": true },
+    { "pattern": "\\bgit\\s+push\\s+[^|;]*--force(?!-with-lease)", "reason": "git push --force overwrites remote history (use --force-with-lease)" },
+    { "pattern": "\\bgit\\s+push\\b[^|;]*\\s-{1,2}[a-zA-Z]*f\\b", "reason": "git push -f overwrites remote history (use --force-with-lease)" },
+    { "pattern": "\\bgit\\s+stash\\s+clear\\b", "reason": "git stash clear deletes every stash" },
+    { "pattern": "\\bgit\\s+reflog\\s+expire\\b", "reason": "git reflog expire destroys the recovery mechanism" },
+    { "pattern": "\\bgit\\s+filter-branch\\b", "reason": "git filter-branch rewrites entire history" },
+
+    { "pattern": "\\bDROP\\s+DATABASE\\b", "reason": "DROP DATABASE" },
+    { "pattern": "\\bDROP\\s+(TABLE|SCHEMA)\\b", "reason": "DROP TABLE/SCHEMA", "ask": true },
+    { "pattern": "\\bTRUNCATE\\s+TABLE\\b", "reason": "TRUNCATE TABLE deletes all rows", "ask": true },
+    { "pattern": "\\bDELETE\\s+FROM\\s+\\w+\\s*(;|$)", "reason": "DELETE FROM with no WHERE clause deletes all rows", "ask": true },
+
+    { "pattern": "\\b(curl|wget)\\b[^|;]*\\|\\s*(ba|z)?sh\\b", "reason": "piping a download straight into a shell (remote code execution)" },
+    { "pattern": "\\bmkfs\\.", "reason": "filesystem format command" },
+    { "pattern": "\\bdd\\b[^|;]*\\bof=/dev/", "reason": "dd writing to a raw device" }
+  ]
+}

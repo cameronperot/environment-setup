@@ -1,0 +1,12 @@
+{
+  "providers": {
+    "openrouter": {
+      "compat": {
+        "openRouterRouting": {
+          "data_collection": "deny",
+          "zdr": true
+        }
+      }
+    }
+  }
+}

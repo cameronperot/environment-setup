@@ -1,0 +1,31 @@
+{
+  "defaultProvider": "opencode-go",
+  "defaultModel": "glm-5.3",
+  "defaultThinkingLevel": "high",
+  "showCacheMissNotices": true,
+  "defaultTools": [
+    "read",
+    "bash",
+    "edit",
+    "write",
+    "grep",
+    "find",
+    "ls",
+    "todo",
+    "questionnaire",
+    "subagent"
+  ],
+  "packages": [
+    "npm:pi-rewind@0.5.0"
+  ],
+  "enableInstallTelemetry": false,
+  "theme": "onedark",
+  "editorPaddingX": 0,
+  "outputPad": 0,
+  "doubleEscapeAction": "rewind",
+  "branchSummary": {
+    "skipPrompt": true
+  },
+  "lastChangelogVersion": "0.84.2",
+  "hideThinkingBlock": false
+}

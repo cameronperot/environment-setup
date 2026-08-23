@@ -1,0 +1,181 @@
+# Pi Extensions
+
+Extensions for Pi. Pi loads `*.ts` / `*.js` at this level plus `*/index.ts` subdirectories, so `README.md`, `package.json` and `tsconfig.json` are inert and `shared/` is a plain module directory rather than an extension.
+
+## Contents
+
+The extensions themselves, by what they do:
+
+- [Guards](#guards) — `permission-gate.ts`, `protected-paths.ts`, `protected-paths-bash.ts`, `approve-gate.ts`
+  - [Guard policy](#guard-policy) — the `guard-rules.json` classes they enforce
+- [Tools](#tools) — `built-in-tool-renderer.ts`, `todo.ts`, `questionnaire.ts`
+- [Workflow](#workflow) — `preset.ts`, `plan-mode/`, `tools.ts`, `handoff.ts`, `commands.ts`, `subagent/`
+  - [Subagent roles](#subagent-roles) — the `scout` and `reviewer` definitions `subagent/` reads
+- [Display](#display) — `custom-footer.ts`, `notify.ts`, `system-prompt-header.ts`, `system-prompt-dump.ts`
+- [Context](#context) — `claude-rules.ts`, `rules-loader.ts`, `shake.ts`
+- [Session](#session) — `session-name.ts`, `bookmark.ts`
+- [npm packages](#npm-packages) — `pi-rewind`, installed rather than staged here
+
+Across all of them:
+
+- [Per-request token cost](#per-request-token-cost) — what reaches the model on every request
+- [Local modifications](#local-modifications) — where these diverge from the shipped examples
+- [Interactions](#interactions) — conflicts to know about when combining them
+
+## Guards
+
+The guards are the *mechanism*; the policy they enforce is data, in [`guard-rules.json`](#guard-policy).
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `permission-gate.ts` | Applies `bashPatterns` to every bash command. `ask: true` confirms, otherwise blocks. | — |
+| `protected-paths.ts` | Blocks `write`/`edit` to `zeroAccessPaths` and `readOnlyPaths`. | — |
+| `protected-paths-bash.ts` | Applies the same path policy to `bash`: blocks `zeroAccessPaths` references and `noDeletePaths` deletions, confirms writes to `readOnlyPaths`. | — |
+| `approve-gate.ts` | Two opt-in modes, both off by default: `/approve` confirms every `write`/`edit`, `/approve-all` confirms every tool bar the read-only ones. | `/approve`, `/approve-all` |
+
+The other three are policy-driven — they act only on a `guard-rules.json` match. `approve-gate.ts` is the blanket one: it gates by *mode*, not by rule, and so covers the ordinary edit to an unremarkable file that no rule mentions. That fills the gap between prevention (plan mode and the `review` preset remove `edit`/`write` outright), selective confirmation (the other guards) and undo (`/rewind`).
+
+Neither mode ever gates reading. `read`, `grep`, `find` and `ls` pass without a prompt under `/approve-all` too — they cannot modify the filesystem, and approving every file the model opens makes the mode unusable, which means it gets switched off. `todo` and `questionnaire` pass for the same reason; gating `questionnaire` would mean approving the model's request to ask you a question. The principle is **gate side effects, not information**. `bash` is gated in full under `/approve-all`, read-only commands included: the read-only allowlist in `plan-mode/utils.ts` admits `curl` and `env`, so reusing it would punch a hole in the tool with the widest blast radius.
+
+`subagent` is the highest-value gate of the set. The child runs headless in its own context and you never see its tool calls, so approving the delegation is the only control point over that whole session — worth keeping gated even though both current roles are read-only.
+
+Path policy is read through `shared/rules.ts`, shared with the `read` guard in `built-in-tool-renderer.ts` so the two cannot drift — a path blocked for `read` must also be blocked for `cat`, or the block is decoration. `shared/access-log.ts` holds the access log both write to.
+
+Every block and every answered confirmation — including a blocked `read` — is appended to the session as a `guard-block` entry (`{tool, rule, action, detail}`), so a blocked write leaves a trace after the notification scrolls away. Block text tells the model not to route around the block; without that a refusal reads as a failed attempt and `cat` becomes `head` becomes `python -c`.
+
+**Known gaps.** These are speed bumps, not a security boundary:
+
+- Path matching tokenizes the command on shell metacharacters, so indirection defeats it — `sh -c`, `python -c`, base64, or a path built from a variable.
+- Secrets held in **environment variables** cannot be protected at all. The `bash` tool inherits the process environment and `echo $TOKEN` is indistinguishable from any other `echo`. Anything in the environment is readable by the agent; treat it that way when deciding what to export.
+- Overriding a built-in tool does **not** bypass the guards: `tool_call` fires on the tool *name*, before execution, regardless of which implementation backs it.
+
+## Guard policy
+
+Policy is looked up per cwd, first hit wins: `<cwd>/.pi/guard-rules.json` for per-repo rules, then `~/.pi/agent/guard-rules.json` for global ones.
+
+| Class | Effect |
+|---|---|
+| `zeroAccessPaths` | No read, no write, no bash reference. Secrets. |
+| `zeroAccessAllowPaths` | Exceptions to the above, e.g. `.env.example`. |
+| `readOnlyPaths` | Reads fine; `write`/`edit` and bash writes refused. Lockfiles, build output, shell rc files. |
+| `noDeletePaths` | Deletion and move-away refused. |
+| `bashPatterns` | `{pattern, reason, ask?}` regexes over the command string. |
+
+Severity is a property of the rule, not of the extension enforcing it: `ask: true` prompts, its absence blocks. That is why `git reset --hard` can confirm while `git filter-branch` refuses, from one list. Rules that ask still block when there is no UI to ask through. Path classes carry no per-rule `ask` flag — severity is fixed per class, and `zeroAccessPaths` and `noDeletePaths` always block — so a path pattern that misfires is a hard stop with no keypress to get past it.
+
+Matching is per **path segment**, with `*`/`?` confined to one segment, `~` expanded, and relative patterns matching a contiguous run of segments at any depth, so `node_modules/` catches it however deep it is nested.
+
+`shared/rules.ts` holds a small `SAFETY_FLOOR`. A missing, malformed or partial policy falls back to it rather than to no protection, and the problem is announced once per cwd. A class the file omits keeps the floor's value, so leaving one out cannot quietly disable it; a class the file states replaces the floor's, so it can be narrowed on purpose.
+
+## Tools
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `built-in-tool-renderer.ts` | Compact display for the four core tools; `read` additionally logs every access to `~/.pi/agent/read-access.log` and refuses `.env`, secrets, credentials, `~/.ssh`, `~/.aws`, `~/.gnupg`. | tools `read` `bash` `edit` `write`, `/read-log` |
+| `todo.ts` | Todo list the model maintains; state lives in tool-result details so it stays correct across `/tree` branches. | tool `todo`, `/todos` |
+| `questionnaire.ts` | Lets the model ask *you* structured questions — options plus free text, tab bar for multi-question forms. | tool `questionnaire` |
+
+## Workflow
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `preset.ts` | Named presets from `~/.pi/agent/presets.json` setting provider, model, thinking level, tool set and instructions. | `/preset`, `--preset`, Ctrl+Shift+U |
+| `plan-mode/` | Read-only exploration: disables `edit`/`write`, filters `bash` through a read-only allowlist, extracts numbered steps from a `Plan:` block and tracks `[DONE:n]` completion in a widget. | `/plan`, `/steps`, `--plan`, Ctrl+Alt+P |
+| `tools.ts` | Interactive checklist to enable/disable tools mid-session; persists to the session and restores on start and on `/tree` navigation. | `/tools` |
+| `handoff.ts` | `/handoff <goal>` summarises the session into a self-contained prompt and opens it in a fresh session. Non-lossy alternative to `/compact`. Costs one LLM call. | `/handoff` |
+| `commands.ts` | Lists every slash command, filterable by source. | `/commands` |
+| `subagent/` | Delegates a task to a child `pi` process with its own context window; only the child's final output returns. Single, parallel (max 8, 4 concurrent) and chain modes. | tool `subagent` |
+
+Plan mode only ever *removes* tools (`edit`, `write`), so entering it can never hand back something the active mode withheld on purpose.
+
+## Display
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `custom-footer.ts` | Footer with live `↑input ↓output $cost` summed from session usage, plus model id and git branch. **Off until you run `/footer`.** | `/footer` |
+| `notify.ts` | Desktop notification when the agent finishes — OSC 777 (Ghostty/iTerm2/WezTerm), OSC 99 (Kitty), WSL toast. Interactive sessions only. | — |
+| `system-prompt-header.ts` | Status widget showing system prompt length in chars — a watchdog on prompt bloat. | — |
+| `system-prompt-dump.ts` | Appends the **full** system prompt to `~/.pi/agent/system-prompt.log` on every model request; `/system-prompt` prints the current one to standard out. | `/system-prompt` |
+
+## Context
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `claude-rules.ts` | Lists `<cwd>/.claude/rules/*.md` **paths** in the system prompt; the agent reads a rule only when it needs it. Project-scoped — does **not** pick up `~/.claude/rules/`. | — |
+| `rules-loader.ts` | Splices the **full text** of `~/.agent/rules/*.md` into the system prompt inside the first AGENTS.md `<project_instructions>` block, so the rules read as a continuation of it; appended at the end when no AGENTS.md block is present. A no-op when the directory is missing or empty. | — |
+| `shake.ts` | Replaces old tool results with short stubs in the payload sent to the model, leaving the transcript intact. Manual only. | `/shake`, `/unshake` |
+
+`rules-loader.ts` is the counterpart to `claude-rules.ts` by intent, not mechanism: `claude-rules.ts` serves project rules on demand (paths only, read when needed), while `rules-loader.ts` inlines rules that must hold in every session — the Behavior and Change Discipline sections formerly inline in `~/.pi/agent/AGENTS.md`, now split into `~/.agent/rules/*.md` with one concern per file. Splicing inside the `<project_instructions>` block keeps the rules at the same standing as the agent notes instead of dangling after the prompt. `~/.agent/` is not a Pi directory, and the per-request cost is the house pattern's: full rule text on every request. Rules are read once per `session_start`, so edits land only after a restart.
+
+`shake.ts` is non-destructive by construction: the `context` handler is a pure transform that core applies on the way to the provider and never writes back, so the session file, the TUI rendering and `/export` keep the full text. The only state is a set of shaken tool-call ids. Selection skips the newest 20k tokens, results under 200 tokens, and results containing images, and `/shake` refuses unless it reclaims at least 2k tokens.
+
+Two consequences to plan around. Rewriting an old message invalidates the provider's prompt cache from that point onward — the 2k floor exists so a marginal shake cannot cost more in re-read prefix than it saves, and it is why automatic shaking on a context threshold is deliberately not wired up. And state is per-process, so resuming a session starts unshaken.
+
+## Session
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `session-name.ts` | Friendly session names in the session selector instead of the first message. | `/session-name` |
+| `bookmark.ts` | Labels entries so they stand out in `/tree`. | `/bookmark`, `/unbookmark` |
+
+## Subagent roles
+
+`subagent/` reads its agent definitions from `~/.pi/agent/agents/*.md`, outside this directory.
+
+| Agent | Model | Tools | Role |
+|---|---|---|---|
+| `scout` | `openrouter/deepseek/deepseek-v4-flash` | read, grep, find, ls | Recon; returns a compressed summary so the caller never reads the files. |
+| `reviewer` | `openrouter/deepseek/deepseek-v4-pro` | read, grep, find, ls | Review against the correctness → security → reliability priority order. |
+
+Both roles are read-only by design. Restricting `tools` also means no child can call `subagent`, so delegation cannot recurse. `reviewer` has no `bash`, so it cannot run `git diff` — pass the diff or the changed file paths in the task text.
+
+Model strings need the provider prefix, since the extension builds `${provider}/${id}`.
+
+## npm packages
+
+| Package | Version | What it does | Registers |
+|---|---|---|---|
+| `pi-rewind` | 0.5.0 | Git-based checkpoints per turn, restore via `/rewind`. MIT, zero dependencies, registers **no tools**. | `/rewind`, Esc Esc |
+
+Installed via `packages` in `../settings.json` rather than as a file here.
+
+## Per-request token cost
+
+Everything that reaches the model on every request, as opposed to on demand:
+
+| Source | Cost | Notes |
+|---|---|---|
+| `read` `bash` `edit` `write` | none | Re-registrations of the built-ins with the same descriptions and schemas. |
+| `todo` `questionnaire` `subagent` | ~350 tokens total | Three genuinely new tool definitions. |
+| `claude-rules.ts` | one line per rule file | Only in a cwd that has `.claude/rules/`. |
+| `rules-loader.ts` | full text of `~/.agent/rules/*.md` (~3 KB here) | Always-on global rules, in every request. |
+| `preset.ts` | length of `instructions` | Only while a preset is active. |
+| `shake.ts` | negative | Removes tokens rather than adding them. Its `context` handler runs before every request, so it stays O(messages) with no I/O. |
+| `system-prompt-dump.ts` | none | Registers a command only; its `context` handler adds nothing to the prompt but writes the full prompt to disk every request. Runs before every request by construction — disable it if the log grows unwanted. |
+
+Everything else registers commands, shortcuts or renderers only, and costs nothing per request.
+
+Nothing in Pi's default system prompt mentions `todo`, `questionnaire` or `subagent`, so a model that is not told about them will not call them; `../AGENTS.md` carries that description. And registering a tool is not the same as activating it — `defaultTools` in `../settings.json` is the initial active set and lists all three, so that AGENTS.md is true in a session with no preset.
+
+## Local modifications
+
+These diverge from their `examples/extensions/` counterparts:
+
+- **`built-in-tool-renderer.ts`** — merged with the shipped `tool-override.ts`, which registered a competing `read`. The merged `read` delegates to `createReadTool()` rather than a hand-rolled implementation, builds base tools per `ctx.cwd` with the settings core passes in `_buildRuntime`, and on a block notifies and appends a `guard-block` entry like the other guards.
+- **`plan-mode/`** — `/todos` renamed to `/steps`, since `todo.ts` owns `/todos`. Tool handling is subtract-only: the shipped version unions a fixed tool list into the active set, which *grants* `bash` to a mode that deliberately had none. The injected prompt's `brave-search` line is removed.
+- **`notify.ts`** — returns early unless `ctx.hasUI`. `subagent/` spawns children with extensions loaded, and their stdout is the JSON protocol stream the parent parses; an OSC sequence written there corrupts whichever event line it lands in.
+- **`protected-paths.ts`** and **`permission-gate.ts`** — rule-driven rather than carrying their path lists and regexes as source literals, with the `ask` distinction, the audit entry, and path-segment matching added.
+- **`protected-paths-bash.ts`**, **`shared/rules.ts`**, **`shared/access-log.ts`**, **`shake.ts`** and **`approve-gate.ts`** — authored here, no upstream equivalent.
+- **`system-prompt-dump.ts`** — authored here, no upstream equivalent. The `context` hook (before every model call) calls `ctx.getSystemPrompt()` and appends the prompt to `~/.pi/agent/system-prompt.log`; `/system-prompt` prints the current prompt to stdout on demand. It writes to a file rather than the TUI/console because the prompt is large and a per-call dump into a live render or a `-p` protocol stream would be unusable. Note `ctx.getSystemPrompt()` reflects Pi's system prompt, not provider-payload rewrites other extensions make later in the chain.
+
+Two shipped examples were staged and later removed: `inline-bash.ts` (its `!{cmd}` expansion runs through `pi.exec`, which is not a `tool_call`, so it bypassed every guard on this page including plan mode) and `modal-editor.ts` (it swallowed the first Escape, breaking single-Escape abort, `doubleEscapeAction` and `pi-rewind`'s Esc Esc at once).
+
+## Interactions
+
+- `preset.ts`, `plan-mode/` and `tools.ts` all drive `setActiveTools()`. Use one at a time. `tools.ts` additionally restores its saved set on `session_start` and on `/tree` navigation, so a stale selection can override `defaultTools` on resume — clear it with `/tools` if the active set looks wrong.
+- Clearing a preset with no snapshot to restore falls back to `read, bash, edit, write` — narrower than the configured `defaultTools`. Use `/tools` to get the rest back. Leaving plan mode with no snapshot keeps whatever is active and adds `edit`/`write`, since plan mode never removed anything else.
+- Duplicate tool and command names resolve silently to whichever loads first, and load order is unsorted `readdir`. Extension commands also shadow same-named prompt templates from `~/.pi/agent/prompts/`, which is why `agent-skills/prompts/` ships `plan-change.md` — `plan-mode/` owns `/plan`. Pi's own built-ins win over both.
+- `approve-gate.ts` is **additive** to the other guards, not layered over them: all `tool_call` handlers run in sequence, the first to block wins and the rest never run, and load order is unsorted `readdir`. Because that order is not controllable, the gate checks the policy itself before prompting and stays quiet when a guard is going to block or ask about the same call — so a call `guard-rules.json` refuses is never presented for approval, and an `ask` rule produces one prompt rather than two. Turning a mode on can therefore only ever *add* confirmations.
+- Both modes are TUI/RPC only. With no UI to ask through, a gated call blocks, the way every `ask` rule degrades. Note the mode is restored from the session, so resuming an `/approve-all` session under `-p` blocks every gated tool.
+- The gate does **not** reach subagent children. They spawn `--no-session`, so no restored mode state reaches them and they always start with it off — gating the parent's `subagent` call is the only control point over the child's session, which is why it is gated under `/approve-all`.
+- `subagent/` spawns children without `--no-extensions`, so each child re-discovers this whole directory and re-pays the load time. It does *not* re-pay the tool-definition tokens: both agents set `tools:` in frontmatter, which becomes `--tools`, a strict allowlist across built-in and extension tools alike. The guards still apply to children — a scout that reads a `.env` is refused and logged to the same `read-access.log`. Children run `--no-session`, so nothing is served from your prompt cache.

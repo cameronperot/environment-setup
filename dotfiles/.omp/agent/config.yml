@@ -1,0 +1,28 @@
+modelRoles: 
+  default: openrouter/deepseek/deepseek-v4-flash-0731:high
+symbolPreset: nerd
+theme: 
+  dark: titanium
+setupVersion: 1
+terminal: 
+  showProgress: true
+tui: 
+  tight: true
+display: 
+  shimmer: disabled
+  showTokenUsage: true
+  cacheMissMarker: true
+task: 
+  showResolvedModelBadge: true
+defaultThinkingLevel: high
+completion: 
+  notify: "off"
+compaction: 
+  enabled: false
+  strategy: "off"
+enabledModels: 
+  - google/*
+  - opencode-go/*
+  - openrouter/*/*
+statusLine: 
+  preset: default

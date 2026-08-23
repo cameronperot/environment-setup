@@ -361,3 +361,15 @@ TSWLatexianTemp*
 .remote-sync.json
 .aider*
 compose-dev.yml
+
+# pi/omp
+dotfiles/.omp/**/*.db*
+dotfiles/.omp/**/*sessions
+dotfiles/.omp/**/last-changelog-version
+dotfiles/.pi/**/*sessions
+dotfiles/.pi/**/auth.json
+dotfiles/.pi/**/node_modules
+dotfiles/.pi/**/npm
+dotfiles/.pi/**/models-store.json
+dotfiles/.pi/docs
+specs
