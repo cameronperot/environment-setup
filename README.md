@@ -16,6 +16,11 @@ For more information on the CLI args, run
 ./install.py --help
 ```
 
+Most repository commands are also available as Makefile targets:
+```bash
+make help
+```
+
 ## Programming Languages
 ### Python
 Micromamba can be installed by running:
