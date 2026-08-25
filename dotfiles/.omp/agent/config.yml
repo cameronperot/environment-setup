@@ -3,7 +3,7 @@ modelRoles:
 symbolPreset: nerd
 theme: 
   dark: titanium
-setupVersion: 1
+setupVersion: 2
 terminal: 
   showProgress: true
 tui: 
@@ -19,10 +19,13 @@ completion:
   notify: "off"
 compaction: 
   enabled: false
-  strategy: "off"
+  methodOrder: 
+    []
 enabledModels: 
   - google/*
   - opencode-go/*
   - openrouter/*/*
 statusLine: 
   preset: default
+composer: 
+  shape: pi

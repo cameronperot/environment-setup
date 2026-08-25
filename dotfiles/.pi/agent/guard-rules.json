@@ -2,51 +2,40 @@
   "zeroAccessAllowPaths": [".env.example", ".env-example", ".env.template", ".env.sample"],
 
   "zeroAccessPaths": [
+    "*.env",
+    "*.p12",
+    "*.pem",
+    "*.priv",
     ".env",
     ".env.*",
-    "*.env",
     ".envrc",
-    "secrets.json",
-    "secrets.yaml",
-    "secrets.yml",
-    "secrets.toml",
+    ".git-credentials",
     "credentials.json",
+    "credentials.toml",
     "credentials.yaml",
     "credentials.yml",
-    "credentials.toml",
-    "*.pem",
-    "*.p12",
-    "~/.ssh/",
+    "secrets.json",
+    "secrets.toml",
+    "secrets.yaml",
+    "secrets.yml",
+    "~/*secret*",
     "~/.aws/",
+    "~/.git-credentials",
     "~/.gnupg/",
     "~/.netrc",
-    "~/.git-credentials",
-    ".git-credentials"
+    "~/.ssh/"
   ],
 
   "readOnlyPaths": [
     ".git/",
-    "poetry.lock",
-    "package-lock.json",
-    "Cargo.lock",
-    "dist/",
-    "build/",
-    "/etc/",
-    "/usr/",
     "/bin/",
+    "/etc/",
     "/sbin/",
-    "~/.zshrc",
-    "~/.bashrc",
-    "~/.profile",
-    "~/.zsh_history",
-    "~/.bash_history"
+    "/usr/"
   ],
 
   "noDeletePaths": [
-    ".git/",
-    ".github/",
-    "Dockerfile",
-    "docker-compose.yml"
+    ".git/"
   ],
 
   "bashPatterns": [

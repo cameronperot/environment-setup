@@ -1,7 +1,15 @@
 {
   "defaultProvider": "opencode-go",
   "defaultModel": "glm-5.3",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "low",
+  "enabledModels": [
+    "**/deepseek-v4-*",
+    "**/kimi-k3",
+    "**/glm-5.3",
+    "**/gpt-5.6-@(luna|sol|terra)",
+    "**/gemini-3.7-flash",
+    "**/claude-opus-5"
+  ],
   "showCacheMissNotices": true,
   "defaultTools": [
     "read",
@@ -26,6 +34,6 @@
   "branchSummary": {
     "skipPrompt": true
   },
-  "lastChangelogVersion": "0.84.2",
+  "lastChangelogVersion": "0.84.3",
   "hideThinkingBlock": false
 }
