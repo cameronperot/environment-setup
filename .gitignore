@@ -365,6 +365,7 @@ compose-dev.yml
 # pi/omp
 dotfiles/.omp/**/*.db*
 dotfiles/.omp/**/*sessions
+dotfiles/.omp/**/cache
 dotfiles/.omp/**/last-changelog-version
 dotfiles/.pi/**/*sessions
 dotfiles/.pi/**/auth.json
