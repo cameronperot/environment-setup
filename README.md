@@ -27,40 +27,9 @@ CLI options:
 
 - `--neovim-version <version>` — Neovim release to install (default: `stable`; use `none` to skip)
 - `--extract-appimage` — extract the appimage instead of running it directly (needed on systems without FUSE)
+- `--dry-run` — preview the dotfile changes without modifying anything
 
 Most repository commands are also available as Makefile targets:
 ```bash
 make help
 ```
-
-## Programming Languages
-### Python
-```bash
-# install micromamba
-curl -Ls https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
-
-# initialize for the current shell
-~/.micromamba/bin/micromamba shell init --root-prefix ~/.micromamba
-
-# create the root environment
-micromamba create -f environment.yml
-```
-
-Additional environments live in `python/environments/` and are created the same way, e.g. `micromamba create -f python/environments/ml.yml`.
-
-### Rust
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-### Julia
-```bash
-# install via Juliaup
-curl -fsSL https://install.julialang.org | sh
-
-# install the default package set
-julia julia/julia-setup.jl
-```
-
-## Customization
-To adapt this repo to your own setup, edit `update_dotfiles.sh` to copy your dotfiles into `dotfiles/`, and `install.py` to install your desired software and copy over your dotfiles.
