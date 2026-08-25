@@ -13,10 +13,28 @@
  * Config: ~/.pi/agent/worktree.json (global), <main-worktree>/.pi/worktree.json (repo, trust-gated).
  * Keys: root (string), copyFiles (string[]), setupCommand (string[] argv).
  * The base ref of each branch is stored in `git config branch.<name>.worktreeBase`.
+ *
+ * Sessions are shared: each worktree's default session directory
+ * (~/.pi/agent/sessions/--<encoded-cwd>--) is symlinked to the main worktree's
+ * session directory, so /resume lists sessions from the main checkout and all
+ * worktrees alike, and new sessions land in the shared directory.
  */
 
 import { spawn } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	realpathSync,
+	renameSync,
+	rmdirSync,
+	statSync,
+	symlinkSync,
+	unlinkSync,
+} from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { type ExtensionAPI, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -233,6 +251,57 @@ function isTrustedFromFile(cwd: string): boolean {
 }
 
 // =============================================================================
+// Shared sessions
+// =============================================================================
+
+/**
+ * Default pi session directory for a cwd. Mirrors pi's getDefaultSessionDirPath
+ * encoding (~/.pi/agent/sessions/--<cwd with /, \, : as - >--).
+ */
+function sessionDirFor(cwd: string): string {
+	const safePath = `--${resolve(cwd).replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+	return join(getAgentDir(), "sessions", safePath);
+}
+
+/**
+ * Link the worktree's session directory to the main worktree's so sessions are
+ * shared and visible from both. Migrates existing worktree sessions into the
+ * main directory before linking. Returns a human-readable status message.
+ */
+function linkSessions(mainWorktree: string, worktreePath: string): string {
+	const mainDir = sessionDirFor(mainWorktree);
+	const wtDir = sessionDirFor(worktreePath);
+	if (mainDir === wtDir) return "sessions already shared (main worktree)";
+	mkdirSync(mainDir, { recursive: true });
+
+	try {
+		if (lstatSync(wtDir).isSymbolicLink()) {
+			if (realpathSync(wtDir) === realpathSync(mainDir)) return "sessions already shared";
+			throw new Error(`session dir ${wtDir} is a symlink to ${realpathSync(wtDir)}, expected ${mainDir}`);
+		}
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+			symlinkSync(mainDir, wtDir, "dir");
+			return "sessions linked to main worktree";
+		}
+		throw e;
+	}
+
+	// wtDir is a real directory: migrate its sessions into mainDir, then link.
+	let migrated = 0;
+	for (const file of readdirSync(wtDir)) {
+		if (!file.endsWith(".jsonl")) continue;
+		renameSync(join(wtDir, file), join(mainDir, file));
+		migrated++;
+	}
+	const remaining = readdirSync(wtDir);
+	if (remaining.length > 0) throw new Error(`session dir ${wtDir} has non-session files: ${remaining.join(", ")}`);
+	rmdirSync(wtDir);
+	symlinkSync(mainDir, wtDir, "dir");
+	return migrated > 0 ? `sessions shared (${migrated} migrated to main worktree)` : "sessions linked to main worktree";
+}
+
+// =============================================================================
 // Core ops
 // =============================================================================
 
@@ -242,6 +311,7 @@ interface EnsureResult {
 	created: boolean;
 	copied: string[];
 	skipped: string[];
+	sessionStatus: string;
 	setupError?: string;
 }
 
@@ -260,9 +330,17 @@ async function ensureWorktree(
 	const root = worktreeRoot(config, mainWorktree);
 	const path = join(root, name);
 
-	const existing = findWorktree(await listWorktrees(pi, mainWorktree), name, root);
+	let existing = findWorktree(await listWorktrees(pi, mainWorktree), name, root);
+	if (existing && !existsSync(existing.path)) {
+		// Stale entry: the directory is gone from disk. Prune and create fresh.
+		await git(pi, ["worktree", "prune"], mainWorktree);
+		existing = undefined;
+	}
 	if (existing) {
-		if (reuse) return { path: existing.path, branch: name, created: false, copied: [], skipped: [] };
+		if (reuse) {
+			const sessionStatus = linkSessions(mainWorktree, existing.path);
+			return { path: existing.path, branch: name, created: false, copied: [], skipped: [], sessionStatus };
+		}
 		throw new Error(`worktree '${name}' already exists at ${existing.path}; use /worktree open ${name}`);
 	}
 
@@ -307,7 +385,9 @@ async function ensureWorktree(
 		}
 	}
 
-	return { path, branch: name, created: true, copied, skipped, setupError };
+	const sessionStatus = linkSessions(mainWorktree, path);
+
+	return { path, branch: name, created: true, copied, skipped, sessionStatus, setupError };
 }
 
 // =============================================================================
@@ -378,6 +458,7 @@ async function handleGwt(pi: ExtensionAPI): Promise<string | undefined> {
 	}
 	if (result.setupError) console.error(`pi-gwt: ${result.setupError}`);
 	if (result.skipped.length) console.error(`pi-gwt: copyFiles missing in main worktree: ${result.skipped.join(", ")}`);
+	console.error(`pi-gwt: ${result.sessionStatus}`);
 
 	const entry = process.argv[1];
 	const [cmd, args] =
@@ -434,6 +515,7 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 		const lines = [`worktree '${name}' created at ${r.path}`];
 		if (r.copied.length) lines.push(`copied: ${r.copied.join(", ")}`);
 		if (r.skipped.length) lines.push(`skipped (missing): ${r.skipped.join(", ")}`);
+		lines.push(r.sessionStatus);
 		lines.push(`open with: /worktree open ${name}  or  cd ${r.path} && pi`);
 		ctx.ui.notify(lines.join("\n"), "info");
 		if (r.setupError) ctx.ui.notify(`worktree '${name}' kept but ${r.setupError}`, "warning");
@@ -468,6 +550,15 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 			if (!ok) return;
 		}
 		await git(pi, ["worktree", "remove", "--force", target.path], mainWorktree);
+
+		// Remove the shared-session symlink; sessions stay in the main session dir.
+		const wtSessionDir = sessionDirFor(target.path);
+		try {
+			if (lstatSync(wtSessionDir).isSymbolicLink()) unlinkSync(wtSessionDir);
+		} catch {
+			// no session dir; nothing to clean up
+		}
+
 		ctx.ui.notify(`removed worktree ${target.path}`, "info");
 
 		const branch = target.branch;
@@ -567,5 +658,24 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 
 		const active = process.env[ENV_ACTIVE];
 		if (active) ctx.ui.notify(`worktree: ${active} (${ctx.cwd})`, "info");
+
+		// Fallback for worktrees entered without --gwt: ensure sessions are shared.
+		const sessionDir = sessionDirFor(ctx.cwd);
+		let linked = false;
+		try {
+			linked = lstatSync(sessionDir).isSymbolicLink();
+		} catch {
+			linked = false;
+		}
+		if (!linked) {
+			const mainDir = sessionDirFor(mainWorktree);
+			if (sessionDir !== mainDir) {
+				try {
+					ctx.ui.notify(`worktree: ${linkSessions(mainWorktree, ctx.cwd)}`, "info");
+				} catch (e) {
+					ctx.ui.notify(`worktree sessions: ${e instanceof Error ? e.message : String(e)}`, "error");
+				}
+			}
+		}
 	});
 }
