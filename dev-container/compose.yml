@@ -18,11 +18,8 @@ services:
       - "127.0.0.1:8888:8888"
     volumes:
       - .:/work
-      - dev-antigen:/home/dev/.antigen
-      - dev-claude-config:/home/dev/.claude
+      - dev-antigen:/home/user/.antigen
 
 volumes:
   dev-antigen:
     name: dev-antigen
-  dev-claude-config:
-    name: dev-claude-config

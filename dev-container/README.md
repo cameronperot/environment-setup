@@ -18,12 +18,7 @@ alias c='podman run \
   --rm \
   --userns keep-id \
   --security-opt label=disable \
-  -v dev-antigen:/home/dev/.antigen \
-  -v dev-amp-config:/home/dev/.config/amp \
-  -v dev-amp-data:/home/dev/.local/share/amp \
-  -v dev-claude-config:/home/dev/.claude \
-  -v dev-opencode-config:/home/dev/.config/opencode \
-  -v dev-opencode-data:/home/dev/.local/share/opencode \
+  -v dev-antigen:/home/user/.antigen \
   -v ${PWD}:/work \
   dev:latest'
 ```

@@ -58,6 +58,7 @@ RUN apt-get update \
     netbase \
     netcat-openbsd \
     openssh-client \
+    pandoc \
     pkg-config \
     procps \
     ripgrep \
@@ -120,8 +121,8 @@ USER "${NEW_USER}"
 # Install uv and micromamba
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && uv python install 3.13 3.14
 RUN curl -fsSL https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
-RUN curl -L -o /tmp/environment.yml https://raw.githubusercontent.com/cameronperot/environment-setup/refs/heads/main/environment.yml \
-    && micromamba env create -f /tmp/environment.yml \
+COPY environment.yml /tmp/environment.yml
+RUN micromamba env create -f /tmp/environment.yml \
     && micromamba clean --all --yes \
     && rm /tmp/environment.yml
 
