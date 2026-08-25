@@ -35,8 +35,12 @@ rsync -a --mkpath "${HOME}/.mamba_init.sh" "${DIR}/dotfiles/.mamba_init.sh"
 rsync -a --mkpath "${HOME}/.zshenv" "${DIR}/dotfiles/.zshenv"
 rsync -a --mkpath "${HOME}/.zshrc" "${DIR}/dotfiles/.zshrc"
 
-# commit and push
+# commit and push (skip if nothing changed)
 cd "${DIR}"
 git add dotfiles
-git commit -m "Updated dotfiles"
-git push
+if git diff --cached --quiet; then
+    echo "No dotfile changes to commit"
+else
+    git commit -m "Updated dotfiles"
+    git push
+fi

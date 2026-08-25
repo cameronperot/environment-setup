@@ -1,34 +1,48 @@
 #!/usr/bin/env python3
 
+"""Install the tracked dotfiles and optionally Neovim into the user's home directory."""
+
 import argparse
 import logging
 import os
+import platform
+import shutil
 import subprocess
 from pathlib import Path
 
+# mapping from ``platform.machine()`` values to the Neovim appimage architecture suffix
+APPIMAGE_ARCHS = {
+    "x86_64": "x86_64",
+    "aarch64": "aarch64",
+    "arm64": "aarch64",
+}
+
 
 class EnvironmentInstaller:
-    """
-    Class to orchestrate the environment installation.
-    """
+    """Orchestrate the environment installation."""
 
-    def __init__(self, neovim_version="v0.10.1", extract_appimage=False):
-        """
-        Initialize ``EnvironmentInstaller``.
+    def __init__(
+        self,
+        neovim_version: str = "stable",
+        extract_appimage: bool = False,
+        dry_run: bool = False,
+    ):
+        """Initialize ``EnvironmentInstaller``.
 
-        :param neovim_version: Version of Neovim to install. Available versions can be
-            found here: https://github.com/neovim/neovim/releases. Defaults to
-            ``"v0.9.4"``.
-        :type neovim_version: str, optional
-        :param extract_appimage: Flag to extract the appimage (might be necessary if
-            FUSE isn't available). Defaults to ``False``.
-        :type extract_appimage: bool, optional
+        Args:
+            neovim_version: Neovim release tag to install, e.g. ``v0.11.0``, ``stable``,
+                or ``nightly``. Available versions can be found here:
+                https://github.com/neovim/neovim/releases.
+            extract_appimage: Extract the appimage (might be necessary if FUSE isn't
+                available).
+            dry_run: Preview the dotfile changes without modifying anything.
         """
         self._repo_dir = Path(__file__).parent
         self._home_dir = Path().home()
         self._logger = logging.getLogger(self.__class__.__name__)
         self._neovim_version = neovim_version
         self._extract_appimage = extract_appimage
+        self._dry_run = dry_run
 
         # configure the logger
         logging.basicConfig(
@@ -40,39 +54,86 @@ class EnvironmentInstaller:
         # change to the repo directory
         os.chdir(self._repo_dir)
 
-    def _run_command(self, command):
-        """
-        Run the provided command, logging the command itself as well as the STDOUT.
+    def _run_command(
+        self, command: list[str], cwd: Path | None = None
+    ) -> subprocess.CompletedProcess:
+        """Run the provided command, logging the command itself as well as the STDOUT.
 
-        :param command: Command to run.
-        :type command: list[str]
+        Args:
+            command: Command to run.
+            cwd: Working directory to run the command in.
+
+        Returns:
+            The completed process.
+
+        Raises:
+            subprocess.CalledProcessError: If the command exits with a non-zero code.
         """
         # log the command
         self._logger.info(f"⟩ {' '.join(str(x) for x in command)}")
 
         # run the command and log the STDOUT
         result = subprocess.run(
-            command, check=True, capture_output=True, encoding="utf-8"
+            command, check=True, capture_output=True, encoding="utf-8", cwd=cwd
         )
         if result.stdout:
             self._logger.info(result.stdout)
 
         return result
 
-    def install_neovim(self):
-        """
-        Install Neovim to the user's home bin directory (~/bin/nvim).
-        """
+    def _check_dependencies(self) -> None:
+        """Fail early if any command required by the installation is missing."""
+        required = ["rsync"]
+        if not self._dry_run and self._neovim_version.lower() not in ("0", "none"):
+            required.append("wget")
+
+        missing = [command for command in required if shutil.which(command) is None]
+        if missing:
+            self._logger.error(f"Missing required commands: {', '.join(missing)}")
+            raise SystemExit(1)
+
+    def _comment_out_lines(self, file_path: Path, prefixes: tuple[str, ...]) -> None:
+        """Comment out any lines starting with one of the given prefixes."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        lines = [
+            f"# {line}" if any(line.startswith(prefix) for prefix in prefixes) else line
+            for line in lines
+        ]
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+    def _replace_line_prefix(self, file_path: Path, prefix: str, replacement: str) -> None:
+        """Replace any lines starting with ``prefix`` with ``replacement``."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        lines = [f"{replacement}\n" if line.startswith(prefix) else line for line in lines]
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+    def install_neovim(self) -> None:
+        """Install Neovim to the user's home bin directory (~/bin/nvim)."""
         self._logger.info("Installing Neovim")
+
+        machine = platform.machine()
+        arch = APPIMAGE_ARCHS.get(machine)
+        if arch is None:
+            self._logger.error(
+                f"Unsupported architecture for the Neovim appimage: {machine}"
+            )
+            raise SystemExit(1)
 
         # ensure the install path exists
         nvim_path = self._home_dir / "bin/nvim"
         if not nvim_path.parent.exists():
             nvim_path.parent.mkdir()
-        os.chdir(nvim_path.parent)
 
         # appimage url and commands to download and mark it as executable
-        url = f"https://github.com/neovim/neovim/releases/download/{self._neovim_version}/nvim-linux-x86_64.appimage"
+        url = f"https://github.com/neovim/neovim/releases/download/{self._neovim_version}/nvim-linux-{arch}.appimage"
         commands = [
             ["wget", "-O", nvim_path, url],
             ["chmod", "u+x", nvim_path],
@@ -93,90 +154,76 @@ class EnvironmentInstaller:
 
         # run the commands
         for command in commands:
-            self._run_command(command)
-
-        # change back to the repo directory
-        os.chdir(self._repo_dir)
+            self._run_command(command, cwd=nvim_path.parent)
 
         self._logger.info("Successfully installed Neovim")
 
-    def modify_zshrc(self):
-        """
-        Modify the .zshrc file to comment out any lines that might cause issues on
-        remote hosts.
-        """
-        self._logger.info("Modifying .zshrc")
-
-        # path to the .zshrc
-        file_path = self._repo_dir / "dotfiles/.zshrc"
-
-        # lines to comment out
-        comment_lines = (
-            "antigen bundle ssh-agent",
-            "source <(kitty + complete setup zsh)",
-        )
-
-        # read the lines from the file
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        # comment out the necessary lines
-        lines = [
-            (
-                line
-                if not any(line.startswith(pattern) for pattern in comment_lines)
-                else f"# {line}"
-            )
-            for line in lines
-        ]
-
-        # write the lines back to the file
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.writelines(lines)
-
-        # if MAMBA_ROOT_PREFIX is set on the host, update .mamba_init.sh to use it
-        mamba_root_prefix = os.environ.get("MAMBA_ROOT_PREFIX")
-        if mamba_root_prefix:
-            mamba_init_path = self._repo_dir / "dotfiles/.mamba_init.sh"
-            with open(mamba_init_path, "r", encoding="utf-8") as f:
-                mamba_lines = f.readlines()
-
-            mamba_lines = [
-                f'export MAMBA_ROOT_PREFIX="{mamba_root_prefix}"\n'
-                if line.startswith("export MAMBA_ROOT_PREFIX=")
-                else line
-                for line in mamba_lines
-            ]
-
-            with open(mamba_init_path, "w", encoding="utf-8") as f:
-                f.writelines(mamba_lines)
-
-        self._logger.info("Successfully modified .zshrc")
-
-    def copy_doftiles(self):
-        """
-        Copy over the dotfiles to the user's home directory.
-        """
+    def copy_dotfiles(self) -> None:
+        """Copy over the dotfiles to the user's home directory."""
         self._logger.info("Copying dotfiles")
 
         # source and destination directories to copy dotfiles from and to
         source_dir = self._repo_dir / "dotfiles"
         dest_dir = self._home_dir
 
-        # run the command
-        command = ["rsync", "-av", str(source_dir) + "/", str(dest_dir) + "/"]
+        # run the command; never deploy local aider history
+        command = [
+            "rsync",
+            "-av",
+            "--exclude=.aider*",
+            str(source_dir) + "/",
+            str(dest_dir) + "/",
+        ]
+        if self._dry_run:
+            command.append("--dry-run")
         self._run_command(command)
 
         self._logger.info("Successfully copied dotfiles")
 
-    def run(self):
+    def apply_host_adjustments(self) -> None:
+        """Adjust the deployed dotfiles to the current host.
+
+        Edits the copies in the user's home directory, leaving the tracked files in
+        the repository untouched.
         """
-        Run all install methods in sequence.
-        """
-        if self._neovim_version.lower() not in ("0", "none"):
-            self.install_neovim()
-        self.modify_zshrc()
-        self.copy_doftiles()
+        self._logger.info("Applying host adjustments")
+
+        # comment out lines that might cause issues on remote hosts
+        self._comment_out_lines(
+            self._home_dir / ".zshrc",
+            ("antigen bundle ssh-agent",),
+        )
+
+        # if MAMBA_ROOT_PREFIX is set on the host, use it in the deployed .mamba_init.sh
+        mamba_root_prefix = os.environ.get("MAMBA_ROOT_PREFIX")
+        if mamba_root_prefix:
+            self._replace_line_prefix(
+                self._home_dir / ".mamba_init.sh",
+                "export MAMBA_ROOT_PREFIX=",
+                f'export MAMBA_ROOT_PREFIX="{mamba_root_prefix}"',
+            )
+
+        self._logger.info("Successfully applied host adjustments")
+
+    def run(self) -> None:
+        """Run all install methods in sequence."""
+        self._check_dependencies()
+
+        try:
+            if self._dry_run:
+                self._logger.info("Dry run: no changes will be made")
+
+            if not self._dry_run and self._neovim_version.lower() not in ("0", "none"):
+                self.install_neovim()
+            self.copy_dotfiles()
+            if not self._dry_run:
+                self.apply_host_adjustments()
+        except subprocess.CalledProcessError as error:
+            # surface the command's own error output instead of a bare traceback
+            if error.stderr:
+                self._logger.error(error.stderr.strip())
+            self._logger.error(f"Command failed with exit code {error.returncode}")
+            raise SystemExit(1) from error
 
 
 if __name__ == "__main__":
@@ -190,17 +237,24 @@ if __name__ == "__main__":
         type=str,
         default="stable",
         metavar="<NVIM_VERSION>",
-        help="Version of Neovim to install, e.g., v0.11.0 or nightly.",
+        help="Version of Neovim to install, e.g., v0.11.0, stable, or nightly. Use 'none' to skip.",
     )
     parser.add_argument(
         "--extract-appimage",
         action="store_true",
         help="Extract the appimage (necessary on systems without FUSE).",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the dotfile changes without modifying anything.",
+    )
     args = parser.parse_args()
 
     # initialize and run the installer
     installer = EnvironmentInstaller(
-        neovim_version=args.neovim_version, extract_appimage=args.extract_appimage
+        neovim_version=args.neovim_version,
+        extract_appimage=args.extract_appimage,
+        dry_run=args.dry_run,
     )
     installer.run()
