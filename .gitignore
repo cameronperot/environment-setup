@@ -374,3 +374,4 @@ dotfiles/.pi/**/npm
 dotfiles/.pi/**/models-store.json
 dotfiles/.pi/docs
 specs
+dotfiles/.plannotator

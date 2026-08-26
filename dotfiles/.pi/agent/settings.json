@@ -24,6 +24,7 @@
     "subagent"
   ],
   "packages": [
+    "npm:@plannotator/pi-extension",
     "npm:pi-rewind@0.5.0"
   ],
   "enableInstallTelemetry": false,
