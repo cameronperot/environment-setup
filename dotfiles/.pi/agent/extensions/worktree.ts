@@ -28,6 +28,7 @@ import {
 	mkdirSync,
 	readFileSync,
 	readdirSync,
+	readlinkSync,
 	realpathSync,
 	renameSync,
 	rmdirSync,
@@ -274,31 +275,36 @@ function linkSessions(mainWorktree: string, worktreePath: string): string {
 	if (mainDir === wtDir) return "sessions already shared (main worktree)";
 	mkdirSync(mainDir, { recursive: true });
 
+	let stat;
 	try {
-		if (lstatSync(wtDir).isSymbolicLink()) {
-			if (realpathSync(wtDir) === realpathSync(mainDir)) return "sessions already shared";
-			throw new Error(`session dir ${wtDir} is a symlink to ${realpathSync(wtDir)}, expected ${mainDir}`);
-		}
+		stat = lstatSync(wtDir);
 	} catch (e) {
-		if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-			symlinkSync(mainDir, wtDir, "dir");
-			return "sessions linked to main worktree";
-		}
-		throw e;
+		if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+		symlinkSync(mainDir, wtDir, "dir");
+		return "sessions linked to main worktree";
+	}
+
+	if (stat.isSymbolicLink()) {
+		const target = resolve(dirname(wtDir), readlinkSync(wtDir));
+		if (target === mainDir) return "sessions already shared";
+		if (existsSync(target)) throw new Error(`session dir ${wtDir} is a symlink to ${target}, expected ${mainDir}`);
+		// Dangling symlink: replace it.
+		unlinkSync(wtDir);
+		symlinkSync(mainDir, wtDir, "dir");
+		return "sessions relinked to main worktree";
 	}
 
 	// wtDir is a real directory: migrate its sessions into mainDir, then link.
-	let migrated = 0;
-	for (const file of readdirSync(wtDir)) {
-		if (!file.endsWith(".jsonl")) continue;
-		renameSync(join(wtDir, file), join(mainDir, file));
-		migrated++;
-	}
-	const remaining = readdirSync(wtDir);
-	if (remaining.length > 0) throw new Error(`session dir ${wtDir} has non-session files: ${remaining.join(", ")}`);
+	// Validate everything before moving anything so a failure leaves both dirs untouched.
+	const entries = readdirSync(wtDir);
+	const other = entries.filter((f) => !f.endsWith(".jsonl"));
+	if (other.length > 0) throw new Error(`session dir ${wtDir} has non-session files: ${other.join(", ")}`);
+	const clashing = entries.filter((f) => existsSync(join(mainDir, f)));
+	if (clashing.length > 0) throw new Error(`cannot migrate sessions, already exist in ${mainDir}: ${clashing.join(", ")}`);
+	for (const file of entries) renameSync(join(wtDir, file), join(mainDir, file));
 	rmdirSync(wtDir);
 	symlinkSync(mainDir, wtDir, "dir");
-	return migrated > 0 ? `sessions shared (${migrated} migrated to main worktree)` : "sessions linked to main worktree";
+	return entries.length > 0 ? `sessions shared (${entries.length} migrated to main worktree)` : "sessions linked to main worktree";
 }
 
 // =============================================================================
@@ -362,6 +368,7 @@ async function ensureWorktree(
 		await git(pi, ["worktree", "add", path, "-b", name, resolvedBase], mainWorktree);
 		await git(pi, ["config", `branch.${name}.worktreeBase`, resolvedBase], mainWorktree);
 	}
+	const sessionStatus = linkSessions(mainWorktree, path);
 
 	const copied: string[] = [];
 	const skipped: string[] = [];
@@ -384,8 +391,6 @@ async function ensureWorktree(
 			setupError = `setup command exited ${result.code}${tail ? `:\n${tail}` : ""}`;
 		}
 	}
-
-	const sessionStatus = linkSessions(mainWorktree, path);
 
 	return { path, branch: name, created: true, copied, skipped, sessionStatus, setupError };
 }
@@ -553,13 +558,18 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 
 		// Remove the shared-session symlink; sessions stay in the main session dir.
 		const wtSessionDir = sessionDirFor(target.path);
+		let sessionStat;
 		try {
-			if (lstatSync(wtSessionDir).isSymbolicLink()) unlinkSync(wtSessionDir);
-		} catch {
-			// no session dir; nothing to clean up
+			sessionStat = lstatSync(wtSessionDir);
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
 		}
+		if (sessionStat?.isSymbolicLink()) unlinkSync(wtSessionDir);
 
 		ctx.ui.notify(`removed worktree ${target.path}`, "info");
+		if (sessionStat && !sessionStat.isSymbolicLink()) {
+			ctx.ui.notify(`session dir ${wtSessionDir} is a real directory; left in place`, "warning");
+		}
 
 		const branch = target.branch;
 		if (!branch) return;
