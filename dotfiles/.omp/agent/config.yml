@@ -1,31 +1,31 @@
-modelRoles: 
-  default: openrouter/deepseek/deepseek-v4-flash-0731:high
+modelRoles:
+  default: opencode-go/glm-5.3-flash
 symbolPreset: nerd
-theme: 
+theme:
   dark: titanium
 setupVersion: 2
-terminal: 
+terminal:
   showProgress: true
-tui: 
+tui:
   tight: true
-display: 
+display:
   shimmer: disabled
   showTokenUsage: true
   cacheMissMarker: true
-task: 
+task:
   showResolvedModelBadge: true
 defaultThinkingLevel: high
-completion: 
+completion:
   notify: "off"
-compaction: 
+compaction:
   enabled: false
-  methodOrder: 
+  methodOrder:
     []
-enabledModels: 
+enabledModels:
   - google/*
   - opencode-go/*
   - openrouter/*/*
-statusLine: 
+statusLine:
   preset: default
-composer: 
+composer:
   shape: pi
