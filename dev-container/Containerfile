@@ -64,6 +64,7 @@ RUN apt-get update \
     ripgrep \
     rsync \
     sd \
+    shellcheck \
     shfmt \
     sudo \
     tar \
