@@ -22,6 +22,14 @@ alias lrt="lsd -1Frt"   # one-per-line, classify, reverse, timesort
 alias lsr="lsd -lARFh"  # long, almost-all, recursive, classify, human-readable
 alias lsn="lsd -1"      # one-per-line
 
+# uv
+alias uvr="uv run"
+alias uvp="uv run python"
+alias uvl="uv lock"
+alias uvs="uv sync"
+alias uva="source ./.venv/bin/activate"
+alias uvd="deactivate"
+
 # Podman
 alias pm="podman"
 alias pma="podman attach"
@@ -35,29 +43,27 @@ alias pmcom="podman-compose"
 
 # systemctl user
 alias svc="systemctl --user"
+alias svc-disable="systemctl --user disable"
+alias svc-enable="systemctl --user enable"
+alias svc-list="systemctl --user list-units --type=service --state=running | grep -v -i 'healthcheck'"
 alias svc-logs="journalctl --user -u"
 alias svc-reload="systemctl --user daemon-reload"
-alias svc-restart="systemctl --user restart"
 alias svc-restart-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user restart"
+alias svc-restart="systemctl --user restart"
 alias svc-start="systemctl --user start"
 alias svc-status="systemctl --user status"
-alias svc-stop="systemctl --user stop"
 alias svc-stop-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user stop"
-alias svc-list="systemctl --user list-units --type=service --state=running | grep -v -i 'healthcheck'"
+alias svc-stop="systemctl --user stop"
 
 # dev_container
-alias c='podman run \
+alias ct='podman run \
   -it \
   --rm \
   --userns keep-id \
   --security-opt label=disable \
   -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
   -e OPENROUTER_API_KEY="${OPENROUTER_API_KEY}" \
+  -e OPENCODE_API_KEY="${OPENCODE_API_KEY}" \
   -v dev-antigen:/home/dev/.antigen \
-  -v dev-amp-config:/home/dev/.config/amp \
-  -v dev-amp-data:/home/dev/.local/share/amp \
-  -v dev-claude-config:/home/dev/.claude \
-  -v dev-opencode-config:/home/dev/.config/opencode \
-  -v dev-opencode-data:/home/dev/.local/share/opencode \
   -v ${PWD}:/work \
   dev:latest'
