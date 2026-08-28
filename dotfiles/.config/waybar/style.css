@@ -1,0 +1,153 @@
+/* ── Global ── */
+
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "JetBrainsMonoNL Nerd Font", monospace;
+    font-size: 15px;
+    min-height: 0;
+}
+
+/* ── Bar ── */
+
+window#waybar {
+    background-color: rgba(44, 44, 46, 0.8);
+    color: #b3b3b3;
+}
+
+/* ── Workspaces ── */
+
+/* min-width/min-height: 0 lets buttons shrink below GTK's default minimums */
+#workspaces button {
+    min-width: 0;
+    min-height: 0;
+    padding: 0 6px;
+    margin: 1px 0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: #8f8f8f;
+}
+
+/* Focused workspace */
+#workspaces button.focused {
+    background-color: rgba(44, 44, 46, 0.8);
+    border: 1px solid #8f8f8f;
+    color: #d1d1d1;
+}
+
+/* Visible on another output */
+#workspaces button.visible {
+    background-color: rgba(44, 44, 46, 0.8);
+    border: 1px solid #88b090;
+    color: #d1d1d1;
+}
+
+/* Urgent workspace */
+#workspaces button.urgent {
+    background-color: #c92424;
+    border: 1px solid #c92424;
+    color: #d1d1d1;
+}
+
+/* Hover */
+#workspaces button:hover {
+    background-color: rgba(71, 71, 71, 0.8);
+    color: #d1d1d1;
+}
+
+/* ── Modules ── */
+
+#network,
+#custom-tailscale,
+#custom-mullvad,
+#custom-caffeine,
+#cpu,
+#temperature,
+#memory,
+#battery,
+#clock,
+#backlight,
+#pulseaudio,
+#scratchpad,
+#tray {
+    padding: 0 4px;
+    margin: 0 1px;
+    background-color: rgba(44, 44, 46, 0.8);
+    color: #b3b3b3;
+}
+
+/* Interactive modules (have click handlers): brighten text on hover.
+   Placed before the state rules so warning/critical colors win over the hover color. */
+#network:hover,
+#cpu:hover,
+#temperature:hover,
+#memory:hover,
+#battery:hover,
+#custom-caffeine:hover,
+#clock:hover,
+#pulseaudio:hover {
+    color: #d1d1d1;
+}
+
+/* Vertical separator between right-side modules */
+.modules-right > widget > * {
+    padding: 0 8px;
+    margin: 4px 0;
+    border-right: 1px solid #8f8f8f;
+}
+
+/* No separator after the last module */
+.modules-right > widget:last-child > * {
+    border-right: none;
+}
+
+/* ── States ── */
+
+.good,
+#cpu.info {
+    color: #40e82e;
+}
+
+.warning,
+#cpu.warning,
+#battery.warning {
+    color: #fc9714;
+}
+
+.critical,
+#cpu.critical,
+#battery.critical {
+    color: #f94545;
+}
+
+/* ── VPN ── */
+
+/* Connected -> Green */
+#custom-tailscale.good,
+#custom-mullvad.good {
+    color: #40e82e;
+}
+
+/* Disconnected -> Red */
+#custom-tailscale.critical,
+#custom-mullvad.critical {
+    color: #f94545;
+}
+
+/* ── PulseAudio ── */
+
+/* Speaker muted -> orange */
+#pulseaudio.output.muted {
+    color: #fc9714;
+}
+
+/* Keep mic normal-colored when only the speaker is muted */
+#pulseaudio.input.muted {
+    color: #b3b3b3;
+}
+
+/* Mic muted -> orange, even when the speaker is muted too */
+#pulseaudio.input.source-muted,
+#pulseaudio.input.muted.source-muted {
+    color: #fc9714;
+}
