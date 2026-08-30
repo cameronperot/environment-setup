@@ -36,7 +36,7 @@ logger = logging.getLogger("sync_dotfiles")
 _ROOT_KEYS = frozenset({"include", "exclude", "secret_patterns"})
 _SCOPE_KEYS = frozenset({"include", "exclude"})
 _INCLUDE_ITEM_KEYS = frozenset({"path", "optional", "include", "exclude"})
-_EXCLUDE_ITEM_KEYS = frozenset({"pattern", "optional"})
+_EXCLUDE_ITEM_KEYS = frozenset({"pattern", "optional", "allow_orphan"})
 _GLOB_CHARS = re.compile(r"[*?\[]")
 PathParts = tuple[str, ...]
 
@@ -117,6 +117,9 @@ class Exclude:
             to the scope the pattern was declared in.
         source: Raw pattern text, used in messages.
         optional: Whether the pattern is allowed to match nothing.
+        allow_orphan: Whether repository files beneath matching paths are
+            tolerated: reported neither as orphans nor deleted by ``--prune``
+            (the ``$HOME`` side stays untracked either way).
 
     Identity equality keeps usage counts per declaration: with Python 3.14's
     value equality for compiled patterns, two scopes declaring the same regex
@@ -126,6 +129,7 @@ class Exclude:
     pattern: re.Pattern[str]
     source: str
     optional: bool
+    allow_orphan: bool
 
 
 ExcludeChain = tuple[tuple[PathParts, tuple[Exclude, ...]], ...]
@@ -326,7 +330,7 @@ def _parse_include_item(
         path = item["path"]
         if not isinstance(path, str) or not path:
             raise ConfigError(f"{location}: 'path' must be a non-empty string")
-        optional = _parse_optional(item.get("optional", False), location)
+        optional = _parse_bool(item.get("optional", False), "optional", location)
         nested_data = {
             key: item[key] for key in ("include", "exclude") if key in item
         } or None
@@ -373,7 +377,7 @@ def _parse_exclude_item(item: str | dict, location: str) -> Exclude:
         ConfigError: On invalid items or regexes.
     """
     if isinstance(item, str):
-        source, optional = item, False
+        source, optional, allow_orphan = item, False, False
     elif isinstance(item, dict):
         unknown_keys = sorted(set(item) - _EXCLUDE_ITEM_KEYS)
         if unknown_keys:
@@ -388,7 +392,10 @@ def _parse_exclude_item(item: str | dict, location: str) -> Exclude:
         source = item["pattern"]
         if not isinstance(source, str) or not source:
             raise ConfigError(f"{location}: 'pattern' must be a non-empty string")
-        optional = _parse_optional(item.get("optional", False), location)
+        optional = _parse_bool(item.get("optional", False), "optional", location)
+        allow_orphan = _parse_bool(
+            item.get("allow_orphan", False), "allow_orphan", location
+        )
     else:
         raise ConfigError(f"{location}: exclude items must be strings or mappings")
 
@@ -396,7 +403,9 @@ def _parse_exclude_item(item: str | dict, location: str) -> Exclude:
         pattern = re.compile(source)
     except re.error as error:
         raise ConfigError(f"{location}: invalid regex {source!r}: {error}") from error
-    return Exclude(pattern=pattern, source=source, optional=optional)
+    return Exclude(
+        pattern=pattern, source=source, optional=optional, allow_orphan=allow_orphan
+    )
 
 
 def _parse_secret_patterns(
@@ -433,11 +442,12 @@ def _parse_secret_patterns(
     return tuple(patterns)
 
 
-def _parse_optional(value: object, location: str) -> bool:
-    """Validate and return an ``optional:`` flag value.
+def _parse_bool(value: object, key: str, location: str) -> bool:
+    """Validate and return a boolean manifest flag value.
 
     Args:
-        value: Raw value of the ``optional:`` key.
+        value: Raw value of the flag key.
+        key: Name of the flag key, used in error messages.
         location: Human-readable location for error messages.
 
     Returns:
@@ -447,7 +457,7 @@ def _parse_optional(value: object, location: str) -> bool:
         ConfigError: If the value is not a bool.
     """
     if not isinstance(value, bool):
-        raise ConfigError(f"{location}: 'optional' must be a boolean")
+        raise ConfigError(f"{location}: '{key}' must be a boolean")
     return value
 
 
@@ -624,6 +634,8 @@ class Assessment:
         skipped_copies: Repository files whose ``$HOME`` counterpart is an
             unfollowed symlink; reported but never deleted.
         orphans: Repository files not covered by the manifest at all.
+        allowed_orphans: Repository files beneath ``allow_orphan`` excludes;
+            tolerated — never warned about and never pruned.
         watch: Untracked candidates from both watch scopes.
         symlink_skips: Symlinks skipped because ``--follow-symlinks`` is off.
         errors: Broken symlinks, type mismatches, and execution failures.
@@ -636,6 +648,7 @@ class Assessment:
     missing_copies: tuple[MissingCopy, ...]
     skipped_copies: tuple[PurePosixPath, ...]
     orphans: tuple[PurePosixPath, ...]
+    allowed_orphans: tuple[PurePosixPath, ...]
     watch: tuple[WatchCandidate, ...]
     symlink_skips: tuple[PurePosixPath, ...]
     errors: tuple[str, ...]
@@ -838,7 +851,9 @@ class DotfilesSyncer:
             optional=False,
         )
         watch = self._watch_candidates()
-        orphans, stale, missing_copies, skipped_copies = self._classify_repo()
+        orphans, stale, missing_copies, skipped_copies, allowed_orphans = (
+            self._classify_repo()
+        )
         return Assessment(
             managed=dict(self._managed),
             missing_entries=tuple(
@@ -852,6 +867,9 @@ class DotfilesSyncer:
                 sorted(skipped_copies, key=lambda rel: rel.as_posix())
             ),
             orphans=tuple(sorted(orphans, key=lambda rel: rel.as_posix())),
+            allowed_orphans=tuple(
+                sorted(allowed_orphans, key=lambda rel: rel.as_posix())
+            ),
             watch=tuple(sorted(watch, key=lambda candidate: candidate.rel.as_posix())),
             symlink_skips=tuple(
                 sorted(self._symlink_skips, key=lambda rel: rel.as_posix())
@@ -1618,10 +1636,11 @@ class DotfilesSyncer:
 
         Returns:
             Orphaned files, stale files within live directory entries,
-            repository copies of entries missing in ``$HOME``, and repository
-            files whose ``$HOME`` counterpart is an unfollowed symlink.
+            repository copies of entries missing in ``$HOME``, repository
+            files whose ``$HOME`` counterpart is an unfollowed symlink, and
+            allowed orphans beneath ``allow_orphan`` excludes.
         """
-        orphans, stale, missing_copies, skipped_copies = [], [], [], []
+        orphans, stale, missing_copies, skipped_copies, allowed = [], [], [], [], []
         for rel_str, _ in sorted(self._scan_repo().items()):
             if rel_str in self._managed:
                 continue
@@ -1635,9 +1654,11 @@ class DotfilesSyncer:
                 )
             elif kind == "skipped":
                 skipped_copies.append(PurePosixPath(*parts))
+            elif kind == "allowed_orphan":
+                allowed.append(PurePosixPath(*parts))
             else:
                 orphans.append(PurePosixPath(*parts))
-        return orphans, stale, missing_copies, skipped_copies
+        return orphans, stale, missing_copies, skipped_copies, allowed
 
     def _classify_repo_path(self, parts: PathParts) -> tuple[str, bool]:
         """Classify one repository file by walking the manifest recursively.
@@ -1652,7 +1673,7 @@ class DotfilesSyncer:
 
         Returns:
             A ``(kind, optional)`` pair where kind is ``stale``, ``missing``,
-            ``skipped``, or ``orphan``.
+            ``skipped``, ``allowed_orphan``, or ``orphan``.
         """
         result = self._classify_scope(
             self._manifest.root,
@@ -1685,7 +1706,10 @@ class DotfilesSyncer:
             None when the path is unmanaged by this scope.
         """
         item_chain = (*chain, (scope_base, scope.exclude))
-        if self._match_exclude(parts=parts, chain=item_chain) is not None:
+        matched = self._match_exclude(parts=parts, chain=item_chain)
+        if matched is not None:
+            if matched.allow_orphan:
+                return ("allowed_orphan", optional)
             return None
         rel = parts[len(scope_base) :]
         for item in scope.include:
@@ -1725,7 +1749,10 @@ class DotfilesSyncer:
             if item.scope is not None:
                 # exclude-only nested scope: its prunes apply to this domain
                 chain_for_domain = (*item_chain, (target_base, item.scope.exclude))
-                if self._match_exclude(parts=parts, chain=chain_for_domain) is not None:
+                matched = self._match_exclude(parts=parts, chain=chain_for_domain)
+                if matched is not None:
+                    if matched.allow_orphan:
+                        return ("allowed_orphan", item_optional)
                     return None
             # whole-directory domain: missing dir means the whole entry is gone
             if not target_abs.exists() and not target_abs.is_symlink():
@@ -1879,6 +1906,8 @@ class DotfilesSyncer:
                 logger.warning(f"Missing in $HOME: {entry.rel}")
         for rel in assessment.orphans:
             logger.warning(f"Orphaned repo file: {rel}")
+        for rel in assessment.allowed_orphans:
+            logger.debug(f"Allowed orphan repo file: {rel}")
         for candidate in assessment.watch:
             logger.warning(
                 f"Untracked dotfile candidate: {candidate.rel} "

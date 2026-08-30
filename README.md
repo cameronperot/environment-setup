@@ -72,14 +72,15 @@ exclude:                          # root scope: patterns match $HOME-relative pa
   - '\.bak$'                      # unanchored: any depth, under any include entry
   - pattern: '^\.config/pulse$'
     optional: true                # allowed to match nothing (no unused-pattern warning)
+    allow_orphan: true            # repo copies beneath it are kept: no orphan warnings, never pruned
 secret_patterns:                  # extra regexes for the secret guard
   - 'API_KEY\s*=\s*["''](?!\$)[^"'']{8,}["'']'
 ```
 
 Semantics:
 - `include` items are literal paths or fnmatch globs (`*`, `?`, `**`), as plain strings or mappings (`path:` plus `optional:` and, for directories, a nested scope).
-- A nested scope may carry `include:`, `exclude:`, or both; with `include:` the directory's contents are curated, and files outside the selection surface as orphans.
-- `exclude` items are regexes with search semantics (anchors control scope) matched against paths relative to the scope where they are declared; a match prunes the whole subtree. Exclude patterns also silence the untracked watch within their scope.
+- A nested scope may carry `include:`, `exclude:`, or both; with `include:` the directory's contents are curated, and files outside the selection surface as orphans (unless an `allow_orphan` exclude tolerates them, see below).
+- `exclude` items are regexes with search semantics (anchors control scope) matched against paths relative to the scope where they are declared; a match prunes the whole subtree. Exclude patterns also silence the untracked watch within their scope. Repository files beneath an exclude are orphans (warned about and deleted by `--prune`) unless the exclude is marked `allow_orphan: true`, which tolerates them in the repo while the `$HOME` side stays untracked either way.
 - The untracked watch warns about top-level `$HOME` dot-entries and the contents of curated directories that no entry covers (e.g. a new `~/.newtool`); resolve warnings by adding an include or an exclude to the enclosing scope. `--discover` reports the same candidates.
 - Exclude patterns that match nothing during a run produce an unused-pattern warning unless marked `optional: true`.
 - Outgoing (added or changed) files are scanned for secret signatures (private key blocks, AWS keys, credential assignments) plus `secret_patterns`; flagged files are skipped with a warning, or abort the run under `--strict-secrets`.

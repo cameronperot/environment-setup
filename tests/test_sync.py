@@ -315,3 +315,34 @@ def test_copy_refuses_to_write_through_symlinked_repo_ancestor(tmp_path, caplog)
     assert exit_code == 1
     assert "repository ancestor .config is a symlink" in caplog.text
     assert (outside / "x").read_text() == "OLD"
+
+
+def test_prune_deletes_plain_orphans_but_never_allowed_ones(tmp_path):
+    env = build_env(
+        tmp_path,
+        (
+            "include:\n"
+            "  - path: tool\n"
+            "    include: [a.conf]\n"
+            "    exclude:\n"
+            "      - pattern: '^cache$'\n"
+            "        allow_orphan: true\n"
+            "      - pattern: '^scratch$'\n"
+        ),
+        home_files={"tool/a.conf": "a"},
+        repo_files={
+            "tool/a.conf": "a",
+            "tool/cache/kept": "k",
+            "tool/scratch/gone": "g",
+        },
+    )
+    syncer = make_syncer(env, prune=True)
+    plan = syncer.build_plan(syncer.assessment())
+
+    assert [action.rel.as_posix() for action in plan.prune_deletes] == [
+        "tool/scratch/gone"
+    ]
+
+    syncer.execute(plan)
+    assert (env.dotfiles / "tool/cache/kept").exists()
+    assert not (env.dotfiles / "tool/scratch").exists()

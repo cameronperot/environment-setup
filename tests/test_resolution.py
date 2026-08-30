@@ -4,6 +4,7 @@ import logging
 
 import pytest
 from conftest import build_env, make_syncer
+from sync_dotfiles import ConfigError, Manifest
 
 
 def managed_keys(syncer):
@@ -495,3 +496,129 @@ def test_same_pattern_in_two_scopes_lints_independently(tmp_path, caplog):
         make_syncer(env).status()
 
     assert "Unused exclude pattern(s): 'held'" in caplog.text
+
+
+def test_exclude_allow_orphan_flag_parses(tmp_path):
+    env = build_env(
+        tmp_path,
+        (
+            "include: [f.txt]\n"
+            "exclude:\n"
+            "  - 'plain'\n"
+            "  - pattern: 'mapped'\n"
+            "  - pattern: 'kept'\n"
+            "    allow_orphan: true\n"
+        ),
+        home_files={"f.txt": "f"},
+    )
+    excludes = env.manifest.root.exclude
+
+    assert [exclude.allow_orphan for exclude in excludes] == [False, False, True]
+
+
+def test_exclude_allow_orphan_must_be_boolean(tmp_path):
+    config = tmp_path / "dotfiles.yaml"
+    config.write_text(
+        "include: [f.txt]\nexclude:\n  - pattern: 'x'\n    allow_orphan: 'yes'\n"
+    )
+
+    with pytest.raises(ConfigError, match="'allow_orphan' must be a boolean"):
+        Manifest.load(config)
+
+
+def test_allow_orphan_exclude_keeps_repo_files_silent(tmp_path, caplog):
+    env = build_env(
+        tmp_path,
+        (
+            "include:\n"
+            "  - path: tool\n"
+            "    include: [a.conf]\n"
+            "    exclude:\n"
+            "      - pattern: '^cache$'\n"
+            "        allow_orphan: true\n"
+        ),
+        home_files={"tool/a.conf": "a", "tool/cache/blob": "b"},
+        repo_files={"tool/a.conf": "a", "tool/cache/blob/deep": "d"},
+    )
+    syncer = make_syncer(env)
+    with caplog.at_level(logging.WARNING, logger="sync_dotfiles"):
+        assert syncer.status() == 0
+    assessment = syncer.assessment()
+
+    assert managed_keys(syncer) == ["tool/a.conf"]
+    assert [rel.as_posix() for rel in assessment.allowed_orphans] == [
+        "tool/cache/blob/deep",
+    ]
+    assert assessment.orphans == ()
+    assert "Orphaned repo file" not in caplog.text
+
+
+def test_root_allow_orphan_exclude_keeps_untracked_repo_tree(tmp_path):
+    env = build_env(
+        tmp_path,
+        (
+            "include: [.zshrc]\n"
+            "exclude:\n"
+            "  - pattern: '^\\.plannotator$'\n"
+            "    optional: true\n"
+            "    allow_orphan: true\n"
+        ),
+        home_files={".zshrc": "zsh"},
+        repo_files={".zshrc": "zsh", ".plannotator/history/run.jsonl": "r"},
+    )
+    assessment = make_syncer(env).assessment()
+
+    assert [rel.as_posix() for rel in assessment.allowed_orphans] == [
+        ".plannotator/history/run.jsonl"
+    ]
+    assert assessment.orphans == ()
+
+
+def test_plain_exclude_repo_file_remains_orphan(tmp_path):
+    env = build_env(
+        tmp_path,
+        (
+            "include:\n"
+            "  - path: tool\n"
+            "    include: [a.conf]\n"
+            "    exclude: ['^cache$']\n"
+        ),
+        home_files={"tool/a.conf": "a"},
+        repo_files={"tool/cache/blob": "b"},
+    )
+    assessment = make_syncer(env).assessment()
+
+    assert assessment.allowed_orphans == ()
+    assert [rel.as_posix() for rel in assessment.orphans] == ["tool/cache/blob"]
+
+
+def test_unused_allow_orphan_pattern_still_warns_unless_optional(tmp_path, caplog):
+    plain = build_env(
+        tmp_path / "plain",
+        (
+            "include: [f.txt]\n"
+            "exclude:\n"
+            "  - pattern: '^never$'\n"
+            "    allow_orphan: true\n"
+        ),
+        home_files={"f.txt": "f"},
+    )
+    with caplog.at_level(logging.WARNING, logger="sync_dotfiles"):
+        make_syncer(plain).status()
+    assert "Unused exclude pattern(s): '^never$'" in caplog.text
+
+    caplog.clear()
+    optional = build_env(
+        tmp_path / "optional",
+        (
+            "include: [f.txt]\n"
+            "exclude:\n"
+            "  - pattern: '^never$'\n"
+            "    optional: true\n"
+            "    allow_orphan: true\n"
+        ),
+        home_files={"f.txt": "f"},
+    )
+    with caplog.at_level(logging.WARNING, logger="sync_dotfiles"):
+        make_syncer(optional).status()
+    assert "Unused exclude pattern" not in caplog.text
