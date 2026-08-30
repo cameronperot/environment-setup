@@ -5,7 +5,7 @@
   "enabledModels": [
     "**/deepseek-v4-*",
     "**/kimi-k3",
-    "**/glm-5.3*",
+    "**/glm-5.3@(|-flash)",
     "**/gpt-5.6-@(luna|sol|terra)",
     "**/gemini-3.7-flash",
     "**/claude-opus-5"
