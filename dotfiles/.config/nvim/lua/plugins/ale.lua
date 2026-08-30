@@ -21,7 +21,7 @@ local M = {
         vim.g.ale_linters = {
             cpp = { "clang" },
             lua = { "luacheck" },
-            python = { "ruff", "mypy" },
+            python = { "ruff", "ty" },
             sh = { "shellcheck" },
             vim = { "vint" },
         }
@@ -35,7 +35,6 @@ local M = {
         }
 
         vim.g.ale_python_ruff_options = "--line-length=98"
-        vim.g.ale_python_mypy_options = ""
         vim.g.ale_sh_shfmt_options = "-i 4"
         vim.g.ale_c_clangformat_options =
             "-style='{BasedOnStyle: llvm, IndentWidth: 4, ColumnLimit: 100, AllowShortFunctionsOnASingleLine: None, KeepEmptyLinesAtTheStartOfBlocks: false}'"
@@ -48,7 +47,7 @@ local M = {
             ["lsq/ccxt"] = { ale_fix_on_save = 0 },
         }
         vim.g.ale_python_auto_uv = 1
-        vim.g.ale_python_mypy_auto_uv = 1
+        vim.g.ale_python_ty_auto_uv = 1
         vim.g.ale_python_ruff_auto_uv = 1
     end,
 }
