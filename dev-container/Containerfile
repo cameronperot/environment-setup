@@ -130,7 +130,8 @@ RUN micromamba env create -f /tmp/environment-setup/environment.yml \
     && rm /tmp/environment-setup/environment.yml
 
 # Configure dev environment
-RUN "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
+RUN test -n "${GIT_SIGNING_KEY}" || { echo "GIT_SIGNING_KEY build arg is required" >&2; exit 1; } \
+    && "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
     && rm -rf "${HOME_DIR}/.config/nvim" \
     && echo "source ${HOME_DIR}/.bash_aliases" >> "${HOME_DIR}/.bashrc" \
     && mkdir -p "${HOME_DIR}/.jupyter" \
