@@ -31,7 +31,6 @@
   "theme": "onedark",
   "editorPaddingX": 0,
   "outputPad": 0,
-  "doubleEscapeAction": "rewind",
   "branchSummary": {
     "skipPrompt": true
   },
