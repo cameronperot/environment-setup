@@ -1,6 +1,5 @@
 # General
 alias clearnvimswap="rm ~/.local/state/nvim/swap/*.swp"
-alias fd="fdfind"
 alias mm="micromamba"
 alias n="nvim"
 alias nn="nvim --clean"
@@ -54,16 +53,3 @@ alias svc-start="systemctl --user start"
 alias svc-status="systemctl --user status"
 alias svc-stop-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user stop"
 alias svc-stop="systemctl --user stop"
-
-# dev_container
-alias ct='podman run \
-  -it \
-  --rm \
-  --userns keep-id \
-  --security-opt label=disable \
-  -e GEMINI_API_KEY="${GEMINI_API_KEY}" \
-  -e OPENROUTER_API_KEY="${OPENROUTER_API_KEY}" \
-  -e OPENCODE_API_KEY="${OPENCODE_API_KEY}" \
-  -v dev-antigen:/home/dev/.antigen \
-  -v ${PWD}:/work \
-  dev:latest'
