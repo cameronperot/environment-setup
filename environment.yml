@@ -10,7 +10,6 @@ dependencies:
   - joblib
   - jupyterlab
   - matplotlib
-  - mypy
   - nodejs
   - numpy
   - pandas-stubs
