@@ -54,7 +54,7 @@ bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
 bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
 
 # Source files
-for file in .bash_aliases .profile .secret_exports
+for file in .bash_aliases .local_aliases .local_exports
 do
     if [ -f "${HOME}/${file}" ]; then
         source "${HOME}/${file}"

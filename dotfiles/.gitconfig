@@ -1,6 +1,9 @@
 [user]
     email = cameronperot@users.noreply.github.com
     name = Cameron Perot
+    signingkey = 430F63ABA9446784
+[commit]
+    gpgsign = true
 [core]
     editor = nvim
 [pull]

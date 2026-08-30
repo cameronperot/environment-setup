@@ -1,6 +1,16 @@
 # Path
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/bin:$PATH"
+if [ -d "$HOME/.local/bin" ]; then
+    case ":$PATH:" in
+        *:"$HOME/.local/bin":*) ;;
+        *) export PATH="$HOME/.local/bin${PATH:+:${PATH}}" ;;
+    esac
+fi
+if [ -d "$HOME/bin" ]; then
+    case ":$PATH:" in
+        *:"$HOME/bin":*) ;;
+        *) export PATH="$HOME/bin${PATH:+:${PATH}}" ;;
+    esac
+fi
 
 # History
 export HISTFILE="$HOME/.zsh_history"
@@ -12,13 +22,23 @@ export HSTR_CONFIG=hicolor       # get more colors
 export HSTR_CONFIG=prompt-bottom # place prompt at bottom
 
 # Rust
-export PATH="$PATH:$HOME/.cargo/bin"
+if [ -d "$HOME/.cargo/bin" ]; then
+    case ":$PATH:" in
+        *:"$HOME/.cargo/bin":*) ;;
+        *) export PATH="${PATH:+$PATH:}$HOME/.cargo/bin" ;;
+    esac
+fi
 if [ -f "$HOME/.cargo/env" ]; then
     . "$HOME/.cargo/env"
 fi
 
 # Ruby
-export PATH="$PATH:$HOME/gems/bin"
+if [ -d "$HOME/gems/bin" ]; then
+    case ":$PATH:" in
+        *:"$HOME/gems/bin":*) ;;
+        *) export PATH="${PATH:+$PATH:}$HOME/gems/bin" ;;
+    esac
+fi
 export BUNDLE_FORCE_RUBY_PLATFORM=true
 export GEM_HOME="$HOME/gems"
 
@@ -43,3 +63,11 @@ export LIBVIRT_DEFAULT_URI="qemu:///system"
 export SHELL=/usr/bin/zsh
 export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
 unset RANGER_LOAD_DEFAULT_RC
+
+# Juliaup
+if [ -d "$HOME/.juliaup/bin" ]; then
+    case ":$PATH:" in
+        *:"$HOME/.juliaup/bin":*) ;;
+        *) export PATH="$HOME/.juliaup/bin${PATH:+:${PATH}}" ;;
+    esac
+fi
