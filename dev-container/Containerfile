@@ -7,6 +7,7 @@ ARG NEW_UID=1000
 ARG NEW_GID=1000
 ARG HOME_DIR=/home/${NEW_USER}
 ARG GIT_DELTA_VERSION=0.19.2
+ARG GIT_SIGNING_KEY=""
 
 # Env vars
 ENV COLORTERM=truecolor \
@@ -133,7 +134,11 @@ RUN "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py
     && rm -rf "${HOME_DIR}/.config/nvim" \
     && echo "source ${HOME_DIR}/.bash_aliases" >> "${HOME_DIR}/.bashrc" \
     && mkdir -p "${HOME_DIR}/.jupyter" \
-    && cp /tmp/environment-setup/dev-container/jupyter_server_config.py "${HOME_DIR}/.jupyter/jupyter_server_config.py"
+    && cp /tmp/environment-setup/dev-container/jupyter_server_config.py "${HOME_DIR}/.jupyter/jupyter_server_config.py" \
+    && git config --global gpg.format ssh \
+    && git config --global user.signingkey "${GIT_SIGNING_KEY}" \
+    && git config --global gpg.ssh.allowedSignersFile "${HOME_DIR}/.ssh/allowed_signers" \
+    && echo "$(git config user.email) $(git config user.signingkey)" >> "${HOME_DIR}/.ssh/allowed_signers"
 
 # Configure agents
 RUN rm -rf "${HOME_DIR}/.pi/agent/prompts" "${HOME_DIR}/.pi/agent/skills" "${HOME_DIR}/.omp/agent/prompts" "${HOME_DIR}/.omp/agent/skills" \
