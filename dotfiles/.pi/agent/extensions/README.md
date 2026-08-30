@@ -9,12 +9,13 @@ The extensions themselves, by what they do:
 - [Guards](#guards) — `permission-gate.ts`, `protected-paths.ts`, `protected-paths-bash.ts`, `approve-gate.ts`
   - [Guard policy](#guard-policy) — the `guard-rules.json` classes they enforce
 - [Tools](#tools) — `built-in-tool-renderer.ts`, `todo.ts`, `questionnaire.ts`
-- [Workflow](#workflow) — `preset.ts`, `plan-mode/`, `tools.ts`, `handoff.ts`, `commands.ts`, `subagent/`
-  - [Subagent roles](#subagent-roles) — where `subagent/` reads its agent definitions (none currently defined)
+- [Workflow](#workflow) — `preset.ts`, `tools.ts`, `handoff.ts`, `commands.ts`, `subagent/`
+  - [Subagent roles](#subagent-roles) — where `subagent/` reads its agent definitions (nine, in `~/.pi/agent/agents/`)
+- [Worktree](#worktree) — `worktree.ts`
 - [Display](#display) — `custom-footer.ts`, `notify.ts`, `system-prompt-header.ts`, `system-prompt-dump.ts.disabled`
 - [Context](#context) — `claude-rules.ts`, `rules-loader.ts`, `shake.ts`
 - [Session](#session) — `session-name.ts`, `bookmark.ts`
-- [npm packages](#npm-packages) — `pi-rewind`, installed rather than staged here
+- [npm packages](#npm-packages) — `pi-rewind` and `@plannotator/pi-extension`, installed rather than staged here
 
 Across all of them:
 
@@ -33,11 +34,11 @@ The guards are the *mechanism*; the policy they enforce is data, in [`guard-rule
 | `protected-paths-bash.ts` | Applies the same path policy to `bash`: blocks `zeroAccessPaths` references and `noDeletePaths` deletions, confirms writes to `readOnlyPaths`. | — |
 | `approve-gate.ts` | Two opt-in modes, both off by default: `/approve` confirms every `write`/`edit`, `/approve-all` confirms every tool bar the read-only ones. | `/approve`, `/approve-all` |
 
-The other three are policy-driven — they act only on a `guard-rules.json` match. `approve-gate.ts` is the blanket one: it gates by *mode*, not by rule, and so covers the ordinary edit to an unremarkable file that no rule mentions. That fills the gap between prevention (plan mode and the `review` preset remove `edit`/`write` outright), selective confirmation (the other guards) and undo (`/rewind`).
+The other three are policy-driven — they act only on a `guard-rules.json` match. `approve-gate.ts` is the blanket one: it gates by *mode*, not by rule, and so covers the ordinary edit to an unremarkable file that no rule mentions. That fills the gap between prevention (plannotator's planning phase gates writes to markdown, and plan-mode — when enabled — removes `edit`/`write` outright), selective confirmation (the other guards) and undo (`/rewind`).
 
 Neither mode ever gates reading. `read`, `grep`, `find` and `ls` pass without a prompt under `/approve-all` too — they cannot modify the filesystem, and approving every file the model opens makes the mode unusable, which means it gets switched off. `todo` and `questionnaire` pass for the same reason; gating `questionnaire` would mean approving the model's request to ask you a question. The principle is **gate side effects, not information**. `bash` is gated in full under `/approve-all`, read-only commands included: the read-only allowlist in `plan-mode/utils.ts` admits `curl` and `env`, so reusing it would punch a hole in the tool with the widest blast radius.
 
-`subagent` is the highest-value gate of the set. The child runs headless in its own context and you never see its tool calls, so approving the delegation is the only control point over that whole session — worth keeping gated even though both current roles are read-only.
+`subagent` is the highest-value gate of the set. The child runs headless in its own context and you never see its tool calls, so approving the delegation is the only control point over that whole session — worth keeping gated, the more so now that `engineer` and `debugger` are write-capable.
 
 Path policy is read through `shared/rules.ts`, shared with the `read` guard in `built-in-tool-renderer.ts` so the two cannot drift — a path blocked for `read` must also be blocked for `cat`, or the block is decoration. `shared/access-log.ts` holds the access log both write to.
 
@@ -80,13 +81,18 @@ Matching is per **path segment**, with `*`/`?` confined to one segment, `~` expa
 | Extension | What it does | Registers |
 |---|---|---|
 | `preset.ts` | Named presets from `~/.pi/agent/presets.json` setting provider, model, thinking level, tool set and instructions. | `/preset`, `--preset`, Ctrl+Shift+U |
-| `plan-mode/` | Read-only exploration: disables `edit`/`write`, filters `bash` through a read-only allowlist, extracts numbered steps from a `Plan:` block and tracks `[DONE:n]` completion in a widget. | `/plan`, `/steps`, `--plan`, Ctrl+Alt+P |
 | `tools.ts` | Interactive checklist to enable/disable tools mid-session; persists to the session and restores on start and on `/tree` navigation. | `/tools` |
 | `handoff.ts` | `/handoff <goal>` summarises the session into a self-contained prompt and opens it in a fresh session. Non-lossy alternative to `/compact`. Costs one LLM call. | `/handoff` |
 | `commands.ts` | Lists every slash command, filterable by source. | `/commands` |
 | `subagent/` | Delegates a task to a child `pi` process with its own context window; only the child's final output returns. Single, parallel (max 8, 4 concurrent) and chain modes. | tool `subagent` |
 
-Plan mode only ever *removes* tools (`edit`, `write`), so entering it can never hand back something the active mode withheld on purpose.
+The `plan-mode/` directory is staged as `index.ts.disabled`, so Pi's loader skips it: `/plan` and `/steps` do not exist, and the `--plan` flag and Ctrl+Alt+P shortcut it used to register now belong to plannotator — re-enabling it would overlap both. Its design property still holds for when it returns: it only ever *removes* tools (`edit`, `write`), so entering it can never hand back something the active mode withheld on purpose.
+
+## Worktree
+
+| Extension | What it does | Registers |
+|---|---|---|
+| `worktree.ts` | Git worktree management. Worktrees live in a sibling folder (default `../.worktrees/<repo>/<name>`) so the main checkout stays clean; each worktree's session directory is symlinked to the main worktree's, so `/resume` lists sessions from all of them alike. Config: `~/.pi/agent/worktree.json` (global) or `<main-worktree>/.pi/worktree.json` (repo, trust-gated) — `root`, `copyFiles`, `setupCommand`. | `/worktree create\|list\|remove\|open`, `pi --gwt <name>` |
 
 ## Display
 
@@ -120,15 +126,16 @@ Two consequences to plan around. Rewriting an old message invalidates the provid
 
 ## Subagent roles
 
-`subagent/` reads its agent definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), outside this directory. No `agents/` directory currently exists, so no roles are defined and every delegation is rejected with `Unknown agent`; the `scout` and `reviewer` roles `../AGENTS.md` describes are not on disk.
+`subagent/` reads its agent definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), outside this directory. Nine roles are defined in `~/.pi/agent/agents/` — scout, docs-researcher, planner, engineer, test-runner, debugger, reviewer, security-auditor, pr-summarizer — matching the descriptions in `../AGENTS.md`; tool grants, model pins and output contracts are tabulated in [`../agents/README.md`](../agents/README.md). On a name conflict under the `both` scope, the project definition wins.
 
-When roles are defined: a `tools:` list in frontmatter becomes the child's `--tools` allowlist, so a role without `subagent` cannot recurse and a role without `bash` cannot run commands. A `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`).
+A `tools:` list in frontmatter becomes the child's `--tools` allowlist, so a role without `subagent` cannot recurse and a role without `bash` cannot run commands. A `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`) — all nine roles pin one.
 
 ## npm packages
 
 | Package | Version | What it does | Registers |
 |---|---|---|---|
 | `pi-rewind` | 0.5.0 | Git-based checkpoints per turn, restore via `/rewind`. MIT, zero dependencies, registers **no tools**. | `/rewind`, Esc Esc |
+| `@plannotator/pi-extension` | 0.27.9 | File-based plan mode with browser review: the agent drafts the plan as a markdown file and submits it via `plannotator_submit_plan` for annotation and approval. While planning, writes are gated to markdown inside the working directory. Also `/plannotator-review` (code review) and `/plannotator-annotate`. | `plannotator_submit_plan` tool, `/plannotator-plan-mode`, `/plannotator-review`, `/plannotator-annotate`, `/plannotator-last`, `--plan`, Ctrl+Alt+P |
 
 Installed via `packages` in `../settings.json` rather than as a file here.
 
@@ -143,6 +150,7 @@ Everything that reaches the model on every request, as opposed to on demand:
 | `claude-rules.ts` | one line per rule file | Only in a cwd that has `.claude/rules/`. |
 | `rules-loader.ts` | full text of `~/.agent/rules/*.md` (~3 KB here) | Always-on global rules, in every request. |
 | `preset.ts` | length of `instructions` | Only while a preset is active. |
+| plannotator (npm) | planning-phase `instructions` from `plannotator.json` plus the `plannotator_submit_plan` tool definition | Only while a plannotator phase is active — the tool is added to the active set for the phase and released after. |
 | `shake.ts` | negative | Removes tokens rather than adding them. Its `context` handler runs before every request, so it stays O(messages) with no I/O. |
 | `system-prompt-dump.ts.disabled` | none | Renamed to `.disabled`, so it does not load. |
 
@@ -155,7 +163,7 @@ Nothing in Pi's default system prompt mentions `todo`, `questionnaire` or `subag
 These diverge from their `examples/extensions/` counterparts:
 
 - **`built-in-tool-renderer.ts`** — merged with the shipped `tool-override.ts`, which registered a competing `read`. The merged `read` delegates to `createReadTool()` rather than a hand-rolled implementation, builds base tools per `ctx.cwd` with the settings core passes in `_buildRuntime`, and on a block notifies and appends a `guard-block` entry like the other guards.
-- **`plan-mode/`** — `/todos` renamed to `/steps`, since `todo.ts` owns `/todos`. Tool handling is subtract-only: the shipped version unions a fixed tool list into the active set, which *grants* `bash` to a mode that deliberately had none. The injected prompt's `brave-search` line is removed.
+- **`plan-mode/`** (staged disabled — not loaded) — `/todos` renamed to `/steps`, since `todo.ts` owns `/todos`. Tool handling is subtract-only: the shipped version unions a fixed tool list into the active set, which *grants* `bash` to a mode that deliberately had none. The injected prompt's `brave-search` line is removed.
 - **`notify.ts`** — returns early unless `ctx.hasUI`. `subagent/` spawns children with extensions loaded, and their stdout is the JSON protocol stream the parent parses; an OSC sequence written there corrupts whichever event line it lands in.
 - **`protected-paths.ts`** and **`permission-gate.ts`** — rule-driven rather than carrying their path lists and regexes as source literals, with the `ask` distinction, the audit entry, and path-segment matching added.
 - **`protected-paths-bash.ts`**, **`shared/rules.ts`**, **`shared/access-log.ts`**, **`shake.ts`** and **`approve-gate.ts`** — authored here, no upstream equivalent.
@@ -165,9 +173,9 @@ Two shipped examples were staged and later removed: `inline-bash.ts` (its `!{cmd
 
 ## Interactions
 
-- `preset.ts`, `plan-mode/` and `tools.ts` all drive `setActiveTools()`. Use one at a time. `tools.ts` additionally restores its saved set on `session_start` and on `/tree` navigation, so a stale selection can override `defaultTools` on resume — clear it with `/tools` if the active set looks wrong.
-- Clearing a preset with no snapshot to restore falls back to `read, bash, edit, write` — narrower than the configured `defaultTools`. Use `/tools` to get the rest back. Leaving plan mode with no snapshot keeps whatever is active and adds `edit`/`write`, since plan mode never removed anything else.
-- Duplicate tool and command names resolve silently to whichever loads first, and load order is unsorted `readdir`. Extension commands also shadow same-named prompt templates from `~/.pi/agent/prompts/`, which is why `agent-skills/prompts/` ships `plan-change.md` — `plan-mode/` owns `/plan`. Pi's own built-ins win over both.
+- `preset.ts`, `tools.ts` and plannotator's phase profiles all drive `setActiveTools()`. Use one at a time. `tools.ts` additionally restores its saved set on `session_start` and on `/tree` navigation, so a stale selection can override `defaultTools` on resume — clear it with `/tools` if the active set looks wrong.
+- Clearing a preset with no snapshot to restore falls back to `read, bash, edit, write` — narrower than the configured `defaultTools`. Use `/tools` to get the rest back. Leaving plan mode with no snapshot keeps whatever is active and adds `edit`/`write`, since plan mode never removed anything else (moot while `plan-mode/` is staged disabled).
+- Duplicate tool and command names resolve silently to whichever loads first, and load order is unsorted `readdir`. Extension commands also shadow same-named prompt templates from `~/.pi/agent/prompts/`, which is why the separate `agent-skills` repo ships `plan-change.md` as a prompt template — `plan-mode/` owns `/plan` when it is enabled, and is currently staged disabled, so `/plan` is free. Pi's own built-ins win over both.
 - `approve-gate.ts` is **additive** to the other guards, not layered over them: all `tool_call` handlers run in sequence, the first to block wins and the rest never run, and load order is unsorted `readdir`. Because that order is not controllable, the gate checks the policy itself before prompting and stays quiet when a guard is going to block or ask about the same call — so a call `guard-rules.json` refuses is never presented for approval, and an `ask` rule produces one prompt rather than two. Turning a mode on can therefore only ever *add* confirmations.
 - Both modes are TUI/RPC only. With no UI to ask through, a gated call blocks, the way every `ask` rule degrades. Note the mode is restored from the session, so resuming an `/approve-all` session under `-p` blocks every gated tool.
 - The gate does **not** reach subagent children. They spawn `--no-session`, so no restored mode state reaches them and they always start with it off — gating the parent's `subagent` call is the only control point over the child's session, which is why it is gated under `/approve-all`.

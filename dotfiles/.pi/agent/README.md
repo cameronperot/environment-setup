@@ -11,6 +11,7 @@ Project-level files layer on top rather than replacing this: a repo's `AGENTS.md
 | `settings.json` | Provider, default model, default tool set, npm packages, TUI |
 | `models.json` | Per-provider overrides — OpenRouter routing only |
 | `guard-rules.json` | Path and bash-command policy the guard extensions enforce |
+| `plannotator.json` | Plannotator's planning-phase instructions — the prompt spliced in while its planning mode is active |
 | `AGENTS.md` | Prepended to every request; describes the extension tools and the subagent roles |
 | `extensions/` | 21 local extensions plus shared modules — see [`extensions/README.md`](extensions/README.md) |
 
@@ -32,15 +33,17 @@ Session modes, all off or neutral at start and all toggles — running the comma
 
 | Mode | Toggle | What changes |
 |---|---|---|
-| Plan | `/plan`, `--plan`, Ctrl+Alt+P | Removes `edit` and `write`, and filters `bash` through a read-only allowlist. Numbered steps from a `Plan:` block are tracked in a status widget; `/steps` lists them. |
+| Plan (plannotator) | `/plannotator-plan-mode`, `--plan`, Ctrl+Alt+P | Plannotator's planning phase: writes gated to markdown files inside the working directory, bash prompt-guided, plan submitted via `plannotator_submit_plan` for browser review. From the npm package — see [Extensions](#extensions). |
 | Preset | `/preset`, `--preset`, Ctrl+Shift+U | Swaps model, thinking level, tool set and instructions — see [Presets](#presets). |
 | Approve | `/approve` | Confirms every `write` and `edit` before it runs. |
 | Approve-all | `/approve-all` | Confirms every tool except `read`, `grep`, `find`, `ls`, `todo` and `questionnaire`. |
 | Tool selection | `/tools` | Interactive checklist over the active tool set. Persists to the session, so a stale selection can override `defaultTools` on resume. |
 
-Plan mode, presets and `/tools` all drive the same active tool set, so use one at a time. The approve modes are a separate axis: they gate calls rather than removing tools, and they stay quiet when a guard is already going to block or ask about the same call, so turning one on can only add confirmations.
+The bundled `plan-mode/` extension — `/plan`, `/steps`, a read-only bash allowlist, `Plan:`-block step tracking — is staged as `extensions/plan-mode/index.ts.disabled` and does not load. The `--plan` flag and Ctrl+Alt+P shortcut it used to register now belong to plannotator; re-enabling it would overlap both.
 
-Together the modes cover three different controls. Plan mode **prevents** by removing tools outright; the approve modes **confirm** at the moment of use; `/rewind` **undoes** after the fact. Note that both approve modes need a UI to ask through — under `-p` a gated call blocks instead, and the mode is restored from the session, so a resumed `/approve-all` session blocks every gated call.
+Presets, plannotator's planning phase and `/tools` all drive the same active tool set, so use one at a time. The approve modes are a separate axis: they gate calls rather than removing tools, and they stay quiet when a guard is already going to block or ask about the same call, so turning one on can only add confirmations.
+
+Together the modes cover three different controls. The planning phases **prevent** — plannotator gates writes to markdown inside the working directory, and plan-mode (when re-enabled) removes `edit` and `write` outright; the approve modes **confirm** at the moment of use; `/rewind` **undoes** after the fact. Note that both approve modes need a UI to ask through — under `-p` a gated call blocks instead, and the mode is restored from the session, so a resumed `/approve-all` session blocks every gated call.
 
 ## Guard policy
 
@@ -60,9 +63,9 @@ These are speed bumps, not a security boundary. Indirection through `sh -c` or `
 
 ## Subagents
 
-`subagent` reads role definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), with `user` the default. No `agents/` directory exists, so no roles are defined: the `scout` and `reviewer` roles [`AGENTS.md`](#agentsmd) describes are not on disk, and every delegation is rejected with `Unknown agent`.
+`subagent` reads role definitions from `~/.pi/agent/agents/*.md` (user scope) and the nearest `.pi/agents/` directory up the tree (project scope), with `user` the default; on a name conflict under the `both` scope the project definition wins. Nine roles are defined, matching the descriptions in [`AGENTS.md`](#agentsmd): scout, docs-researcher, planner, engineer, test-runner, debugger, reviewer, security-auditor, pr-summarizer — see [`agents/README.md`](agents/README.md) for tool grants, model pins and output contracts.
 
-A role is a Markdown file with `name` and `description` frontmatter, optional `tools` and `model`, and a system-prompt body. Three constraints are worth planning around once roles exist: `tools` becomes a strict allowlist for the child, so a role without `bash` cannot run commands and a role without `subagent` cannot delegate further; a child cannot see the parent conversation and the parent cannot see the child's, so each task must be self-contained; and a `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`). The agent name must match a defined role exactly, since an unknown name is rejected rather than guessed at.
+A role is a Markdown file with `name` and `description` frontmatter, optional `tools` and `model`, and a system-prompt body. Three constraints are worth planning around: `tools` becomes a strict allowlist for the child, so a role without `bash` cannot run commands and a role without `subagent` cannot delegate further; a child cannot see the parent conversation and the parent cannot see the child's, so each task must be self-contained; and a `model:` string is passed to the child as `--model` and needs the provider prefix (`provider/model`). The agent name must match a defined role exactly, since an unknown name is rejected rather than guessed at.
 
 ## AGENTS.md
 
@@ -72,16 +75,17 @@ Prepended to every request, which is why it is kept short. It carries the one th
 
 ## Extensions
 
-Twenty-one extensions load from `extensions/`, plus one npm package installed via `packages` in `settings.json`.
+Twenty-one extensions load from `extensions/` (`plan-mode/` is staged disabled and does not load), plus two npm packages installed via `packages` in `settings.json`.
 
 | Group | Extensions | Adds |
 |---|---|---|
 | Guards | `permission-gate`, `protected-paths`, `protected-paths-bash`, `approve-gate` | `/approve`, `/approve-all` |
 | Tools | `built-in-tool-renderer`, `todo`, `questionnaire` | tools `todo` `questionnaire`; `/todos`, `/read-log` |
-| Workflow | `preset`, `plan-mode/`, `tools`, `handoff`, `commands`, `subagent/` | tool `subagent`; `/preset`, `/plan`, `/steps`, `/tools`, `/handoff`, `/commands` |
+| Workflow | `preset`, `tools`, `handoff`, `commands`, `subagent/` | tool `subagent`; `/preset`, `/tools`, `/handoff`, `/commands` |
+| Git | `worktree` | `/worktree`, `pi --gwt <name>` |
 | Display | `custom-footer`, `notify`, `system-prompt-header` | `/footer` |
 | Context | `claude-rules`, `rules-loader`, `shake` | `/shake`, `/unshake` |
 | Session | `session-name`, `bookmark` | `/session-name`, `/bookmark`, `/unbookmark` |
-| npm | `pi-rewind` 0.5.0 | `/rewind`, Esc Esc |
+| npm | `pi-rewind` 0.5.0, `@plannotator/pi-extension` 0.27.9 | `/rewind`, Esc Esc; `plannotator_submit_plan` tool, `/plannotator-plan-mode`, `/plannotator-review`, `/plannotator-annotate`, `/plannotator-last`, `--plan`, Ctrl+Alt+P |
 
 Mechanism, per-request token cost, known gaps, local modifications and extension interactions are in [`extensions/README.md`](extensions/README.md).
