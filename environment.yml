@@ -18,6 +18,7 @@ dependencies:
   - pre-commit
   - pydantic
   - pynvim
+  - pyyaml
   - pytest
   - pytest-cov
   - requests

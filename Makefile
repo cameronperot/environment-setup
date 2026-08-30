@@ -17,6 +17,9 @@ else
 	./install.py --neovim-version $(NEOVIM_VERSION)
 endif
 
+update-dotfiles: ## Sync dotfiles from $HOME into dotfiles/ (DOTFILES_ARGS="--dry-run" to preview)
+	uv run sync_dotfiles.py $(DOTFILES_ARGS)
+
 container-build: ## Build the dev container image (dev:latest)
 	$(CONTAINER_CLI) build -t dev:latest -f dev-container/Containerfile .
 

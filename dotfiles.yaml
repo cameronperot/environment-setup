@@ -1,0 +1,410 @@
+# Manifest driving sync_dotfiles.py: syncs dotfiles from $HOME into dotfiles/.
+#
+# One recursive grammar: every scope has include:/exclude: lists, and any directory
+# include entry may carry a nested scope of the same shape, with its lists relative
+# to that directory, to any depth.
+# - include items: plain strings (literal path or glob, `**` for recursive) or
+#   mappings (`path:` plus `optional:`, and for directories a nested
+#   `include:`/`exclude:`). A directory with no nested lists syncs as a whole.
+# - exclude items: regex with search semantics (anchors control scope), plain
+#   strings or mappings (`pattern:` plus `optional:`). Root excludes match
+#   $HOME-relative paths; nested excludes match paths relative to their scope.
+# - `optional: true` on an include entry: it may be missing in $HOME (no warning,
+#   never pruned). On an exclude: it may match nothing (no unused-pattern warning).
+
+secret_patterns:
+  # literal quoted assignments only; values starting with $ are shell
+  # expansions (env-var pass-throughs), not secrets
+  - 'API_KEY\s*=\s*["''](?!\$)[^"'']{8,}["'']'
+
+include:
+  - .XCompose
+  - .bash_aliases
+  - .bunfig.toml
+  - .gitconfig
+  - .mamba_init.sh
+  - .npmrc
+  - .tmux.conf
+  - .zshenv
+  - .zshrc
+  # --- agent tooling: selectively curated trees (absent on some machines) ---
+  - path: .agent
+    optional: true
+    include:
+      - rules
+      - skills
+      - prompts
+  - path: .omp/agent
+    optional: true
+    include:
+      - AGENTS.md
+      - config.yml
+      - extensions
+    exclude:
+      # runtime state, never tracked
+      - pattern: '^(agent|history|models)\.db(-shm|-wal)?$'
+        optional: true
+      - pattern: '^(cache|prompts|sessions|skills|terminal-sessions)$'
+        optional: true
+      - pattern: '^last-changelog-version$'
+        optional: true
+  - path: .pi/agent
+    optional: true
+    exclude:
+      # runtime state, never tracked
+      - pattern: '^auth\.json$'
+        optional: true
+      - pattern: '^models-store\.json$'
+        optional: true
+      - pattern: '^(npm|prompts|sessions|skills|tmp)$'
+        optional: true
+      - pattern: '^(read-access|system-prompt)\.log$'
+        optional: true
+    include:
+      - AGENTS.md
+      - guard-rules.json
+      - keybindings.json
+      - models.json
+      - plannotator.json
+      - README.md
+      - settings.json
+      - themes
+      - path: extensions
+        exclude:
+          - pattern: 'node_modules'
+            optional: true
+          - pattern: 'package-lock\.json$'
+            optional: true
+
+  # --- .config ---
+  - path: .config
+    include:
+      - btop/btop.conf
+      - path: Code/User
+        include:
+          - keybindings.json
+          - settings.json
+        exclude:
+          - pattern: '^History$'
+            optional: true
+          - pattern: '^chatLanguageModels\.json$'
+            optional: true
+          - pattern: '^globalStorage$'
+            optional: true
+          - pattern: '^mcp\.json$'
+            optional: true
+          - pattern: '^snippets$'
+            optional: true
+          - pattern: '^sync$'
+            optional: true
+          - pattern: '^workspaceStorage$'
+            optional: true
+          - pattern: '^profiles$'
+            optional: true
+          - pattern: '^.code-profile$'
+            optional: true
+      - fuzzel/fuzzel.ini
+      - gammastep/config.ini
+      - htop
+      - i3/config
+      - i3status-rust
+      - kitty/kitty.conf
+      - mako/config
+      - path: nvim
+        optional: true
+        include:
+          - init.lua
+          - init-vscode.lua
+          - lua
+          - stylua.sh
+        exclude:
+          - pattern: '^lazy-lock\.json$'
+            optional: true
+      - pnpm
+      - ranger
+      - rofi
+      - sway/config
+      - swaylock/config
+      - tmux
+      - path: uv
+        include:
+          - uv.toml
+        exclude:
+          - pattern: '^uv-receipt\.json$'
+            optional: true
+      - waybar
+      - path: redshift.conf
+        optional: true
+      - path: io.datasette.llm
+        exclude:
+          - pattern: 'logs\.db$'
+            optional: true
+          - pattern: 'keys\.json$'
+            optional: true
+          - pattern: 'openrouter_models\.json$'
+            optional: true
+
+exclude:
+  # --- secrets and credential stores: never tracked ---
+  - pattern: '^\.docker$'
+    optional: true
+  - pattern: '^\.gnupg$'
+    optional: true
+  - pattern: '^\.pki$'
+    optional: true
+  - pattern: '^\.pypirc$'
+    optional: true
+  - pattern: '^\.secret_exports$'
+    optional: true
+  - pattern: '^\.config/autorestic$'
+    optional: true
+  - pattern: '^\.config/containers$'
+    optional: true
+  - pattern: '^\.config/keepassxc$'
+    optional: true
+  - pattern: '^\.config/rclone$'
+    optional: true
+  - pattern: '^\.config/signond$'
+    optional: true
+  - pattern: '^\.config/syncthing$'
+    optional: true
+  - pattern: '^\.config/tigervnc$'
+    optional: true
+  # --- histories and caches ---
+  - pattern: '^\.VeraCrypt-lock-user$'
+    optional: true
+  - pattern: '^\.aider\.chat\.history\.md$'
+    optional: true
+  - pattern: '^\.aider\.input\.history$'
+    optional: true
+  - pattern: '^\.bash_history$'
+    optional: true
+  - pattern: '^\.python_history$'
+    optional: true
+  - pattern: '^\.viminfo$'
+    optional: true
+  - pattern: '^\.config/\.aider\.chat\.history\.md$'
+    optional: true
+  - pattern: '^\.config/\.aider\.input\.history$'
+    optional: true
+  - pattern: '^\.config/\.gsd-keyboard\.settings-ported$'
+    optional: true
+  # --- restic backup state ---
+  - pattern: '^\.restic*'
+    optional: true
+  # --- toolchains, language runtimes, and package managers ---
+  - pattern: '^\.bundle$'
+    optional: true
+  - pattern: '^\.cargo$'
+    optional: true
+  - pattern: '^\.dotnet$'
+    optional: true
+  - pattern: '^\.java$'
+    optional: true
+  - pattern: '^\.julia$'
+    optional: true
+  - pattern: '^\.juliaup$'
+    optional: true
+  - pattern: '^\.micromamba$'
+    optional: true
+  - pattern: '^\.rustup$'
+    optional: true
+  - pattern: '^\.swt$'
+    optional: true
+  - pattern: '^\.yarn$'
+    optional: true
+  - pattern: '^\.config/configstore$'
+    optional: true
+  - pattern: '^\.config/dconf$'
+    optional: true
+  - pattern: '^\.config/enchant$'
+    optional: true
+  - pattern: '^\.config/glib-2\.0$'
+    optional: true
+  - pattern: '^\.config/go$'
+    optional: true
+  - pattern: '^\.config/goa-1\.0$'
+    optional: true
+  - pattern: '^\.config/ibus$'
+    optional: true
+  - pattern: '^\.config/imsettings$'
+    optional: true
+  - pattern: '^\.config/matplotlib$'
+    optional: true
+  - pattern: '^\.config/procps$'
+    optional: true
+  # --- browsers and application profiles ---
+  - pattern: '^\.mozilla$'
+    optional: true
+  - pattern: '^\.thunderbird$'
+    optional: true
+  - pattern: '^\.config/@joplin$'
+    optional: true
+  - pattern: '^\.config/GIMP$'
+    optional: true
+  - pattern: '^\.config/Joplin$'
+    optional: true
+  - pattern: '^\.config/Ledger*'
+    optional: true
+  - pattern: '^\.config/Mullvad VPN$'
+    optional: true
+  - pattern: '^\.config/Nextcloud$'
+    optional: true
+  - pattern: '^\.config/Signal AppImage$'
+    optional: true
+  - pattern: '^\.config/VeraCrypt$'
+    optional: true
+  - pattern: '^\.config/VirtualBox$'
+    optional: true
+  - pattern: '^\.config/abrt$'
+    optional: true
+  - pattern: '^\.config/chromium$'
+    optional: true
+  - pattern: '^\.config/evince$'
+    optional: true
+  - pattern: '^\.config/evolution$'
+    optional: true
+  - pattern: '^\.config/google-chrome$'
+    optional: true
+  - pattern: '^\.config/hexchat$'
+    optional: true
+  - pattern: '^\.config/joplin-desktop$'
+    optional: true
+  - pattern: '^\.config/libreoffice$'
+    optional: true
+  - pattern: '^\.config/mozilla$'
+    optional: true
+  - pattern: '^\.config/musikcube$'
+    optional: true
+  - pattern: '^\.config/obsidian$'
+    optional: true
+  - pattern: '^\.config/opensnitch$'
+    optional: true
+  - pattern: '^\.config/pulse$'
+    optional: true
+  - pattern: '^\.config/vlc$'
+    optional: true
+  - pattern: '^\.config/wavemon$'
+    optional: true
+  - pattern: '^\.config/wireshark$'
+    optional: true
+  - pattern: '^\.config/xfce4$'
+    optional: true
+  # --- desktop integration and auto-generated GUI config ---
+  - pattern: '^\.fonts$'
+    optional: true
+  - pattern: '^\.gtkrc-2\.0$'
+    optional: true
+  - pattern: '^\.icons$'
+    optional: true
+  - pattern: '^\.var$'
+    optional: true
+  - pattern: '^\.vscode$'
+    optional: true
+  - pattern: '^\.vscode-shared$'
+    optional: true
+  - pattern: '^\.config/QtProject\.conf$'
+    optional: true
+  - pattern: '^\.config/Signal AppImage$'
+    optional: true
+  - pattern: '^\.config/Thunar$'
+    optional: true
+  - pattern: '^\.config/autostart$'
+    optional: true
+  - pattern: '^\.config/dolphinrc$'
+    optional: true
+  - pattern: '^\.config/gtk-2\.0$'
+    optional: true
+  - pattern: '^\.config/gtk-3\.0$'
+    optional: true
+  - pattern: '^\.config/gtk-4\.0$'
+    optional: true
+  - pattern: '^\.config/kanshi$'
+    optional: true
+  - pattern: '^\.config/lxqt$'
+    optional: true
+  - pattern: '^\.config/mimeapps\.list$'
+    optional: true
+  - pattern: '^\.config/nwg-look$'
+    optional: true
+  - pattern: '^\.config/okularrc$'
+    optional: true
+  - pattern: '^\.config/pavucontrol\.ini$'
+    optional: true
+  - pattern: '^\.config/qt5ct$'
+    optional: true
+  - pattern: '^\.config/qtvirtualkeyboard$'
+    optional: true
+  - pattern: '^\.config/ristretto$'
+    optional: true
+  - pattern: '^\.config/sealert\.conf$'
+    optional: true
+  - pattern: '^\.config/user-dirs\.dirs$'
+    optional: true
+  - pattern: '^\.config/user-dirs\.locale$'
+    optional: true
+  - pattern: '^\.config/virt-viewer$'
+    optional: true
+  - pattern: '^\.config/xarchiver$'
+    optional: true
+  - pattern: '^\.config/xsettingsd$'
+    optional: true
+  # --- miscellaneous ---
+  - pattern: '^\.local_aliases$'
+    optional: true
+  - pattern: '^\.local_exports$'
+    optional: true
+  - pattern: '^\.bash_profile$'
+    optional: true
+  - pattern: '^\.xinitrc$'
+    optional: true
+  - pattern: '^\.dotfiles$'
+    optional: true
+  - pattern: '^\.config/geeqie$'
+    optional: true
+  - pattern: '^\.config/neofetch$'
+    optional: true
+  - pattern: '^\.config/easyeffects$'
+    optional: true
+  - pattern: '^\.config/git$'
+    optional: true
+  - pattern: '^\.config/lazygit$'
+    optional: true
+  - pattern: '^\.config/libinput-gestures\.conf$'
+    optional: true
+  - pattern: '^\.config/systemd$'
+    optional: true
+  # --- tmux plugin manager state ---
+  - pattern: '^\.tmux$'
+    optional: true
+  # --- top-level $HOME entries ---
+  - pattern: '^\.antigen$'
+    optional: true
+  - pattern: '^\.bash_logout$'
+    optional: true
+  - pattern: '^\.bashrc$'
+    optional: true
+  - pattern: '^\.cache$'
+    optional: true
+  - pattern: '^\.conda$'
+    optional: true
+  - pattern: '^\.ipython$'
+    optional: true
+  - pattern: '^\.jupyter$'
+    optional: true
+  - pattern: '^\.local$'
+    optional: true
+  - pattern: '^\.mamba$'
+    optional: true
+  - pattern: '^\.npm$'
+    optional: true
+  - pattern: '^\.plannotator$'
+    optional: true
+  - pattern: '^\.profile$'
+    optional: true
+  - pattern: '^\.ssh$'
+    optional: true
+  - pattern: '^\.zcompdump'
+    optional: true
+  - pattern: '^\.zsh_history$'
+    optional: true
