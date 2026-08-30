@@ -7,10 +7,14 @@
 #   mappings (`path:` plus `optional:`, and for directories a nested
 #   `include:`/`exclude:`). A directory with no nested lists syncs as a whole.
 # - exclude items: regex with search semantics (anchors control scope), plain
-#   strings or mappings (`pattern:` plus `optional:`). Root excludes match
-#   $HOME-relative paths; nested excludes match paths relative to their scope.
+#   strings or mappings (`pattern:` plus `optional:` and `allow_orphan:`). Root
+#   excludes match $HOME-relative paths; nested excludes match paths relative
+#   to their scope.
 # - `optional: true` on an include entry: it may be missing in $HOME (no warning,
 #   never pruned). On an exclude: it may match nothing (no unused-pattern warning).
+# - `allow_orphan: true` on an exclude: repository copies beneath matching paths
+#   are tolerated — never warned about as orphans and never deleted by --prune
+#   (the $HOME side stays untracked either way).
 
 secret_patterns:
   # literal quoted assignments only; values starting with $ are shell
@@ -41,25 +45,34 @@ include:
       - config.yml
       - extensions
     exclude:
-      # runtime state, never tracked
+      # runtime state, never tracked; repo copies are kept (mounted into the
+      # dev container) without orphan warnings or --prune deletion
       - pattern: '^(agent|history|models)\.db(-shm|-wal)?$'
         optional: true
+        allow_orphan: true
       - pattern: '^(cache|prompts|sessions|skills|terminal-sessions)$'
         optional: true
+        allow_orphan: true
       - pattern: '^last-changelog-version$'
         optional: true
+        allow_orphan: true
   - path: .pi/agent
     optional: true
     exclude:
-      # runtime state, never tracked
+      # runtime state, never tracked; repo copies are kept (mounted into the
+      # dev container) without orphan warnings or --prune deletion
       - pattern: '^auth\.json$'
         optional: true
+        allow_orphan: true
       - pattern: '^models-store\.json$'
         optional: true
-      - pattern: '^(npm|prompts|sessions|skills|tmp)$'
+        allow_orphan: true
+      - pattern: '^(npm|prompts|sessions|skills|tmp|docs|specs)$'
         optional: true
+        allow_orphan: true
       - pattern: '^(read-access|system-prompt)\.log$'
         optional: true
+        allow_orphan: true
     include:
       - AGENTS.md
       - guard-rules.json
@@ -69,12 +82,15 @@ include:
       - README.md
       - settings.json
       - themes
+      - agents
       - path: extensions
         exclude:
           - pattern: 'node_modules'
             optional: true
+            allow_orphan: true
           - pattern: 'package-lock\.json$'
             optional: true
+            allow_orphan: true
 
   # --- .config ---
   - path: .config
@@ -398,8 +414,11 @@ exclude:
     optional: true
   - pattern: '^\.npm$'
     optional: true
+  # plannotator runtime state (history, plans, drafts): kept in the repo for the
+  # dev container, never tracked
   - pattern: '^\.plannotator$'
     optional: true
+    allow_orphan: true
   - pattern: '^\.profile$'
     optional: true
   - pattern: '^\.ssh$'
