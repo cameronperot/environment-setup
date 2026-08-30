@@ -14,7 +14,7 @@ The extensions themselves, by what they do:
 - [Worktree](#worktree) — `worktree.ts`
 - [Display](#display) — `custom-footer.ts`, `notify.ts`, `system-prompt-header.ts`, `system-prompt-dump.ts.disabled`
 - [Context](#context) — `claude-rules.ts`, `rules-loader.ts`, `shake.ts`
-- [Session](#session) — `session-name.ts`, `bookmark.ts`
+- [Session](#session) — `bookmark.ts`
 - [npm packages](#npm-packages) — `pi-rewind` and `@plannotator/pi-extension`, installed rather than staged here
 
 Across all of them:
@@ -121,7 +121,6 @@ Two consequences to plan around. Rewriting an old message invalidates the provid
 
 | Extension | What it does | Registers |
 |---|---|---|
-| `session-name.ts` | Friendly session names in the session selector instead of the first message. | `/session-name` |
 | `bookmark.ts` | Labels entries so they stand out in `/tree`. | `/bookmark`, `/unbookmark` |
 
 ## Subagent roles
