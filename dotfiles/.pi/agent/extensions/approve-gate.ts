@@ -31,8 +31,10 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 	isToolCallEventType,
+	type ThemeColor,
 	type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
+import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import {
 	bashPatterns,
 	blockReason,
@@ -76,7 +78,7 @@ const MODE_NOTICE: Record<ApproveMode, string> = {
 const MAX_PREVIEW_LINES = 24;
 const MAX_PREVIEW_CHARS = 1200;
 
-/** Keep a preview to something a selector dialog can show without swamping it. */
+/** Keep the audit detail to something one line in a session entry can hold. */
 function clamp(text: string): string {
 	const lines = text.split("\n");
 	const clipped =
@@ -86,37 +88,144 @@ function clamp(text: string): string {
 	return clipped.length > MAX_PREVIEW_CHARS ? `${clipped.slice(0, MAX_PREVIEW_CHARS)}…` : clipped;
 }
 
-function prefixLines(text: string, marker: string): string {
-	return text
-		.split("\n")
-		.map((line) => `${marker} ${line}`)
-		.join("\n");
+/** One line of the approval preview, with the theme color to render it in. */
+interface PreviewLine {
+	text: string;
+	color?: ThemeColor;
+}
+
+/** Same budgets as ever, but applied to the structured lines so truncation
+ * always lands on a line boundary, never mid-escape-sequence. */
+function clampLines(lines: PreviewLine[]): PreviewLine[] {
+	const out: PreviewLine[] = [];
+	let chars = 0;
+	for (const line of lines) {
+		if (out.length >= MAX_PREVIEW_LINES) {
+			out.push({ text: `… ${lines.length - out.length} more lines`, color: "dim" });
+			return out;
+		}
+		if (chars + line.text.length > MAX_PREVIEW_CHARS) {
+			out.push({ text: "… preview truncated", color: "dim" });
+			return out;
+		}
+		chars += line.text.length + 1;
+		out.push(line);
+	}
+	return out;
 }
 
 /**
  * What the call is about to do, in enough detail to answer honestly.
  *
  * `tool_call` can rewrite arguments, but there is no way to hand an edited
- * version back through a selector, so the answer is yes or no on what is
+ * version back through the dialog, so the answer is yes or no on what is
  * shown — which is why the preview shows the change rather than naming it.
+ * Diff content carries the same colors the built-in edit tool renders with,
+ * and stays plain text so the RPC fallback can show it verbatim.
  */
-function preview(event: ToolCallEvent): string {
+function previewLines(event: ToolCallEvent): PreviewLine[] {
 	if (isToolCallEventType("bash", event)) {
-		return event.input.command;
+		return [{ text: event.input.command }];
 	}
 	if (isToolCallEventType("write", event)) {
-		const lines = event.input.content.split("\n").length;
-		return `${event.input.path} (${lines} lines)\n\n${event.input.content}`;
+		const content = event.input.content.split("\n");
+		return [
+			{ text: `${event.input.path} (${content.length} lines)`, color: "dim" },
+			{ text: "" },
+			...content.map((text) => ({ text, color: "toolDiffAdded" as const })),
+		];
 	}
 	if (isToolCallEventType("edit", event)) {
-		const blocks = event.input.edits.map(
-			(edit, i) =>
-				`── block ${i + 1} ──\n${prefixLines(edit.oldText, "-")}\n${prefixLines(edit.newText, "+")}`,
-		);
 		const count = event.input.edits.length;
-		return [`${event.input.path} (${count} edit${count === 1 ? "" : "s"})`, ...blocks].join("\n");
+		const lines: PreviewLine[] = [
+			{ text: `${event.input.path} (${count} edit${count === 1 ? "" : "s"})`, color: "dim" },
+		];
+		event.input.edits.forEach((edit, i) => {
+			lines.push({ text: "" }, { text: `── block ${i + 1} ──`, color: "dim" });
+			for (const text of edit.oldText.split("\n")) lines.push({ text: `- ${text}`, color: "toolDiffRemoved" });
+			for (const text of edit.newText.split("\n")) lines.push({ text: `+ ${text}`, color: "toolDiffAdded" });
+		});
+		return lines;
 	}
-	return JSON.stringify(event.input, null, 2);
+	return JSON.stringify(event.input, null, 2)
+		.split("\n")
+		.map((text) => ({ text }));
+}
+
+type ApproveChoice = "Yes" | "No" | "Yes to all remaining";
+
+const APPROVE_CHOICES: ApproveChoice[] = ["Yes", "No", "Yes to all remaining"];
+
+/**
+ * The colored approval dialog, shown in place of the editor until answered.
+ *
+ * Lines wrap inside the dialog width; anything a word-wrap cannot fit is
+ * hard-truncated. Escape or ctrl+c declines, which is what cancelling the
+ * selector did before.
+ */
+async function approveDialog(ctx: ExtensionContext, event: ToolCallEvent): Promise<ApproveChoice | undefined> {
+	const preview = clampLines(previewLines(event));
+
+	return ctx.ui.custom<ApproveChoice | undefined>((tui, theme, _keybindings, done) => {
+		let selected = 0;
+		let cached: string[] | undefined;
+		let cachedWidth: number | undefined;
+
+		const refresh = () => {
+			cached = undefined;
+			tui.requestRender();
+		};
+
+		function pushLine(out: string[], width: number, indent: string, line: PreviewLine): void {
+			const avail = Math.max(1, width - indent.length);
+			for (const piece of wrapTextWithAnsi(line.text, avail)) {
+				const fit = visibleWidth(piece) > avail ? truncateToWidth(piece, avail, "…") : piece;
+				out.push(`${indent}${line.color ? theme.fg(line.color, fit) : fit}`);
+			}
+		}
+
+		function render(width: number): string[] {
+			if (cached && cachedWidth === width) return cached;
+			const w = Math.max(1, width);
+			const out: string[] = [theme.fg("accent", "─".repeat(w))];
+			pushLine(out, w, " ", { text: theme.fg("accent", theme.bold(`✔ Approve ${event.toolName}?`)) });
+			out.push("");
+			for (const line of preview) pushLine(out, w, " ", line);
+			out.push("");
+			APPROVE_CHOICES.forEach((choice, i) => {
+				const marker = i === selected ? theme.fg("accent", "→ ") : "  ";
+				out.push(`${marker}${i === selected ? theme.fg("accent", choice) : choice}`);
+			});
+			out.push("");
+			pushLine(out, w, " ", { text: "↑↓ select · Enter confirm · Esc decline", color: "dim" });
+			out.push(theme.fg("accent", "─".repeat(w)));
+			cachedWidth = width;
+			return (cached = out);
+		}
+
+		function handleInput(data: string): void {
+			if (matchesKey(data, Key.up)) {
+				selected = (selected + APPROVE_CHOICES.length - 1) % APPROVE_CHOICES.length;
+				refresh();
+			} else if (matchesKey(data, Key.down)) {
+				selected = (selected + 1) % APPROVE_CHOICES.length;
+				refresh();
+			} else if (matchesKey(data, Key.enter)) {
+				done(APPROVE_CHOICES[selected]);
+			} else if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
+				done(undefined);
+			}
+		}
+
+		return {
+			render,
+			invalidate: () => {
+				cached = undefined;
+				cachedWidth = undefined;
+			},
+			handleInput,
+		};
+	});
 }
 
 /** The one-line identifier recorded in the audit entry. */
@@ -206,11 +315,15 @@ export default function (pi: ExtensionAPI) {
 			};
 		}
 
-		const choice = await ctx.ui.select(`✔ Approve ${event.toolName}?\n\n${clamp(preview(event))}`, [
-			"Yes",
-			"No",
-			"Yes to all remaining",
-		]);
+		const choice =
+			ctx.mode === "tui"
+				? await approveDialog(ctx, event)
+				: await ctx.ui.select(
+						`✔ Approve ${event.toolName}?\n\n${clampLines(previewLines(event))
+							.map((line) => line.text)
+							.join("\n")}`,
+						[...APPROVE_CHOICES],
+					);
 
 		if (choice !== "Yes" && choice !== "Yes to all remaining") {
 			pi.appendEntry<GuardAudit>("guard-block", {
