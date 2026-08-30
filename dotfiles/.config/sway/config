@@ -4,6 +4,9 @@
 set $mod Mod4
 font pango:JetBrainsMonoNL Nerd Font Medium 12
 
+# Disable primary selection clipboard and middle mouse click pasting
+bindsym --whole-window button2 nop
+
 # --------------------
 # Appearance
 # --------------------
@@ -35,7 +38,9 @@ workspace_layout tabbed
 # Dark theme
 exec_always {
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-    gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'
+    gsettings set org.gnome.desktop.interface gtk-theme 'Greybird-dark'
+    gsettings set org.gnome.desktop.interface icon-theme 'breeze-dark'
+    gsettings set org.gnome.desktop.interface cursor-theme 'Adwaita'
 }
 
 # --------------------
@@ -269,20 +274,23 @@ bindsym Control+Shift+Print exec grim -g "$(slurp)" - | wl-copy
 # --------------------
 # Status Bar
 # --------------------
+# bar {
+#     position bottom
+#     tray_output *
+#     font pango:JetBrainsMonoNL Nerd Font Medium 12
+#     status_command ~/.cargo/bin/i3status-rs ~/.config/i3status-rust/config.toml
+#     colors {
+#         background          $bg
+#         statusline          $tx
+#         separator           $ia
+#         focused_workspace   $ia        $bg        $tx
+#         active_workspace    $gn        $bg        $tx
+#         inactive_workspace  $bg        $bg        $ia
+#         urgent_workspace    $rd        $rd        $tx
+#     }
+# }
 bar {
-    position bottom
-    tray_output *
-    font pango:JetBrainsMonoNL Nerd Font Medium 12
-    status_command ~/.cargo/bin/i3status-rs ~/.config/i3status-rust/config.toml
-    colors {
-        background          $bg
-        statusline          $tx
-        separator           $ia
-        focused_workspace   $ia        $bg        $tx
-        active_workspace    $gn        $bg        $tx
-        inactive_workspace  $bg        $bg        $ia
-        urgent_workspace    $rd        $rd        $tx
-    }
+    swaybar_command waybar
 }
 
 # --------------------

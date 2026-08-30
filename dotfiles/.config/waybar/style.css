@@ -59,7 +59,6 @@ window#waybar {
 
 #network,
 #custom-tailscale,
-#custom-mullvad,
 #custom-caffeine,
 #cpu,
 #temperature,
@@ -123,14 +122,12 @@ window#waybar {
 /* ── VPN ── */
 
 /* Connected -> Green */
-#custom-tailscale.good,
-#custom-mullvad.good {
+#custom-tailscale.good {
     color: #40e82e;
 }
 
 /* Disconnected -> Red */
-#custom-tailscale.critical,
-#custom-mullvad.critical {
+#custom-tailscale.critical {
     color: #f94545;
 }
 

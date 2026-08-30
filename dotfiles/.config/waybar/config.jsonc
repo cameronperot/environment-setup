@@ -15,7 +15,6 @@
   "modules-right": [
     "network",
     "custom/tailscale",
-    "custom/mullvad",
     "cpu",
     "temperature",
     "memory",
@@ -59,12 +58,6 @@
     "exec": "if ip a show tailscale0 up >/dev/null 2>&1; then echo '{\"text\": \"ts\", \"class\": \"good\", \"tooltip\": \"Tailscale: Connected\"}'; else echo '{\"text\": \"ts\", \"class\": \"critical\", \"tooltip\": \"Tailscale: Disconnected\"}'; fi"
   },
 
-  "custom/mullvad": {
-    "interval": 10,
-    "return-type": "json",
-    "exec": "if ip a show wg0-mullvad up >/dev/null 2>&1; then echo '{\"text\": \"mv\", \"class\": \"good\", \"tooltip\": \"Mullvad: Connected\"}'; else echo '{\"text\": \"mv\", \"class\": \"critical\", \"tooltip\": \"Mullvad: Disconnected\"}'; fi"
-  },
-
   // ── System ──
   "cpu": {
     "interval": 10,
@@ -105,7 +98,7 @@
       "critical": 15
     },
     "format": " {icon} {capacity}% {time} ",
-    "format-charging": "  {capacity}% {time} ",
+    "format-charging": "  {capacity}% {time} ",
     "format-plugged": "  ",
     "format-full": " {icon} ",
     "format-icons": ["", "", "", "", ""],
