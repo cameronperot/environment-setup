@@ -28,6 +28,9 @@ alias uvl="uv lock"
 alias uvs="uv sync"
 alias uva="source ./.venv/bin/activate"
 alias uvd="deactivate"
+alias uvup="curl -LsSf https://astral.sh/uv/install.sh | sh"
+alias ruffup="curl -LsSf https://astral.sh/ruff/install.sh | sh"
+alias tyup="curl -LsSf https://astral.sh/ty/install.sh | sh"
 
 # Podman
 alias pm="podman"
