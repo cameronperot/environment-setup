@@ -1,36 +1,39 @@
-# Antigen, pinned to a release for reproducibility; bump the tag deliberately
-ANTIGEN_URL="https://raw.githubusercontent.com/zsh-users/antigen/v2.2.3/bin/antigen.zsh"
-if [ ! -s "${HOME}/.antigen/antigen.zsh" ]; then
-    mkdir -p "${HOME}/.antigen"
-    wget -O "${HOME}/.antigen/antigen.zsh" "$ANTIGEN_URL" || {
-        rm -f "${HOME}/.antigen/antigen.zsh"
-        echo "zshrc: could not download antigen from $ANTIGEN_URL" >&2
+# Antidote, pinned to the v2.3.0 commit for reproducibility; bump the tag and pin deliberately
+_antidote_pin="9bb69ab99c6f05d6e6ae237f7ce222eeeb5b4a14"
+if [ ! -s "${HOME}/.antidote/antidote.zsh" ]; then
+    git clone --depth 1 --branch v2.3.0 https://github.com/mattmc3/antidote "${HOME}/.antidote" || {
+        rm -rf "${HOME}/.antidote"
+        echo "zshrc: could not clone antidote v2.3.0" >&2
         return 1
     }
 fi
-source "${HOME}/.antigen/antigen.zsh"
+# Refuse to run an antidote that drifted from the pin (antidote update self-pulls)
+if [ "$(git -C "${HOME}/.antidote" rev-parse HEAD)" != "$_antidote_pin" ]; then
+    echo "zshrc: ${HOME}/.antidote is not at the pinned commit; rm -rf it or bump the pin" >&2
+    return 1
+fi
+source "${HOME}/.antidote/antidote.zsh"
 
-# Antigen config
-antigen use oh-my-zsh
-
-# Plugins
-antigen bundle git
-antigen bundle vi-mode
-antigen bundle dnf
-antigen bundle ssh-agent
-antigen bundle colored-man-pages
-# Pinned to tags for reproducibility; antigen only accepts tags
-antigen bundle zsh-users/zsh-completions@0.36.0
-antigen bundle Aloxaf/fzf-tab@v1.3.0
-antigen bundle zsh-users/zsh-autosuggestions@v0.7.1
-antigen bundle zsh-users/zsh-syntax-highlighting@0.8.0
-antigen bundle zsh-users/zsh-history-substring-search@v1.1.0 # must be sourced last
-
+# oh-my-zsh settings
 # Start the agent and load keys on first ssh, not at shell startup
 zstyle :omz:plugins:ssh-agent lazy yes
+# Disable omz's update checker
+zstyle :omz:update mode disabled
 
-# Antigen apply
-antigen apply
+# Plugins (static bundle; regenerated when it is stale)
+_antidote_bundle_txt="${HOME}/.zsh_plugins.txt"
+_antidote_bundle_zsh="${HOME}/.zsh_plugins.zsh"
+if [[ ! "$_antidote_bundle_zsh" -nt "$_antidote_bundle_txt" || ! "$_antidote_bundle_zsh" -nt "${HOME}/.antidote/antidote.zsh" ]]; then
+    _antidote_tmp="$(mktemp "${_antidote_bundle_zsh}.XXXXXX")"
+    if antidote bundle < "${_antidote_bundle_txt}" >| "${_antidote_tmp}" && [[ -s "${_antidote_tmp}" ]]; then
+        mv "${_antidote_tmp}" "${_antidote_bundle_zsh}"
+    else
+        rm -f "${_antidote_tmp}"
+        echo "zshrc: could not regenerate ${_antidote_bundle_zsh} from ${_antidote_bundle_txt}" >&2
+    fi
+fi
+[[ -s "${_antidote_bundle_zsh}" ]] && source "${_antidote_bundle_zsh}"
+unset _antidote_bundle_txt _antidote_bundle_zsh _antidote_tmp _antidote_pin
 
 # history-substring-search
 bindkey -M vicmd "k" history-substring-search-up

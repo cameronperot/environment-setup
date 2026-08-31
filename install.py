@@ -190,8 +190,8 @@ class EnvironmentInstaller:
 
         # comment out lines that might cause issues on remote hosts
         self._comment_out_lines(
-            self._home_dir / ".zshrc",
-            ("antigen bundle ssh-agent",),
+            self._home_dir / ".zsh_plugins.txt",
+            ("ohmyzsh/ohmyzsh path:plugins/ssh-agent",),
         )
 
         # if MAMBA_ROOT_PREFIX is set on the host, use it in the deployed .mamba_init.sh

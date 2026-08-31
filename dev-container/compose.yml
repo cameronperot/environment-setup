@@ -22,8 +22,8 @@ services:
       - "127.0.0.1:8889:8889"
     volumes:
       - .:/work
-      - dev-antigen:/home/user/.antigen
+      - dev-antidote:/home/user/.cache/antidote
 
 volumes:
-  dev-antigen:
-    name: dev-antigen
+  dev-antidote:
+    name: dev-antidote

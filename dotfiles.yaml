@@ -29,6 +29,7 @@ include:
   - .mamba_init.sh
   - .npmrc
   - .tmux.conf
+  - .zsh_plugins.txt
   - .zshenv
   - .zshrc
   # --- agent tooling: selectively curated trees (absent on some machines) ---
@@ -396,7 +397,9 @@ exclude:
   - pattern: '^\.tmux$'
     optional: true
   # --- top-level $HOME entries ---
-  - pattern: '^\.antigen$'
+  - pattern: '^\.antidote$'
+    optional: true
+  - pattern: '^\.zsh_plugins\.zsh$'
     optional: true
   - pattern: '^\.bash_logout$'
     optional: true
