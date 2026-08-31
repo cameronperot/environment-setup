@@ -1,4 +1,8 @@
 # Global Agent Notes
+## Environment
+
+You run inside a container — don't assume it mirrors the host machine. Work only within the current working directory unless instructed otherwise; if something you expect (a tool, a path, a setting) is missing, say so instead of hunting for it elsewhere.
+
 ## Extension Tools
 
 Beyond the built-ins, three tools are registered and active by default:
