@@ -17,20 +17,24 @@ antigen use oh-my-zsh
 antigen bundle git
 antigen bundle vi-mode
 antigen bundle dnf
-antigen bundle rsync
 antigen bundle ssh-agent
-antigen bundle pip
-antigen bundle common-aliases
-antigen bundle command-not-found
-antigen bundle zsh-users/zsh-completions
-antigen bundle zsh-users/zsh-autosuggestions
-antigen bundle zsh-users/zsh-syntax-highlighting # must be sourced last
+antigen bundle colored-man-pages
+# Pinned to tags for reproducibility; antigen only accepts tags
+antigen bundle zsh-users/zsh-completions@0.36.0
+antigen bundle Aloxaf/fzf-tab@v1.3.0
+antigen bundle zsh-users/zsh-autosuggestions@v0.7.1
+antigen bundle zsh-users/zsh-syntax-highlighting@0.8.0
+antigen bundle zsh-users/zsh-history-substring-search@v1.1.0 # must be sourced last
 
 # Start the agent and load keys on first ssh, not at shell startup
 zstyle :omz:plugins:ssh-agent lazy yes
 
 # Antigen apply
 antigen apply
+
+# history-substring-search
+bindkey -M vicmd "k" history-substring-search-up
+bindkey -M vicmd "j" history-substring-search-down
 
 # Prompt theme
 ZSH_THEME_GIT_PROMPT_PREFIX="("
@@ -75,8 +79,6 @@ do
 done
 
 # Kitty complete (cached; regenerated when the kitty binary changes)
-# There is no `kitten complete`; `kitty +complete` is the supported entry point
-# (it was removed in 0.27.0 and restored in 0.27.1 as a compat shim).
 if [ -x "$(command -v kitty)" ]; then
     _kitty_cache="${XDG_CACHE_HOME:-$HOME/.cache}/kitty-zsh-completions.zsh"
     if [[ ! -s "$_kitty_cache" || "$(command -v kitty)" -nt "$_kitty_cache" ]]; then
