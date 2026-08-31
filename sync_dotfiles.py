@@ -40,6 +40,14 @@ _EXCLUDE_ITEM_KEYS = frozenset({"pattern", "optional", "allow_orphan"})
 _GLOB_CHARS = re.compile(r"[*?\[]")
 PathParts = tuple[str, ...]
 
+# per-file rewrites applied to repository copies only ($HOME is never touched)
+_SCRUB_RULES: dict[str, tuple[re.Pattern[str], str]] = {
+    ".gitconfig": (
+        re.compile(r"(?m)^(\s*signingkey\s*=).*$"),
+        r"\1 (redacted)",
+    ),
+}
+
 
 class ConfigError(Exception):
     """Raised when the manifest is missing, unparsable, or invalid."""
@@ -664,11 +672,14 @@ class FileAction:
         source: Absolute path to read the content from (the resolved target for
             followed symlinks, otherwise the path inside ``$HOME`` itself).
         action: ``add`` for new repository files, ``modify`` for changed ones.
+        scrubbed: Replacement text to write instead of the source content, when
+            the file has a scrub rule.
     """
 
     rel: PurePosixPath
     source: Path
     action: Literal["add", "modify"]
+    scrubbed: str | None = None
 
 
 @dataclass(frozen=True)
@@ -898,22 +909,58 @@ class DotfilesSyncer:
             if repo_path.is_symlink():
                 errors.append(f"{info.rel}: repository path is a symlink")
                 continue
+            scrub = _SCRUB_RULES.get(info.rel.as_posix())
             if not repo_path.exists() or repo_path.is_dir():
                 # a repo directory holding this path is stale; execute deletes
                 # before copies, and fails loudly if orphan leftovers keep the
                 # directory alive
-                action = FileAction(rel=info.rel, source=info.source, action="add")
+                scrubbed = None
+                if scrub is not None:
+                    try:
+                        scrubbed = scrub[0].sub(
+                            scrub[1], info.source.read_text(encoding="utf-8")
+                        )
+                    except (OSError, UnicodeDecodeError) as error:
+                        errors.append(
+                            f"{info.rel}: cannot read file for scrubbing: {error}"
+                        )
+                        continue
+                action = FileAction(
+                    rel=info.rel,
+                    source=info.source,
+                    action="add",
+                    scrubbed=scrubbed,
+                )
             else:
-                try:
-                    needs_copy = self._needs_copy(info.source, repo_path)
-                except OSError as error:
-                    errors.append(
-                        f"{info.rel}: cannot compare with repo copy: {error}"
-                    )
-                    continue
-                if not needs_copy:
-                    continue
-                action = FileAction(rel=info.rel, source=info.source, action="modify")
+                if scrub is not None:
+                    try:
+                        needs_copy, scrubbed = self._scrubbed_needs_copy(
+                            info.source, repo_path, scrub
+                        )
+                    except (OSError, UnicodeDecodeError) as error:
+                        errors.append(
+                            f"{info.rel}: cannot compare with repo copy: {error}"
+                        )
+                        continue
+                    if not needs_copy:
+                        continue
+                else:
+                    try:
+                        needs_copy = self._needs_copy(info.source, repo_path)
+                    except OSError as error:
+                        errors.append(
+                            f"{info.rel}: cannot compare with repo copy: {error}"
+                        )
+                        continue
+                    if not needs_copy:
+                        continue
+                    scrubbed = None
+                action = FileAction(
+                    rel=info.rel,
+                    source=info.source,
+                    action="modify",
+                    scrubbed=scrubbed,
+                )
 
             findings = guard.scan(info.source)
             if "unreadable" in findings:
@@ -992,6 +1039,8 @@ class DotfilesSyncer:
                     repo_path.rmdir()
                 repo_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(action.source, repo_path)
+                if action.scrubbed is not None:
+                    repo_path.write_text(action.scrubbed, encoding="utf-8")
             except OSError as error:
                 self._errors.append(f"copy {action.rel}: {error}")
                 logger.error(f"Failed to copy {action.rel}: {error}")
@@ -1047,9 +1096,7 @@ class DotfilesSyncer:
         assessment = self.assessment()
         logger.info(f"Untracked candidates: {len(assessment.watch)}")
         for candidate in assessment.watch:
-            logger.info(
-                f"  {candidate.rel} (in {_watch_scope_label(candidate.scope)})"
-            )
+            logger.info(f"  {candidate.rel} (in {_watch_scope_label(candidate.scope)})")
         for message in assessment.errors:
             logger.error(message)
         self._warn_unused_patterns(assessment)
@@ -1075,12 +1122,12 @@ class DotfilesSyncer:
         item_chain = (*chain, (scope_base, scope.exclude))
         for item in scope.include:
             self._expand_item(
-            item=item,
-            scope_base=scope_base,
-            scope_abs=scope_abs,
-            chain=item_chain,
-            optional=optional,
-        )
+                item=item,
+                scope_base=scope_base,
+                scope_abs=scope_abs,
+                chain=item_chain,
+                optional=optional,
+            )
 
     def _expand_item(
         self,
@@ -1101,13 +1148,13 @@ class DotfilesSyncer:
         """
         if item.glob:
             self._glob_step(
-            item=item,
-            index=0,
-            cur_abs=scope_abs,
-            cur_parts=scope_base,
-            chain=chain,
-            optional=optional,
-        )
+                item=item,
+                index=0,
+                cur_abs=scope_abs,
+                cur_parts=scope_base,
+                chain=chain,
+                optional=optional,
+            )
             return
 
         target_parts = scope_base + item.parts
@@ -1240,12 +1287,12 @@ class DotfilesSyncer:
         parts = item.parts
         if index == len(parts):
             self._include_glob_match(
-            item=item,
-            target_abs=cur_abs,
-            target_parts=cur_parts,
-            chain=chain,
-            optional=optional,
-        )
+                item=item,
+                target_abs=cur_abs,
+                target_parts=cur_parts,
+                chain=chain,
+                optional=optional,
+            )
             return
 
         component = parts[index]
@@ -1311,7 +1358,10 @@ class DotfilesSyncer:
             child = cur_abs / component
             if not child.exists() and not child.is_symlink():
                 return
-            if self._match_exclude(parts=cur_parts + (component,), chain=chain) is not None:
+            if (
+                self._match_exclude(parts=cur_parts + (component,), chain=chain)
+                is not None
+            ):
                 return
             if child.is_symlink() and index + 1 < len(parts):
                 self._glob_symlink_step(
@@ -1577,7 +1627,10 @@ class DotfilesSyncer:
                 continue
             if self._name_is_covered(child.name, self._manifest.root):
                 continue
-            if self._match_exclude(parts=(child.name,), chain=root_excludes) is not None:
+            if (
+                self._match_exclude(parts=(child.name,), chain=root_excludes)
+                is not None
+            ):
                 continue
             candidates.append(
                 WatchCandidate(rel=PurePosixPath(child.name), scope="home")
@@ -1593,7 +1646,10 @@ class DotfilesSyncer:
                 if self._name_is_covered(child.name, record.scope):
                     continue
                 child_parts = record.parts + (child.name,)
-                if self._match_exclude(parts=child_parts, chain=child_chain) is not None:
+                if (
+                    self._match_exclude(parts=child_parts, chain=child_chain)
+                    is not None
+                ):
                     continue
                 candidates.append(
                     WatchCandidate(
@@ -1812,6 +1868,38 @@ class DotfilesSyncer:
         except OSError as error:
             self._errors.append(f"{dir_abs}: cannot list directory: {error}")
             return []
+
+    def _scrubbed_needs_copy(
+        self,
+        home_path: Path,
+        repo_path: Path,
+        scrub: tuple[re.Pattern[str], str],
+    ) -> tuple[bool, str]:
+        """Compare a scrubbed file against its repository copy.
+
+        Mode must match, but mtime is ignored and the home file's scrubbed
+        text is compared against the repository copy's text, so an already
+        redacted repository copy is never re-copied.
+
+        Args:
+            home_path: Absolute path of the source file.
+            repo_path: Absolute path of the repository copy.
+            scrub: ``(pattern, replacement)`` applied to the home file's text.
+
+        Returns:
+            Whether a copy is needed, plus the scrubbed text to write.
+
+        Raises:
+            OSError: If either file cannot be read.
+            UnicodeDecodeError: If either file is not valid UTF-8 text.
+        """
+        pattern, replacement = scrub
+        scrubbed = pattern.sub(replacement, home_path.read_text(encoding="utf-8"))
+        home_stat = home_path.stat()
+        repo_stat = repo_path.stat()
+        if home_stat.st_mode & 0o7777 != repo_stat.st_mode & 0o7777:
+            return True, scrubbed
+        return repo_path.read_text(encoding="utf-8") != scrubbed, scrubbed
 
     def _needs_copy(self, home_path: Path, repo_path: Path) -> bool:
         """Compare a home file against its repository copy.

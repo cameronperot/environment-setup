@@ -1,9 +1,13 @@
 [user]
     email = cameronperot@users.noreply.github.com
     name = Cameron Perot
-    signingkey = 430F63ABA9446784
+    signingkey = (redacted)
 [commit]
     gpgsign = true
+[gpg]
+    format = ssh
+[gpg "ssh"]
+    allowedSignersFile = ~/.ssh/allowed_signers
 [core]
     editor = nvim
 [pull]
