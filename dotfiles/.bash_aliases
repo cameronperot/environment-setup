@@ -1,10 +1,10 @@
 # General
-alias clearnvimswap="rm ~/.local/state/nvim/swap/*.swp"
+alias clearnvimswap="find ~/.local/state/nvim/swap -name '*.swp' -delete 2>/dev/null"
 alias mm="micromamba"
 alias n="nvim"
 alias nn="nvim --clean"
 alias sn="sudoedit"
-alias sshk="kitty +kitten ssh"
+alias sshk="kitten ssh"
 alias ta="tmux a"
 alias updatenvim="wget -O /tmp/nvim.appimage https://github.com/neovim/neovim/releases/download/stable/nvim.appimage && mv /tmp/nvim.appimage ~/bin/nvim && chmod u+x ~/bin/nvim"
 
