@@ -22,7 +22,7 @@ services:
       - "127.0.0.1:8889:8889"
     volumes:
       - .:/work
-      - dev-antidote:/home/user/.cache/antidote
+      - dev-antidote:/home/user/.antidote
 
 volumes:
   dev-antidote:

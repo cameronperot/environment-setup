@@ -1,4 +1,5 @@
 # Antidote, pinned to the v2.3.0 commit for reproducibility; bump the tag and pin deliberately
+export ANTIDOTE_HOME="${HOME}/.antidote/cache"
 _antidote_pin="9bb69ab99c6f05d6e6ae237f7ce222eeeb5b4a14"
 if [ ! -s "${HOME}/.antidote/antidote.zsh" ]; then
     git clone --depth 1 --branch v2.3.0 https://github.com/mattmc3/antidote "${HOME}/.antidote" || {

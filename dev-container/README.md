@@ -18,7 +18,7 @@ alias c='podman run \
   --rm \
   --userns keep-id \
   --security-opt label=disable \
-  -v dev-antidote:/home/user/.cache/antidote \
+  -v dev-antidote:/home/user/.antidote \
   -v ${PWD}:/work \
   dev:latest'
 ```
