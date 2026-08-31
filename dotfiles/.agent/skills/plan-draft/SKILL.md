@@ -21,6 +21,7 @@ Trailing input after `/skill:plan-draft` is the goal, scope, or target file path
 ## Workflow
 
 1. Reconnaissance:
+   - Do not read any other existing plans, specs, or design documents unless the user explicitly instructs you to; base the plan only on the user's stated goal and your own recon of the code.
    - Read relevant codebase files, types, and configurations to understand current architecture and patterns.
    - Inspect existing test suites and discover available test, lint, and build commands (e.g. `uv run pytest`).
    - Run the full test suite once to establish a baseline; record any pre-existing failures so phase gates are never confused with them.
