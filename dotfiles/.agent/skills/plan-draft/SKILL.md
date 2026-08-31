@@ -5,7 +5,7 @@ description: Drafts structured, phased implementation plans with verifiable task
 
 # plan-draft
 
-Draft succinct, phased implementation plans where every task has a verifiable success criterion and every phase gates on verified evidence.
+Draft succinct, phased implementation plans where every task has a verifiable success criterion and every phase gates on verified evidence, written so an agent with fresh context can execute them from the plan file alone.
 
 Trailing input after `/skill:plan-draft` is the goal, scope, or target file path for the plan; with no input, derive the goal from conversation context or ask what change to plan.
 
@@ -16,6 +16,8 @@ Trailing input after `/skill:plan-draft` is the goal, scope, or target file path
 - **Verifiable goals**: Frame every task as a verifiable goal with an explicit success criterion, not a sequence of vague actions.
 - **Strict phase gating**: Sequence work so each phase builds only on verified prior steps; never build on unverified ground.
 - **Flag uncertainties early**: Identify assumptions, breaking changes, and trade-offs before drafting; ask the user to resolve open decisions before execution starts.
+- **Self-contained for a cold reader**: The plan file is the executor's only input and may be handed to an agent with fresh context; everything needed to execute must live in the plan, never only in the planning conversation.
+- **Original, process-free voice**: The finished plan reads as if drafted directly in its final form — it records the current truth, not the history of how it was reached.
 - **Built-in artifact sweep**: Every plan must conclude with an explicit sweep of related documentation, configs, and test suites.
 
 ## Workflow
@@ -50,7 +52,15 @@ Trailing input after `/skill:plan-draft` is the goal, scope, or target file path
    - Include running the full project test suite and linter as the final gate.
 6. Present the plan:
    - Format the plan using the markdown structure below.
-   - Write the plan to the markdown file expected by the invoking context (e.g. a requested path, or `specs/<plan-name>.md` in plannotator plan mode), updating it incrementally as understanding evolves rather than drafting it in one pass; only output the plan directly to the conversation when no file-based flow is active.
+   - Write the plan to the markdown file expected by the invoking context (e.g. a requested path, or `specs/<plan-name>.md` in plannotator plan mode), updating it incrementally as understanding evolves rather than drafting it in one pass. When understanding changes, rewrite the affected sections in place so the document always states the current truth; never append corrections or "instead of the above" notes on top of earlier text.
+   - Only output the plan directly to the conversation when no file-based flow is active.
+7. Cold-reader final pass:
+   - The plan is not done until it survives this test: re-read it top to bottom as an executor with no access to the planning conversation, and fix everything that only makes sense with that context:
+     - Process references ("as discussed", "the user asked", "during recon I found") — keep the needed fact, drop the process.
+     - Superseded content: rejected alternatives, considered-but-dropped options, leftover "could also" suggestions — keep only rationale that constrains execution, phrased as a decision (e.g. "queue must be in-process: single-binary deployment"), not as history.
+     - Stale statements: assumptions since verified or resolved, facts changed by later drafting (e.g. a component renamed during drafting) — restate them as current truth in place or drop them.
+     - Unresolved content: no open questions, TBDs, or options deferred to the executor; every ambiguity was either resolved and stated as the chosen approach, or is unknowable before execution and recorded as an assumption with a default.
+   - Verify self-containment by inspection: re-walk the plan task by task with only the plan file in front of you — never the conversation or recon notes — and confirm every command states where it runs and what output counts as passing, and every path, decision, and fact the tasks rely on appears in the document.
 
 ## Plan structure
 
@@ -58,10 +68,10 @@ Trailing input after `/skill:plan-draft` is the goal, scope, or target file path
 # Implementation Plan: <Feature or Task Title>
 
 ## Overview
-<1–2 sentences explaining the goal, core approach, and scope boundaries.>
+<1–2 sentences a fresh executor can orient from: what changes, in which repo/area, the core approach, and scope boundaries.>
 
 ## Key Decisions & Assumptions
-- <Decision or assumption with rationale>
+- <Decision or assumption with rationale; only what still constrains execution>
 - <Resolution of any ambiguities>
 
 ## Phase 1: <Phase Name>
@@ -93,3 +103,5 @@ Before presenting a draft plan, verify:
 - Checkboxes (`- [ ]`) are used consistently for task tracking.
 - The artifact sweep phase is included at the end.
 - Dependencies between phases and tasks are stated in the plan; only non-obvious dependencies are annotated, so strictly linear plans stay clean.
+- Self-contained: executable from the plan file alone, with no dependency on the planning conversation.
+- No planning-process remnants (process references, superseded content, stale statements, or unresolved questions).
