@@ -119,6 +119,8 @@ include:
             optional: true
           - pattern: '^.code-profile$'
             optional: true
+      - path: environment.d
+        optional: true
       - fuzzel/fuzzel.ini
       - gammastep/config.ini
       - htop
