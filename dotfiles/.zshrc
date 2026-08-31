@@ -1,7 +1,12 @@
-# Download antigen if it doesn't exist
-if [ ! -f "${HOME}/.antigen/antigen.zsh" ]; then
+# Antigen, pinned to a release for reproducibility; bump the tag deliberately
+ANTIGEN_URL="https://raw.githubusercontent.com/zsh-users/antigen/v2.2.3/bin/antigen.zsh"
+if [ ! -s "${HOME}/.antigen/antigen.zsh" ]; then
     mkdir -p "${HOME}/.antigen"
-    wget -O "${HOME}/.antigen/antigen.zsh" https://raw.githubusercontent.com/zsh-users/antigen/master/bin/antigen.zsh
+    wget -O "${HOME}/.antigen/antigen.zsh" "$ANTIGEN_URL" || {
+        rm -f "${HOME}/.antigen/antigen.zsh"
+        echo "zshrc: could not download antigen from $ANTIGEN_URL" >&2
+        return 1
+    }
 fi
 source "${HOME}/.antigen/antigen.zsh"
 
@@ -17,10 +22,12 @@ antigen bundle ssh-agent
 antigen bundle pip
 antigen bundle common-aliases
 antigen bundle command-not-found
-antigen bundle zsh-users/zsh-syntax-highlighting
 antigen bundle zsh-users/zsh-completions
 antigen bundle zsh-users/zsh-autosuggestions
-antigen bundle zsh-users/zsh-history-substring-search
+antigen bundle zsh-users/zsh-syntax-highlighting # must be sourced last
+
+# Start the agent and load keys on first ssh, not at shell startup
+zstyle :omz:plugins:ssh-agent lazy yes
 
 # Antigen apply
 antigen apply
@@ -45,13 +52,19 @@ setopt HIST_REDUCE_BLANKS
 setopt HIST_VERIFY
 setopt HIST_SAVE_NO_DUPS
 unsetopt SHARE_HISTORY
-HISTORY_IGNORE="*password*:*secret*:*PASSWORD*:*SECRET*"
+HISTORY_IGNORE="(*password*|*secret*|*PASSWORD*|*SECRET*)"
 
 # Aliases
-unalias rm 2>/dev/null
-unalias fd 2>/dev/null
-bindkey -s "^r" " ranger^M" # bind ctrl-r to ranger
-bindkey -s "^n" " nvim^M"   # bind ctrl-n to nvim
+
+# Key bindings (insert mode; main keymap is viins via vi-mode)
+bindkey -s "^r" " ranger^M" # ctrl-r -> ranger
+bindkey -s "^n" " nvim^M"   # ctrl-n -> nvim
+bindkey -s "^h" " hstr^M"   # ctrl-h -> hstr
+alias hh=hstr               # hh -> hstr
+KEYTIMEOUT=1                # for esc in zsh vim mode
+
+# Exports
+[[ -t 0 ]] && export GPG_TTY="$(tty)"
 
 # Source files
 for file in .bash_aliases .local_aliases .local_exports
@@ -61,14 +74,22 @@ do
     fi
 done
 
-# Kitty complete
+# Kitty complete (cached; regenerated when the kitty binary changes)
+# There is no `kitten complete`; `kitty +complete` is the supported entry point
+# (it was removed in 0.27.0 and restored in 0.27.1 as a compat shim).
 if [ -x "$(command -v kitty)" ]; then
-    source <(kitty + complete setup zsh)
+    _kitty_cache="${XDG_CACHE_HOME:-$HOME/.cache}/kitty-zsh-completions.zsh"
+    if [[ ! -s "$_kitty_cache" || "$(command -v kitty)" -nt "$_kitty_cache" ]]; then
+        _kitty_tmp="$(mktemp "${_kitty_cache}.XXXXXX")"
+        if kitty + complete setup zsh >| "$_kitty_tmp" && [[ -s "$_kitty_tmp" ]]; then
+            mv "$_kitty_tmp" "$_kitty_cache"
+        else
+            rm -f "$_kitty_tmp"
+        fi
+    fi
+    [[ -s "$_kitty_cache" ]] && source "$_kitty_cache"
+    unset _kitty_cache _kitty_tmp
 fi
-
-# HSTR configuration - add this to ~/.bashrc
-bindkey -s "^h" " hstr^M"        # bind ctrl-h to hstr
-alias hh=hstr                    # hh to be alias for hstr
 
 # Micromamba
 if [[ -f "${HOME}/.mamba_init.sh" ]]; then
@@ -77,8 +98,5 @@ fi
 
 # zoxide
 if [ -x "$(command -v zoxide)" ]; then
-    function z () {
-        __zoxide_z "$@"
-    }
-    eval "$(zoxide init zsh --no-cmd)"
+    eval "$(zoxide init zsh --cmd z)" # defines z and zi (zi needs fzf)
 fi
