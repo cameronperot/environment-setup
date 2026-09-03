@@ -4,6 +4,12 @@
  * Git worktree management for pi. Worktrees live in a sibling folder
  * (default `../.worktrees/<repo>/<name>`) so the main checkout stays clean.
  *
+ * `.bare`-style repos are also supported: a bare clone in `.bare/` (optionally
+ * with a `.git` file pointing at it) and worktrees as siblings of `.bare`, e.g.
+ * `main/`, `some-feature/`. There the directory containing `.bare` counts as
+ * the main worktree and, with the default root, new worktrees are created next
+ * to `.bare`.
+ *
  * - /worktree create <name> [base]  — create (or attach to) branch <name> in a new worktree
  * - /worktree list                   — worktrees with branch, dirty state and ahead/behind vs base
  * - /worktree remove <name>          — remove the worktree; offer to delete the branch if merged
@@ -60,6 +66,7 @@ interface Worktree {
 	path: string;
 	head: string;
 	branch?: string; // short name
+	bare?: boolean; // bare gitdir entry (`.bare`-style repos)
 }
 
 // =============================================================================
@@ -103,6 +110,7 @@ async function listWorktrees(pi: ExtensionAPI, mainWorktree: string): Promise<Wo
 			if (line.startsWith("worktree ")) wt = { path: line.slice(9), head: "" };
 			else if (wt && line.startsWith("HEAD ")) wt.head = line.slice(5);
 			else if (wt && line.startsWith("branch refs/heads/")) wt.branch = line.slice(18);
+			else if (wt && line === "bare") wt.bare = true;
 		}
 		if (wt) worktrees.push(wt);
 	}
@@ -228,7 +236,27 @@ function loadConfig(
 	return { config: merged, errors, notices };
 }
 
+/**
+ * True when mainWorktree is the container of a `.bare`-style worktree repo:
+ * a bare gitdir in `.bare/` (with HEAD), and no normal `.git` directory.
+ */
+function isBareStyle(mainWorktree: string): boolean {
+	try {
+		if (!statSync(join(mainWorktree, ".bare")).isDirectory()) return false;
+	} catch {
+		return false;
+	}
+	try {
+		if (lstatSync(join(mainWorktree, ".git")).isDirectory()) return false;
+	} catch {
+		// no .git entry: bare clones without the .git pointer file still qualify
+	}
+	return existsSync(join(mainWorktree, ".bare", "HEAD"));
+}
+
 function worktreeRoot(config: Config, mainWorktree: string): string {
+	// With the default root in a `.bare`-style repo, worktrees live next to `.bare`.
+	if (config.root === DEFAULT_CONFIG.root && isBareStyle(mainWorktree)) return mainWorktree;
 	const root = expandTilde(config.root.replaceAll("<repo>", basename(mainWorktree)));
 	return resolve(mainWorktree, root);
 }
@@ -531,10 +559,16 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 		const worktrees = await listWorktrees(pi, mainWorktree);
 		const rows: string[][] = [];
 		for (const [i, wt] of worktrees.entries()) {
+			const marker = samePath(wt.path, ctx.cwd) ? "*" : " ";
+			// Bare gitdir entry (`.bare`-style): no work tree, so skip dirty/sync
+			// checks (git status fails there).
+			if (wt.bare) {
+				rows.push([marker, "(bare)", "-", "-", "-", wt.path]);
+				continue;
+			}
 			const dirty = (await isDirty(pi, wt.path)) > 0 ? "dirty" : "clean";
 			const base = wt.branch ? await getBase(pi, mainWorktree, wt.branch) : undefined;
 			const sync = base ? `${await aheadBehind(pi, wt.path, base)} vs ${base}` : "base unknown";
-			const marker = samePath(wt.path, ctx.cwd) ? "*" : " ";
 			const name = i === 0 ? "(main)" : basename(wt.path);
 			rows.push([marker, name, wt.branch ?? `detached@${wt.head.slice(0, 8)}`, dirty, sync, wt.path]);
 		}
