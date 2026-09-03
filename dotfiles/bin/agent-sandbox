@@ -25,7 +25,7 @@ readonly SANDBOX_PATH="/opt/mamba/envs/dev/bin:${HOME_DIR}/.local/bin:\
 /usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
 
 declare -rA AGENT_EXE=(
-    [pi]="/opt/mamba/envs/dev/bin/pi"
+    [pi]="${HOME_DIR}/.local/bin/pi"
     [omp]="${HOME_DIR}/.local/bin/omp"
     [opencode]="${HOME_DIR}/.local/bin/opencode"
     [claude]="${HOME_DIR}/.local/bin/claude"

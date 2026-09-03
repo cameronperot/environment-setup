@@ -162,7 +162,12 @@ USER "${NEW_USER}"
 # Install coding agents
 RUN curl -fsSL https://opencode.ai/install | bash \
     && ln -s "${HOME_DIR}/.opencode/bin/opencode" "${HOME_DIR}/.local/bin/opencode"
-RUN curl -fsSL https://pi.dev/install.sh | sh
+# pi goes through npm straight into ~/.local so the binary sits in ~/.local/bin
+# like omp and opencode: micromamba activation prepends the env bin dir in
+# interactive zsh, which would otherwise put the real pi ahead of the ~/bin
+# shadow.
+RUN npm install -g --ignore-scripts --min-release-age=0 --no-fund --no-audit \
+    --prefix "${HOME_DIR}/.local" @earendil-works/pi-coding-agent
 RUN curl -fsSL https://omp.sh/install | sh
 
 # Shadow the agent names on PATH (~/bin precedes the real executables) so every
