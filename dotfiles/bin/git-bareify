@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+#
+# git-bareify — convert a normally cloned git repository in place into the
+# ".bare" layout: the repository moves to <dir>/.bare, <dir>/.git becomes a
+# file pointing at it, and the current checkout becomes a linked worktree
+# named after its branch.
+#
+#   before:  <dir>/{.git/, <working files>}
+#   after:   <dir>/{.bare/, .git, <branch>/}
+#
+# Branches, remotes, stashes, reflogs, config and ignored files (.venv, .env)
+# are preserved: nothing is re-cloned or re-checked out.
+#
+# Usage: git-bareify [--debug] [path]
+
+set -euo pipefail
+shopt -s dotglob nullglob
+
+readonly BARE_NAME=".bare"
+readonly GITDIR_FILE_CONTENT="gitdir: ./${BARE_NAME}"
+readonly -a GIT_ENV_OVERRIDES=(
+  GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+)
+readonly -a FORBIDDEN_BOOL_KEYS=(core.sparseCheckout extensions.worktreeConfig)
+
+usage() {
+  cat <<USAGE
+Usage: ${0##*/} [--debug] [path]
+
+Convert the git clone at <path> (default: .) into the .bare layout:
+  <dir>/.bare     the repository (the former .git, core.bare=true)
+  <dir>/.git      file pointing at .bare, so git works from <dir>
+  <dir>/<branch>  worktree holding the current checkout
+
+Flags:
+  -h, --help  show this help
+  --debug     trace execution (set -x)
+
+Examples:
+  ${0##*/}
+  ${0##*/} ~/projects/my_project
+  ${0##*/} --debug .
+
+Notes:
+  When run as "git bareify", use -h: git turns --help into a man page lookup.
+  The working tree must be clean (no staged, modified or untracked files);
+  ignored files are moved into the worktree, not lost.
+  The worktree is named after the checked-out branch (main, master, ...);
+  check out the branch you want first.
+  Virtualenvs under the moved tree embed the old absolute path; recreate
+  them (e.g. uv sync).
+  If the script fails after ".git -> .bare" but before the worktree exists,
+  revert with: rm .git && mv .bare .git && git config core.bare false
+USAGE
+}
+
+die() {
+  echo "${0##*/}: error: $*" >&2
+  exit 1
+}
+
+log() {
+  echo "${0##*/}: $*"
+}
+
+resolve_toplevel() {
+  local path="${1}"
+  git -C "${path}" rev-parse --show-toplevel 2>/dev/null ||
+    die "${path} is not inside a git work tree"
+}
+
+resolve_branch() {
+  local dir="${1}"
+  git -C "${dir}" symbolic-ref --quiet --short HEAD ||
+    die "HEAD is detached; check out a branch first"
+}
+
+require_plain_git_dir() {
+  local git_dir="${1}/.git"
+  [[ -d "${git_dir}" && ! -L "${git_dir}" ]] ||
+    die "${git_dir} is not a plain directory (linked worktree or submodule?)"
+}
+
+require_clean_tree() {
+  local dir="${1}"
+  [[ -z "$(git -C "${dir}" status --porcelain)" ]] ||
+    die "working tree is not clean; commit, stash or remove changes first"
+}
+
+require_single_worktree() {
+  local dir="${1}"
+  local -a worktrees
+  readarray -t worktrees < <(
+    git -C "${dir}" worktree list --porcelain | grep '^worktree '
+  )
+  ((${#worktrees[@]} == 1)) ||
+    die "repository already has linked worktrees; remove them first"
+}
+
+require_no_submodules() {
+  local dir="${1}"
+  [[ ! -e "${dir}/.gitmodules" ]] ||
+    die "repositories with submodules are not supported"
+}
+
+# Globals: BARE_NAME
+# Arguments: dir, branch
+# Outputs: error to STDERR on failure
+# Returns: exits 1 when an existing entry would collide with the new layout.
+#   The first path component of the branch is what matters: `git worktree
+#   add` creates the leading directories of a branch like feature/x, so
+#   `feature` is what lands in <dir>. Refnames cannot start with ".", so
+#   .bare and .git never collide.
+require_no_collisions() {
+  local dir="${1}" branch="${2}"
+  local entry
+  for entry in "${BARE_NAME}" "${branch%%/*}"; do
+    [[ ! -e "${dir}/${entry}" ]] ||
+      die "${dir}/${entry} exists; it would collide with the new layout"
+  done
+}
+
+# Globals: FORBIDDEN_BOOL_KEYS
+# Arguments: dir
+# Outputs: error to STDERR on failure
+# Returns: exits 1 when the config cannot survive the conversion:
+#   core.worktree together with core.bare is a fatal git config combination,
+#   and a sparse checkout (or worktree-scoped config) would move a partial
+#   tree into the new worktree.
+require_plain_config() {
+  local dir="${1}"
+  local key value
+  ! git -C "${dir}" config --get core.worktree >/dev/null ||
+    die "core.worktree is set; unsupported"
+  for key in "${FORBIDDEN_BOOL_KEYS[@]}"; do
+    value="$(git -C "${dir}" config --type=bool --default false "${key}")"
+    [[ "${value}" == false ]] || die "${key} is enabled; unsupported"
+  done
+}
+
+# Globals: BARE_NAME, GITDIR_FILE_CONTENT
+# Arguments: dir
+# Outputs: progress to STDOUT
+# Returns: none. core.bare must be true before add_worktree runs: `git
+#   worktree add` skips bare repositories in its "branch already checked
+#   out" test, which is what lets the branch bare HEAD points at be added
+#   (the same reason `git clone --bare && git worktree add main` works).
+make_bare() {
+  local dir="${1}"
+  log "moving ${dir}/.git to ${dir}/${BARE_NAME}"
+  mv "${dir}/.git" "${dir}/${BARE_NAME}"
+  git --git-dir="${dir}/${BARE_NAME}" config core.bare true
+  printf '%s\n' "${GITDIR_FILE_CONTENT}" >"${dir}/.git"
+}
+
+add_worktree() {
+  local dir="${1}" branch="${2}"
+  log "adding worktree ${dir}/${branch}"
+  git -C "${dir}" worktree add --quiet --no-checkout \
+    "${dir}/${branch}" "${branch}"
+}
+
+# Globals: BARE_NAME
+# Arguments: dir, worktree
+# Outputs: none
+# Returns: none. logs/HEAD is per-worktree state (gitrepository-layout(5)),
+#   so it would be stranded in .bare; moving it keeps `git reflog` history.
+#   The worktree git dir is resolved rather than assumed because its name is
+#   the path basename plus a counter on collision. The mv overwrites the
+#   single synthetic entry `worktree add` may have written.
+move_head_reflog() {
+  local dir="${1}" worktree="${2}"
+  local wt_gitdir head_log="${dir}/${BARE_NAME}/logs/HEAD"
+  [[ -f "${head_log}" ]] || return 0
+  wt_gitdir="$(git -C "${worktree}" rev-parse --absolute-git-dir)"
+  mkdir -p "${wt_gitdir}/logs"
+  mv "${head_log}" "${wt_gitdir}/logs/HEAD"
+}
+
+# Globals: BARE_NAME
+# Arguments: dir, branch
+# Outputs: progress to STDOUT
+# Returns: none. Everything in <dir> except .bare, the .git file and the new
+#   worktree directory moves into the worktree, ignored files included.
+move_working_files() {
+  local dir="${1}" branch="${2}"
+  local entry
+  log "moving working files into ${dir}/${branch}"
+  for entry in "${dir}"/*; do
+    case "${entry##*/}" in
+      "${BARE_NAME}" | .git | "${branch%%/*}") ;;
+      *) mv "${entry}" "${dir}/${branch}/" ;;
+    esac
+  done
+}
+
+# Arguments: worktree
+# Outputs: progress to STDOUT
+# Returns: none. `worktree add --no-checkout` leaves no index; a mixed reset
+#   reads HEAD's tree into a fresh index and refreshes stat data without
+#   writing any working file, so the moved files are recognised as clean.
+rebuild_index() {
+  local worktree="${1}"
+  log "rebuilding index in ${worktree}"
+  git -C "${worktree}" reset --quiet
+}
+
+verify_worktree_clean() {
+  local worktree="${1}"
+  [[ -z "$(git -C "${worktree}" status --porcelain)" ]] ||
+    die "${worktree} is not clean after conversion; inspect git status"
+}
+
+print_summary() {
+  local dir="${1}" worktree="${2}"
+  git -C "${dir}" worktree list
+  log "done; cd ${worktree}"
+}
+
+main() {
+  local -a positionals=()
+  while (($# > 0)); do
+    case "${1}" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      --debug) set -x ;;
+      -*)
+        usage >&2
+        die "unknown flag: ${1}"
+        ;;
+      *) positionals+=("${1}") ;;
+    esac
+    shift
+  done
+  ((${#positionals[@]} <= 1)) || die "expected at most one path argument"
+
+  local path dir branch worktree
+  path="${positionals[0]:-.}"
+  unset "${GIT_ENV_OVERRIDES[@]}"
+  dir="$(resolve_toplevel "${path}")"
+  branch="$(resolve_branch "${dir}")"
+  worktree="${dir}/${branch}"
+
+  require_plain_config "${dir}"
+  require_plain_git_dir "${dir}"
+  require_clean_tree "${dir}"
+  require_single_worktree "${dir}"
+  require_no_submodules "${dir}"
+  require_no_collisions "${dir}" "${branch}"
+
+  make_bare "${dir}"
+  add_worktree "${dir}" "${branch}"
+  move_head_reflog "${dir}" "${worktree}"
+  move_working_files "${dir}" "${branch}"
+  rebuild_index "${worktree}"
+  verify_worktree_clean "${worktree}"
+  print_summary "${dir}" "${worktree}"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
