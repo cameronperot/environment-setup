@@ -27,7 +27,6 @@
   ],
 
   "readOnlyPaths": [
-    ".git/",
     "/bin/",
     "/etc/",
     "/sbin/",
@@ -35,7 +34,6 @@
   ],
 
   "noDeletePaths": [
-    ".git/"
   ],
 
   "bashPatterns": [
