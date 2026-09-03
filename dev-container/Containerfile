@@ -170,5 +170,10 @@ RUN curl -fsSL https://omp.sh/install | sh
 # entry point — podman exec, zsh, bash — launches them through agent-sandbox.
 RUN for agent in pi omp opencode; do ln -s agent-shadow "${HOME_DIR}/bin/${agent}"; done
 
+# Custom entry point to drop from guest root to the OCI user under krun
+COPY --chmod=0755 dev-container/entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bash"]
+
 # Set the working directory
 WORKDIR /work

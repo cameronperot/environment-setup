@@ -21,6 +21,8 @@ c -r some_executable    # exec into the running container (compose-dev.yml)
 ```
 The repository root is mounted at its host path and the current directory is the working directory, so git worktrees of `.bare` repos work inside: the directory containing `.bare` is what gets mounted, and every worktree registered there resolves. Outside git the current directory itself is mounted. The agent dotfiles under `$AGENT_CONFIG_DIR`, the ssh-agent socket and the API-key variables are passed through. `~/bin` is on `PATH` in the image, so `agent-sandbox`, `c` and `git-bareify` are reachable from any entry point, e.g. `c agent-sandbox pi`.
 
+The image's entrypoint (`entrypoint.sh`) execs the command unchanged, except under `--runtime=krun` (`c -k`): libkrun's guest init starts the workload as root regardless of the OCI user, so the entrypoint reads `process.user` from the `/.krun_config.json` that crun leaves in the guest rootfs and switches to that uid/gid via `setpriv` first. While still root it also sets `dev.tty.legacy_tiocsti=0`, since libkrunfw's guest kernel enables the TIOCSTI ioctl that `agent-sandbox` refuses to run with.
+
 `pi`, `omp` and `opencode` are shadowed in `~/bin` (symlinks to `agent-shadow`, which execs the sibling `agent-sandbox` with the invoked name), so from the rebuilt image every entry point — `podman exec` (i.e. `c -r pi`), interactive zsh, plain bash — launches them inside the sandbox. To exec an agent unsandboxed for a single invocation, set `AGENT_SANDBOX_DISABLE=1` (e.g. `c -r env AGENT_SANDBOX_DISABLE=1 pi ...`); invoking an agent by absolute path bypasses the shadow entirely.
 
 A compose file running Jupyter lab is also provided for a longer running environment:
