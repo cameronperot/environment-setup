@@ -1,0 +1,541 @@
+#!/usr/bin/env bash
+#
+# agent-sandbox — launch a terminal LLM coding agent (pi, omp,
+# opencode, claude) inside a bubblewrap sandbox.
+#
+# The sandbox exposes: the read-only system tree, a read-only slice of
+# $HOME (identity + toolchains), the invoked agent's own state dirs
+# (read-write), the current workspace (read-write, same absolute path),
+# and the ssh-agent socket. Everything else is absent or ephemeral.
+# Network is shared (LLM API egress); bwrap cannot filter it.
+#
+# Usage: agent-sandbox [script-flags] <agent> [agent-args...]
+# All arguments after <agent> are passed to the agent verbatim.
+
+set -euo pipefail
+
+readonly HOME_DIR="${HOME}"
+UID_NUM="$(id -u)"
+readonly UID_NUM
+USER_NAME="$(id -un)"
+readonly USER_NAME
+readonly SANDBOX_PATH="/opt/mamba/envs/dev/bin:${HOME_DIR}/.local/bin:\
+/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
+
+declare -rA AGENT_EXE=(
+    [pi]="/opt/mamba/envs/dev/bin/pi"
+    [omp]="${HOME_DIR}/.local/bin/omp"
+    [opencode]="${HOME_DIR}/.local/bin/opencode"
+    [claude]="${HOME_DIR}/.local/bin/claude"
+)
+
+# $HOME-relative state dirs, space-separated. ~/.agent is shared across
+# all agents by design.
+declare -rA AGENT_STATE_DIRS=(
+    [pi]=".agent .pi"
+    [omp]=".agent .omp"
+    [opencode]=".agent .opencode .local/share/opencode .local/state/opencode"
+    [claude]=".agent .claude .local/state/claude"
+)
+
+# claude needs nested user namespaces for its own bwrap-based bash
+# sandboxing; the others get --disable-userns.
+declare -rA AGENT_DISABLE_USERNS=(
+    [pi]=1
+    [omp]=1
+    [opencode]=1
+    [claude]=0
+)
+
+# Prefixes that must never contain a rw workspace bind: system dirs,
+# plus paths the sandbox shadows with tmpfs (a bind there would be
+# silently hidden, which is worse than an error).
+readonly -a DENY_PREFIXES=(
+    /usr /bin /sbin /lib /lib64 /etc /opt /var /boot /root /srv
+    /tmp /run /proc /sys /dev
+)
+
+readonly -a API_KEY_VARS=(OPENROUTER_API_KEY OPENCODE_API_KEY GEMINI_API_KEY)
+
+bwrap_args=()
+agent_args=()
+agent=""
+exe=""
+cwd_physical=""
+workspace=""
+git_common_dir=""
+ssh_sock=""
+signing_key_file=""
+dry_run=0
+verbose=0
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [script-flags] <agent> [agent-args...]
+
+Launch a terminal LLM coding agent inside a bubblewrap sandbox. The
+host home directory is hidden; the agent sees only identity files,
+toolchains, its own state dirs, and the current workspace.
+
+Agents: pi, omp, opencode, claude
+
+Script flags (must precede <agent>; everything after <agent> is passed
+to the agent verbatim):
+  -h, --help     show this help
+  -v, --verbose  report resolution decisions on stderr
+  --debug        trace execution (set -x); API key values stay hidden
+  --dry-run      print the bwrap argv (API key values redacted) without
+                 touching the host or launching anything
+
+Examples:
+  ${0##*/} pi
+  ${0##*/} --dry-run claude
+  ${0##*/} claude --dry-run     # --dry-run goes to claude, not this script
+  ${0##*/} -v opencode
+
+Notes:
+  Run from inside the project the agent should work on; the git
+  toplevel (or the cwd when outside git) is bind-mounted read-write.
+  claude: the sandbox sets CLAUDE_CONFIG_DIR=\$HOME/.claude so all
+  state lives in one rw dir; sandboxed and host runs diverge unless the
+  same variable is also exported on the host.
+  ~/.agent is shared across all agents by design.
+  Commit from inside the sandbox, push from the host (no GH_TOKEN).
+EOF
+}
+
+die() {
+    echo "${0##*/}: error: $*" >&2
+    exit 1
+}
+
+warn() {
+    echo "${0##*/}: warning: $*" >&2
+}
+
+log_verbose() {
+    if ((verbose)); then
+        echo "${0##*/}: $*" >&2
+    fi
+}
+
+#######################################
+# Parse script flags and split off the agent + its verbatim arguments.
+# Globals: agent, agent_args, dry_run, verbose (modified)
+# Arguments: the script's "$@"
+# Outputs: usage to stdout (-h/--help); errors to stderr
+# Returns: 0, or exits non-zero on a usage error
+#######################################
+parse_args() {
+    while (($# > 0)); do
+        case "$1" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        -v | --verbose)
+            verbose=1
+            shift
+            ;;
+        --debug)
+            set -x
+            shift
+            ;;
+        --dry-run)
+            dry_run=1
+            shift
+            ;;
+        -*)
+            usage >&2
+            die "unknown flag: $1"
+            ;;
+        *)
+            agent="$1"
+            shift
+            agent_args=("$@")
+            return 0
+            ;;
+        esac
+    done
+    usage >&2
+    die "missing <agent>"
+}
+
+#######################################
+# Look the agent up in the config tables and check its executable.
+# Globals: agent (read), exe (modified)
+# Outputs: usage + error to stderr on failure
+#######################################
+validate_agent() {
+    if [[ -z "${AGENT_EXE[${agent}]:-}" ]]; then
+        usage >&2
+        die "unknown agent: ${agent}"
+    fi
+    exe="${AGENT_EXE[${agent}]}"
+    if [[ ! -x "${exe}" ]]; then
+        die "agent executable missing or not executable: ${exe}"
+    fi
+}
+
+#######################################
+# Refuse kernels where the TIOCSTI terminal-injection escape works
+# (sysctl missing = kernel < 6.2; value != 0 = legacy mode allowed).
+# Interactive TUIs preclude the --new-session mitigation, so fail
+# closed rather than run with a known escape open.
+#######################################
+check_tiocsti() {
+    local file="/proc/sys/dev/tty/legacy_tiocsti" value
+    if [[ ! -r "${file}" ]]; then
+        die "${file} missing (kernel < 6.2): TIOCSTI escape unmitigated"
+    fi
+    read -r value <"${file}"
+    if [[ "${value}" != 0 ]]; then
+        die "dev.tty.legacy_tiocsti=${value}: TIOCSTI escape unmitigated"
+    fi
+}
+
+#######################################
+# Resolve the physical cwd, the workspace root (git toplevel, falling
+# back to the cwd), and — for linked worktrees — the git common dir
+# when it lies outside the workspace root.
+# Globals: cwd_physical, workspace, git_common_dir (modified)
+#######################################
+resolve_workspace() {
+    local common
+    cwd_physical="$(pwd -P)"
+    if workspace="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+        common="$(git rev-parse --path-format=absolute --git-common-dir)"
+        common="$(realpath "${common}")"
+        if [[ "${common}" != "${workspace}" &&
+            "${common}" != "${workspace}"/* ]]; then
+            git_common_dir="${common}"
+            log_verbose "git common dir outside workspace: ${common}"
+        fi
+    else
+        workspace="${cwd_physical}"
+    fi
+    log_verbose "workspace: ${workspace}"
+}
+
+#######################################
+# Die when a candidate rw bind path is one we refuse to expose: /,
+# $HOME, an ancestor of $HOME, a dot-entry at/under $HOME (covers all
+# agent state dirs, .ssh, .gnupg, ...), or anything at/under a denied
+# prefix.
+# Arguments: $1 = canonical absolute path, $2 = label for the error
+# Outputs: error to stderr on refusal
+#######################################
+refuse_denied_path() {
+    local path="$1" label="$2" prefix
+    if [[ "${path}" == / ]]; then
+        die "${label} is /: refusing to sandbox here"
+    fi
+    if [[ "${path}" == "${HOME_DIR}" ]]; then
+        die "${label} is \$HOME: refusing to rw-bind the home directory"
+    fi
+    if [[ "${HOME_DIR}/" == "${path}"/* ]]; then
+        die "${label} ${path} is an ancestor of \$HOME: refusing"
+    fi
+    if [[ "${path}" == "${HOME_DIR}"/.* ]]; then
+        die "${label} ${path} is a hidden entry under \$HOME: refusing"
+    fi
+    for prefix in "${DENY_PREFIXES[@]}"; do
+        if [[ "${path}" == "${prefix}" || "${path}" == "${prefix}"/* ]]; then
+            die "${label} ${path} is at/under ${prefix}: refusing"
+        fi
+    done
+}
+
+#######################################
+# Apply the deny rules to the workspace root and, when present, the
+# canonicalized git common dir. A .git *file* indirection is repository
+# content (attacker-controllable) and must not steer a rw bind into a
+# denied path.
+# Globals: workspace, git_common_dir (read)
+#######################################
+validate_workspace() {
+    refuse_denied_path "${workspace}" "workspace root"
+    if [[ -n "${git_common_dir}" ]]; then
+        refuse_denied_path "${git_common_dir}" "git common dir"
+    fi
+}
+
+#######################################
+# Resolve and vet $SSH_AUTH_SOCK. Only an invoker-owned unix socket is
+# accepted: its bind is the last filesystem op, so a rw bind of
+# anything else could shadow an earlier ro mount. Invalid or unset →
+# warn and continue without forwarding (signing fails at use time).
+# Globals: ssh_sock (modified)
+# Outputs: warnings to stderr
+#######################################
+resolve_ssh_sock() {
+    if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+        warn "SSH_AUTH_SOCK unset: ssh-agent not forwarded"
+        return 0
+    fi
+    if ! ssh_sock="$(realpath -e "${SSH_AUTH_SOCK}" 2>/dev/null)"; then
+        warn "SSH_AUTH_SOCK dangling: ssh-agent not forwarded"
+        return 0
+    fi
+    if [[ ! -S "${ssh_sock}" || ! -O "${ssh_sock}" ]]; then
+        warn "SSH_AUTH_SOCK not an invoker-owned socket: not forwarded"
+        ssh_sock=""
+        return 0
+    fi
+    log_verbose "ssh-agent socket: ${ssh_sock}"
+}
+
+#######################################
+# When user.signingkey in the *global* git config is a path to an
+# existing file (ssh signing with a key-file path), remember it for a
+# read-only bind. Repo-local config is deliberately ignored: it is
+# workspace content and could point the bind at an arbitrary host file.
+# Globals: signing_key_file (modified)
+#######################################
+resolve_signing_key() {
+    local key
+    key="$(git config --global --get user.signingkey 2>/dev/null || true)"
+    if [[ "${key}" == "~/"* ]]; then
+        key="${HOME_DIR}/${key#\~/}"
+    fi
+    if [[ -n "${key}" && -f "${key}" ]]; then
+        signing_key_file="$(realpath "${key}")"
+        log_verbose "signing key file: ${signing_key_file}"
+    fi
+}
+
+#######################################
+# Create (host-side) and vet the invoked agent's rw state dirs, and
+# seed claude's .claude.json into its config dir once. Never called
+# under --dry-run. Symlinked dirs are refused: bwrap resolves bind
+# sources on the host, so a symlink would expose its target rw.
+# Globals: agent (read)
+#######################################
+ensure_state_dirs() {
+    local -a dirs
+    local dir path
+    read -ra dirs <<<"${AGENT_STATE_DIRS[${agent}]}"
+    for dir in "${dirs[@]}"; do
+        path="${HOME_DIR}/${dir}"
+        mkdir -p "${path}"
+        if [[ "$(realpath "${path}")" != "${path}" ]]; then
+            die "state dir has symlinked components: ${path}"
+        fi
+        if [[ ! -O "${path}" ]]; then
+            die "state dir not owned by invoker: ${path}"
+        fi
+    done
+    # Not cp -n: coreutils >= 9.2 exits non-zero when dest exists.
+    if [[ "${agent}" == claude && ! -e "${HOME_DIR}/.claude/.claude.json" &&
+        -f "${HOME_DIR}/.claude.json" ]]; then
+        cp "${HOME_DIR}/.claude.json" "${HOME_DIR}/.claude/.claude.json"
+    fi
+}
+
+#######################################
+# Namespace/process options (order-insensitive; grouped first).
+# Globals: bwrap_args (modified); agent (read)
+#######################################
+add_namespace_args() {
+    # --unshare-user is explicit: --unshare-all only tries userns, and
+    # --disable-userns requires it.
+    bwrap_args+=(--unshare-all --share-net --unshare-user)
+    if ((${AGENT_DISABLE_USERNS[${agent}]})); then
+        bwrap_args+=(--disable-userns)
+    fi
+    bwrap_args+=(--die-with-parent --hostname agent-sandbox)
+}
+
+#######################################
+# Clear the host environment and re-set the allowlist. xtrace is
+# suppressed while API key values are appended so --debug never prints
+# secrets.
+# Globals: bwrap_args (modified); agent, cwd_physical, ssh_sock (read)
+#######################################
+add_env_args() {
+    local var xtrace_on=0
+    bwrap_args+=(
+        --clearenv
+        --setenv HOME "${HOME_DIR}"
+        --setenv PATH "${SANDBOX_PATH}"
+        --setenv PWD "${cwd_physical}"
+        --setenv USER "${USER_NAME}"
+        --setenv LOGNAME "${USER_NAME}"
+        --setenv SHELL /bin/bash
+        --setenv XDG_RUNTIME_DIR "/run/user/${UID_NUM}"
+    )
+    for var in TERM COLORTERM LANG; do
+        if [[ -n "${!var:-}" ]]; then
+            bwrap_args+=(--setenv "${var}" "${!var}")
+            log_verbose "forwarding ${var}"
+        fi
+    done
+    if [[ -n "${ssh_sock}" ]]; then
+        bwrap_args+=(--setenv SSH_AUTH_SOCK "${ssh_sock}")
+    fi
+    if [[ "${agent}" == claude ]]; then
+        bwrap_args+=(--setenv CLAUDE_CONFIG_DIR "${HOME_DIR}/.claude")
+    fi
+    if [[ "$-" == *x* ]]; then
+        xtrace_on=1
+        set +x
+    fi
+    for var in "${API_KEY_VARS[@]}"; do
+        if [[ -n "${!var:-}" ]]; then
+            bwrap_args+=(--setenv "${var}" "${!var}")
+            log_verbose "forwarding ${var}"
+        fi
+    done
+    if ((xtrace_on)); then
+        set -x
+    fi
+}
+
+#######################################
+# Read-only system tree, fresh proc/dev, private /tmp and /run, DNS
+# plumbing. Order matters: /run/systemd/resolve must follow the /run
+# tmpfs.
+# Globals: bwrap_args (modified)
+#######################################
+add_system_args() {
+    bwrap_args+=(
+        --ro-bind /usr /usr
+        --symlink usr/bin /bin
+        --symlink usr/sbin /sbin
+        --symlink usr/lib /lib
+        --symlink usr/lib64 /lib64
+        --ro-bind /etc /etc
+        --ro-bind /opt/mamba /opt/mamba
+        --proc /proc
+        --dev /dev
+        --tmpfs /tmp
+        --tmpfs /run
+        --perms 0700 --dir "/run/user/${UID_NUM}"
+        --ro-bind-try /run/systemd/resolve /run/systemd/resolve
+    )
+}
+
+#######################################
+# Ephemeral tmpfs home, then ro identity/toolchain binds, then rw
+# state-dir holes. Order matters: tmpfs first; ro ~/.local before its
+# rw children (.local/share/*, .local/state/*).
+# Globals: bwrap_args (modified); agent, signing_key_file (read)
+#######################################
+add_home_args() {
+    local -a dirs
+    local dir path
+    bwrap_args+=(
+        --perms 0700 --tmpfs "${HOME_DIR}"
+        --ro-bind "${HOME_DIR}/.config" "${HOME_DIR}/.config"
+        --ro-bind "${HOME_DIR}/.gitconfig" "${HOME_DIR}/.gitconfig"
+        --ro-bind "${HOME_DIR}/.local" "${HOME_DIR}/.local"
+        --ro-bind-try "${HOME_DIR}/.npmrc" "${HOME_DIR}/.npmrc"
+        --ro-bind-try "${HOME_DIR}/.ssh/allowed_signers"
+        "${HOME_DIR}/.ssh/allowed_signers"
+    )
+    if [[ -n "${signing_key_file}" ]]; then
+        bwrap_args+=(--ro-bind-try "${signing_key_file}" "${signing_key_file}")
+    fi
+    read -ra dirs <<<"${AGENT_STATE_DIRS[${agent}]}"
+    for dir in "${dirs[@]}"; do
+        path="${HOME_DIR}/${dir}"
+        bwrap_args+=(--bind "${path}" "${path}")
+    done
+}
+
+#######################################
+# rw workspace at the same absolute path (keeps worktrees, lockfiles
+# and venvs valid), plus the git common dir when it lies outside.
+# Globals: bwrap_args (modified); workspace, git_common_dir (read)
+#######################################
+add_workspace_args() {
+    bwrap_args+=(--bind "${workspace}" "${workspace}")
+    if [[ -n "${git_common_dir}" ]]; then
+        bwrap_args+=(--bind "${git_common_dir}" "${git_common_dir}")
+    fi
+}
+
+#######################################
+# ssh-agent socket, bound at its resolved path so SSH_AUTH_SOCK stays
+# valid. Kept as the last filesystem op: wherever the socket lives
+# (/run, $HOME, /tmp), earlier tmpfs mounts have shadowed it, and a
+# late bind punches the single hole back in.
+# Globals: bwrap_args (modified); ssh_sock (read)
+#######################################
+add_ssh_agent_args() {
+    if [[ -n "${ssh_sock}" ]]; then
+        bwrap_args+=(--bind "${ssh_sock}" "${ssh_sock}")
+    fi
+}
+
+#######################################
+# Print an argv with %q quoting, replacing the value after any
+# "--setenv <VAR ending in _API_KEY>" with ***.
+# Arguments: the argv words
+# Outputs: the redacted argv on stdout
+#######################################
+print_redacted_argv() {
+    local -a words=("$@") out=()
+    local word i=0
+    while ((i < ${#words[@]})); do
+        if [[ "${words[i]}" == --setenv &&
+            "${words[i + 1]:-}" == *_API_KEY ]]; then
+            out+=(--setenv "${words[i + 1]}" '***')
+            ((i += 3))
+        else
+            out+=("${words[i]}")
+            ((i += 1))
+        fi
+    done
+    for word in "${out[@]}"; do
+        if [[ "${word}" == '***' ]]; then
+            printf '*** '
+        else
+            printf '%q ' "${word}"
+        fi
+    done
+    printf '\n'
+}
+
+#######################################
+# Compose the final argv, then either print it (--dry-run) or exec into
+# bwrap. xtrace stays off from here on so --debug never prints the
+# secret values embedded in the argv.
+# Globals: bwrap_args, cwd_physical, exe, agent_args, dry_run (read)
+#######################################
+run_agent() {
+    set +x
+    local -a argv=(
+        bwrap "${bwrap_args[@]}" --chdir "${cwd_physical}"
+        -- "${exe}" "${agent_args[@]}"
+    )
+    if ((dry_run)); then
+        print_redacted_argv "${argv[@]}"
+        return 0
+    fi
+    exec "${argv[@]}"
+}
+
+main() {
+    parse_args "$@"
+    validate_agent
+    check_tiocsti
+    resolve_workspace
+    validate_workspace
+    resolve_ssh_sock
+    resolve_signing_key
+    if ((!dry_run)); then
+        ensure_state_dirs
+    fi
+    add_namespace_args
+    add_env_args
+    add_system_args
+    add_home_args
+    add_workspace_args
+    add_ssh_agent_args
+    run_agent
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
