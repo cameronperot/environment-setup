@@ -20,7 +20,7 @@ ENV COLORTERM=truecolor \
     TERM=tmux-256color \
     TZ="${TZ}" \
     VISUAL=nvim
-ENV PATH="${HOME_DIR}/.local/bin:${MAMBA_ROOT_PREFIX}/envs/dev/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}"
+ENV PATH="${HOME_DIR}/bin:${HOME_DIR}/.local/bin:${MAMBA_ROOT_PREFIX}/envs/dev/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}"
 
 # Debian packages
 RUN apt-get update \

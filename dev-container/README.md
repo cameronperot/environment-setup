@@ -11,21 +11,13 @@ repository root (the parent of this directory). Run the provided script from any
 ```
 
 ## Usage
-This is best used with the following alias that will run a container and mount the current working directory to `/work`:
+`c` (from `dotfiles/bin`, deployed to `~/bin` by `install.py`) runs a command in the running
+container whose bind mount best matches the current directory, or with `-n` in a throwaway container from `dev:latest`:
 ```bash
-alias c='podman run \
-  -it \
-  --rm \
-  --userns keep-id \
-  --security-opt label=disable \
-  -v dev-antidote:/home/user/.antidote \
-  -v ${PWD}:/work \
-  dev:latest'
+c some_executable       # exec into the running container (compose-dev.yml)
+c -n some_executable    # new throwaway container
 ```
-The alias can be used to run `some_executable` in the current working directory with:
-```bash
-c some_executable
-```
+With `-n` the repository root is mounted at its host path and the current directory is the working directory, so git worktrees of `.bare` repos work inside: the directory containing `.bare` is what gets mounted, and every worktree registered there resolves. Outside git the current directory itself is mounted. The agent dotfiles under `$AGENT_CONFIG_DIR`, the ssh-agent socket and the API-key variables are passed through. `~/bin` is on `PATH` in the image, so `agent-sandbox`, `c` and `git-bareify` are reachable from any entry point, e.g. `c -n agent-sandbox pi`.
 
 A compose file running Jupyter lab is also provided for a longer running environment:
 ```bash

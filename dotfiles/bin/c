@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""devc — run a command in the running container whose bind mount best matches $CWD.
+
+With -n/--new, instead create a throwaway container from dev:latest, bind-mounting
+the repository root at its host path so git's absolute worktree links stay valid
+inside: the directory containing `.bare` for a `.bare` layout, the toplevel plus
+the common git dir for a linked worktree of a plain repo, otherwise the toplevel
+(or the cwd outside git). The container starts in the cwd and gets the agent
+dotfiles, ssh-agent socket, and API-key environment variables passed through.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+def find_runtime() -> str:
+    for rt in ("docker", "podman"):
+        if shutil.which(rt):
+            return rt
+    print("error: neither docker nor podman found on PATH", file=sys.stderr)
+    sys.exit(1)
+
+
+def running_containers(runtime: str) -> list[str]:
+    result = subprocess.run(
+        [runtime, "ps", "-q"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [cid for cid in result.stdout.strip().splitlines() if cid]
+
+
+def inspect_mounts(runtime: str, container_ids: list[str]) -> list[dict]:
+    """Return a list of dicts with id, name, and bind mounts for each container."""
+    if not container_ids:
+        return []
+    result = subprocess.run(
+        [runtime, "inspect"] + container_ids,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    infos = json.loads(result.stdout)
+    containers = []
+    for info in infos:
+        cid = info["Id"]
+        name = info.get("Name", "").lstrip("/")
+        mounts = []
+        for m in info.get("Mounts", []):
+            if m.get("Type") == "bind":
+                mounts.append(
+                    {
+                        "source": Path(m["Source"]),
+                        "destination": Path(m["Destination"]),
+                    }
+                )
+        if mounts:
+            containers.append({"id": cid, "name": name, "mounts": mounts})
+    return containers
+
+
+def best_match(
+    cwd: Path, containers: list[dict], preferred_name: str = "dev_container"
+) -> tuple[dict, dict] | None:
+    """Find the container + mount matching cwd, prioritizing `preferred_name`."""
+    best = None
+    best_score = (-1, -1)  # (is_preferred, mount_depth)
+
+    for container in containers:
+        is_preferred = 1 if container["name"] == preferred_name else 0
+        for mount in container["mounts"]:
+            source = mount["source"]
+            try:
+                cwd.relative_to(source)
+            except ValueError:
+                continue
+
+            score = (is_preferred, len(source.parts))
+            if score > best_score:
+                best_score = score
+                best = (container, mount)
+
+    return best
+
+
+def translate_path(cwd: Path, mount: dict) -> str:
+    """Translate host cwd to the corresponding container path."""
+    relative = cwd.relative_to(mount["source"])
+    return str(mount["destination"] / relative)
+
+
+def git_rev_parse(cwd: Path, *args: str) -> Path:
+    result = subprocess.run(
+        ["git", "-C", str(cwd), "rev-parse", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Path(result.stdout.strip()).resolve()
+
+
+def resolve_mounts(cwd: Path) -> list[Path]:
+    """Directories to bind at their host paths so git works inside the container.
+
+    Outside a work tree (a non-git dir, or the `.bare` parent itself) just cwd.
+    In a `.bare` layout the directory containing `.bare`, plus the toplevel when
+    it lies elsewhere. In a linked worktree of a plain repo the toplevel and the
+    common git dir. Otherwise the toplevel.
+    """
+    try:
+        toplevel = git_rev_parse(cwd, "--show-toplevel")
+    except subprocess.CalledProcessError:
+        return [cwd]
+    common = git_rev_parse(cwd, "--path-format=absolute", "--git-common-dir")
+    if common.is_relative_to(toplevel):
+        return [toplevel]
+    if common.name == ".bare":
+        parent = common.parent
+        if toplevel.is_relative_to(parent):
+            return [parent]
+        return [parent, toplevel]
+    return [toplevel, common]
+
+
+def refuse_denied_mount(path: Path) -> None:
+    """Refuse $HOME and its ancestors (/ included): bound at an identical path
+    such a mount would shadow the container's home and expose the host's."""
+    if Path.home().resolve().is_relative_to(path):
+        print(
+            f"error: refusing to mount {path}: it is $HOME or an ancestor of it",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def build_run_command(
+    runtime: str,
+    cwd: Path,
+    mounts: list[Path],
+    krun: bool,
+    extra_args: list[str],
+    command: list[str],
+) -> list[str]:
+    """Assemble the `podman run` argv for a throwaway dev container."""
+    agent_config_dir = os.environ.get("AGENT_CONFIG_DIR", "")
+    if not agent_config_dir:
+        print(
+            "error: AGENT_CONFIG_DIR must be set to create a temp container",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    run_uid = os.getuid()
+    xdg_runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{run_uid}")
+
+    cmd = [
+        runtime,
+        "run",
+        "--rm",
+        "--userns",
+        "keep-id",
+        "--security-opt",
+        "label=disable",
+        "-w",
+        str(cwd),
+    ]
+    for mount in mounts:
+        cmd += ["-v", f"{mount}:{mount}"]
+    cmd += [
+        "-v",
+        "dev-antidote:/home/user/.antidote",
+        "-v",
+        f"{agent_config_dir}/.agent:/home/user/.agent",
+        "-v",
+        f"{agent_config_dir}/.pi/agent:/home/user/.pi/agent",
+        "-v",
+        f"{agent_config_dir}/.omp/agent:/home/user/.omp/agent",
+        "-v",
+        f"{agent_config_dir}/.agent/skills:/home/user/.pi/agent/skills",
+        "-v",
+        f"{agent_config_dir}/.agent/skills:/home/user/.omp/agent/skills",
+        "-v",
+        f"{agent_config_dir}/.agent/prompts:/home/user/.pi/agent/prompts",
+        "-v",
+        f"{agent_config_dir}/.agent/prompts:/home/user/.omp/agent/prompts",
+        "-v",
+        f"{agent_config_dir}/.plannotator:/home/user/.plannotator",
+        "-v",
+        f"{xdg_runtime_dir}/llm-agent.sock:/run/ssh-agent.sock",
+        "-e",
+        "SSH_AUTH_SOCK=/run/ssh-agent.sock",
+        "-e",
+        "GEMINI_API_KEY",
+        "-e",
+        "OPENROUTER_API_KEY",
+        "-e",
+        "OPENCODE_API_KEY",
+    ]
+    if krun:
+        cmd += ["--runtime=krun"]
+    cmd += extra_args
+    if sys.stdin.isatty():
+        cmd += ["-i", "-t"]
+    cmd += ["dev:latest"]
+    if command:
+        cmd += command
+    return cmd
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Run a command in the container whose bind mount best matches $CWD, or with -n in a new throwaway container.",
+    )
+    parser.add_argument(
+        "--new",
+        "-n",
+        action="store_true",
+        help="Create a new throwaway container from dev:latest instead of exec'ing into a running one; "
+        "the repository root is mounted at its host path and $CWD is the working directory",
+    )
+    parser.add_argument(
+        "--krun",
+        "-k",
+        action="store_true",
+        help="With -n, pass --runtime=krun to the container engine",
+    )
+    parser.add_argument(
+        "--arg",
+        "-a",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help="With -n, pass an additional argument to the container engine's run command (repeatable)",
+    )
+    parser.add_argument(
+        "--runtime",
+        choices=["docker", "podman"],
+        default="podman",
+        help="Container runtime to use (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--container",
+        "-c",
+        default=None,
+        help="Override container selection by name or id",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the command that would be executed without running it",
+    )
+    parser.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Command (and arguments) to run in the container",
+    )
+    args = parser.parse_args()
+
+    if args.krun and not args.new:
+        parser.error("-k/--krun requires -n/--new")
+    if args.arg and not args.new:
+        parser.error("-a/--arg requires -n/--new")
+
+    # Strip leading '--' that argparse.REMAINDER may capture
+    command = args.command
+    if command and command[0] == "--":
+        command = command[1:]
+
+    if not args.new and not command:
+        parser.error("no command specified")
+
+    runtime = args.runtime or find_runtime()
+    cwd = Path.cwd().resolve()
+
+    if args.new:
+        mounts = resolve_mounts(cwd)
+        for mount in mounts:
+            refuse_denied_mount(mount)
+        exec_cmd = build_run_command(runtime, cwd, mounts, args.krun, args.arg, command)
+        if args.dry_run:
+            print(" ".join(exec_cmd))
+            return
+        mounted = ", ".join(str(m) for m in mounts)
+        print(f"▶ dev:latest:{cwd} (mounted: {mounted})", file=sys.stderr)
+        os.execvp(runtime, exec_cmd)
+
+    if args.container:
+        # Direct container override — still need to find the right workdir
+        ids = running_containers(runtime)
+        containers = inspect_mounts(runtime, ids)
+        target = None
+        for c in containers:
+            if c["name"] == args.container or c["id"].startswith(args.container):
+                target = c
+                break
+        if target is None:
+            print(
+                f"error: container '{args.container}' not found or has no bind mounts",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        # Find best mount within the chosen container
+        match = best_match(cwd, [target])
+        if match is None:
+            print(
+                f"error: no bind mount in '{args.container}' matches {cwd}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        container, mount = match
+    else:
+        ids = running_containers(runtime)
+        if not ids:
+            print("error: no running containers found", file=sys.stderr)
+            sys.exit(1)
+        containers = inspect_mounts(runtime, ids)
+        if not containers:
+            print(
+                "error: no running containers with bind mounts found", file=sys.stderr
+            )
+            sys.exit(1)
+        match = best_match(cwd, containers)
+        if match is None:
+            print(
+                f"error: no container has a bind mount matching {cwd}", file=sys.stderr
+            )
+            sys.exit(1)
+        container, mount = match
+
+    container_path = translate_path(cwd, mount)
+    label = container["name"] or container["id"][:12]
+
+    exec_flags = ["-w", container_path]
+    if sys.stdin.isatty():
+        exec_flags += ["-i", "-t"]
+    exec_cmd = [runtime, "exec"] + exec_flags + [container["id"]] + command
+
+    if args.dry_run:
+        display = [runtime, "exec"] + exec_flags + [label] + command
+        print(" ".join(display))
+        return
+
+    print(f"▶ {label}:{container_path}", file=sys.stderr)
+    os.execvp(runtime, exec_cmd)
+
+
+if __name__ == "__main__":
+    main()
