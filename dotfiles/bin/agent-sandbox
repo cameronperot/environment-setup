@@ -17,6 +17,8 @@ set -euo pipefail
 readonly HOME_DIR="${HOME}"
 UID_NUM="$(id -u)"
 readonly UID_NUM
+GID_NUM="$(id -g)"
+readonly GID_NUM
 USER_NAME="$(id -un)"
 readonly USER_NAME
 readonly SANDBOX_PATH="/opt/mamba/envs/dev/bin:${HOME_DIR}/.local/bin:\
@@ -39,7 +41,8 @@ declare -rA AGENT_STATE_DIRS=(
 )
 
 # claude needs nested user namespaces for its own bwrap-based bash
-# sandboxing; the others get --disable-userns.
+# sandboxing; the others get --disable-userns when the environment
+# allows it (see probe_userns_blockable).
 declare -rA AGENT_DISABLE_USERNS=(
     [pi]=1
     [omp]=1
@@ -66,6 +69,7 @@ workspace=""
 git_common_dir=""
 ssh_sock=""
 signing_key_file=""
+userns_blockable=0
 dry_run=0
 verbose=0
 
@@ -84,7 +88,7 @@ to the agent verbatim):
   -h, --help     show this help
   -v, --verbose  report resolution decisions on stderr
   --debug        trace execution (set -x); API key values stay hidden
-  --dry-run      print the bwrap argv (API key values redacted) without
+  --dry-run      print the sandbox argv (API key values redacted) without
                  touching the host or launching anything
 
 Examples:
@@ -92,6 +96,13 @@ Examples:
   ${0##*/} --dry-run claude
   ${0##*/} claude --dry-run     # --dry-run goes to claude, not this script
   ${0##*/} -v opencode
+
+Environment:
+  AGENT_SANDBOX_DISABLE=1   exec the agent binary unsandboxed (escape hatch)
+  AGENT_SANDBOX_BIN=<path>  override the agent executable from the table
+  AGENT_SANDBOX_ACTIVE      set automatically inside the sandbox; when
+                            already set, the agent is exec'd directly
+                            (nesting guard)
 
 Notes:
   Run from inside the project the agent should work on; the git
@@ -101,6 +112,10 @@ Notes:
   same variable is also exported on the host.
   ~/.agent is shared across all agents by design.
   Commit from inside the sandbox, push from the host (no GH_TOKEN).
+  Sibling worktrees are not visible and worktrees cannot be created
+  from inside the sandbox by design; manage them from the host.
+  Exception: for a .bare layout the whole .bare container directory is
+  the workspace, so sibling worktrees resolve inside.
 EOF
 }
 
@@ -163,6 +178,7 @@ parse_args() {
 
 #######################################
 # Look the agent up in the config tables and check its executable.
+# AGENT_SANDBOX_BIN, when set, overrides the table entry.
 # Globals: agent (read), exe (modified)
 # Outputs: usage + error to stderr on failure
 #######################################
@@ -172,8 +188,25 @@ validate_agent() {
         die "unknown agent: ${agent}"
     fi
     exe="${AGENT_EXE[${agent}]}"
+    if [[ -n "${AGENT_SANDBOX_BIN:-}" ]]; then
+        exe="${AGENT_SANDBOX_BIN}"
+    fi
     if [[ ! -x "${exe}" ]]; then
         die "agent executable missing or not executable: ${exe}"
+    fi
+}
+
+#######################################
+# Escape hatches, checked before any sandbox setup: AGENT_SANDBOX_DISABLE
+# execs the agent binary unsandboxed on request; AGENT_SANDBOX_ACTIVE (set
+# by this script inside the sandbox) is the nesting guard — an invocation
+# from within an existing sandbox execs the agent directly instead of
+# stacking a second bwrap.
+# Globals: exe, agent_args (read)
+#######################################
+maybe_exec_agent() {
+    if [[ -n "${AGENT_SANDBOX_DISABLE:-}" || -n "${AGENT_SANDBOX_ACTIVE:-}" ]]; then
+        exec "${exe}" "${agent_args[@]}"
     fi
 }
 
@@ -195,9 +228,9 @@ check_tiocsti() {
 }
 
 #######################################
-# Resolve the physical cwd, the workspace root (git toplevel, falling
-# back to the cwd), and — for linked worktrees — the git common dir
-# when it lies outside the workspace root.
+# Resolve the physical cwd and the workspace root: the git toplevel, or
+# — for a .bare-style repo (git-bareify layout) — the directory holding
+# .bare, and the cwd when outside git.
 # Globals: cwd_physical, workspace, git_common_dir (modified)
 #######################################
 resolve_workspace() {
@@ -206,7 +239,16 @@ resolve_workspace() {
     if workspace="$(git rev-parse --show-toplevel 2>/dev/null)"; then
         common="$(git rev-parse --path-format=absolute --git-common-dir)"
         common="$(realpath "${common}")"
-        if [[ "${common}" != "${workspace}" &&
+        if [[ "${common##*/}" == ".bare" ]]; then
+            # The container of .bare holds the .git pointer file and every
+            # worktree sibling, and is what the pi worktree extension
+            # anchors on. Binding only the current worktree would leave
+            # the container a gitless stub inside the sandbox (its git
+            # discovery stops at the /home mount boundary). The common
+            # dir sits inside it, so no separate bind is needed.
+            workspace="${common%/*}"
+            log_verbose ".bare-style repo; workspace: ${workspace}"
+        elif [[ "${common}" != "${workspace}" &&
             "${common}" != "${workspace}"/* ]]; then
             git_common_dir="${common}"
             log_verbose "git common dir outside workspace: ${common}"
@@ -333,17 +375,40 @@ ensure_state_dirs() {
 }
 
 #######################################
-# Namespace/process options (order-insensitive; grouped first).
-# Globals: bwrap_args (modified); agent (read)
+# Probe whether bwrap's --disable-userns works here. bwrap implements
+# it by writing the per-userns sysctl user.max_user_namespaces via
+# /proc/sys, which read-only container roots (e.g. this Podman image)
+# refuse. The probe is a throwaway bwrap with exactly the flags the
+# real run would pass, so its exit status predicts the real run's.
+# Globals: userns_blockable (modified)
+# Outputs: warning to stderr when nested user namespaces stay possible
+#######################################
+probe_userns_blockable() {
+    local out
+    if out="$(bwrap --unshare-user --disable-userns \
+        --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib64 /lib64 \
+        --dev /dev -- /usr/bin/true 2>&1 >/dev/null)"; then
+        userns_blockable=1
+        log_verbose "--disable-userns usable; nesting will be blocked"
+        return 0
+    fi
+    warn "--disable-userns unavailable here (${out}); nested user namespaces stay possible"
+}
+
+#######################################
+# Process/isolation options for bwrap (order-insensitive; grouped
+# first). IPC/UTS stay unshared and --die-with-parent applies; network
+# stays shared (LLM API egress); the user and PID namespaces are
+# pre-created by run_agent's unshare, not by bwrap. --disable-userns
+# also requires --unshare-user, and both apply only when the probe
+# proved the sysctl write works here.
+# Globals: bwrap_args (modified); agent, userns_blockable (read)
 #######################################
 add_namespace_args() {
-    # --unshare-user is explicit: --unshare-all only tries userns, and
-    # --disable-userns requires it.
-    bwrap_args+=(--unshare-all --share-net --unshare-user)
-    if ((${AGENT_DISABLE_USERNS[${agent}]})); then
-        bwrap_args+=(--disable-userns)
+    bwrap_args+=(--die-with-parent --unshare-ipc --unshare-uts)
+    if ((userns_blockable && AGENT_DISABLE_USERNS[${agent}])); then
+        bwrap_args+=(--unshare-user --disable-userns)
     fi
-    bwrap_args+=(--die-with-parent --hostname agent-sandbox)
 }
 
 #######################################
@@ -376,6 +441,7 @@ add_env_args() {
     if [[ "${agent}" == claude ]]; then
         bwrap_args+=(--setenv CLAUDE_CONFIG_DIR "${HOME_DIR}/.claude")
     fi
+    bwrap_args+=(--setenv AGENT_SANDBOX_ACTIVE 1)
     if [[ "$-" == *x* ]]; then
         xtrace_on=1
         set +x
@@ -446,13 +512,41 @@ add_home_args() {
 #######################################
 # rw workspace at the same absolute path (keeps worktrees, lockfiles
 # and venvs valid), plus the git common dir when it lies outside.
+# The directories between $HOME (or /) and each bind are created
+# read-only first, shallowest first: bwrap would otherwise auto-create
+# them as writable tmpfs directories, and a `git worktree add` from
+# inside would land in the ephemeral home while registering itself
+# permanently in the common dir. Read-only, it fails at mkdir and git
+# drops its half-made entry. Sibling worktrees are not bound and
+# worktrees cannot be created from inside by design — except that a
+# .bare repo's workspace is the whole .bare container directory, so
+# its sibling worktrees resolve inside.
 # Globals: bwrap_args (modified); workspace, git_common_dir (read)
 #######################################
 add_workspace_args() {
-    bwrap_args+=(--bind "${workspace}" "${workspace}")
+    local -a binds=("${workspace}") chain
+    local -A seen=()
+    local bind dir
     if [[ -n "${git_common_dir}" ]]; then
-        bwrap_args+=(--bind "${git_common_dir}" "${git_common_dir}")
+        binds+=("${git_common_dir}")
     fi
+    for bind in "${binds[@]}"; do
+        chain=()
+        dir="$(dirname "${bind}")"
+        while [[ "${dir}" != "${HOME_DIR}" && "${dir}" != / ]]; do
+            chain=("${dir}" "${chain[@]}")
+            dir="$(dirname "${dir}")"
+        done
+        for dir in "${chain[@]}"; do
+            if [[ -z "${seen[${dir}]:-}" ]]; then
+                seen[${dir}]=1
+                bwrap_args+=(--perms 0555 --dir "${dir}")
+            fi
+        done
+    done
+    for bind in "${binds[@]}"; do
+        bwrap_args+=(--bind "${bind}" "${bind}")
+    done
 }
 
 #######################################
@@ -499,14 +593,27 @@ print_redacted_argv() {
 
 #######################################
 # Compose the final argv, then either print it (--dry-run) or exec into
-# bwrap. xtrace stays off from here on so --debug never prints the
-# secret values embedded in the argv.
+# bwrap. The user and PID namespaces are pre-created with unshare(1)
+# instead of being created by bwrap: this container's kernel refuses a
+# fresh /proc for a PID namespace bwrap creates itself (EPERM, "Mount
+# too revealing"), while a /proc mounted by bwrap inside pre-created
+# namespaces is allowed. The identity mapping keeps the sandbox uid
+# equal to the invoker's uid (agents like claude refuse running as
+# root). bwrap still unshares IPC/UTS (see add_namespace_args); network
+# stays shared (LLM API egress) and the cgroup namespace stays shared.
+# --dry-run launches nothing, so the probe never runs and its argv
+# never shows the --disable-userns flags. Nested bwrap inside
+# containers is known to fail (bwrap: open /proc/N/ns/ns), so claude's
+# own bwrap sandboxing is host-only for now. xtrace stays off from
+# here on so --debug never prints the secret values embedded in the
+# argv.
 # Globals: bwrap_args, cwd_physical, exe, agent_args, dry_run (read)
 #######################################
 run_agent() {
     set +x
     local -a argv=(
-        bwrap "${bwrap_args[@]}" --chdir "${cwd_physical}"
+        unshare --user --map-user="${UID_NUM}" --map-group="${GID_NUM}"
+        --fork --pid -- bwrap "${bwrap_args[@]}" --chdir "${cwd_physical}"
         -- "${exe}" "${agent_args[@]}"
     )
     if ((dry_run)); then
@@ -519,6 +626,7 @@ run_agent() {
 main() {
     parse_args "$@"
     validate_agent
+    maybe_exec_agent
     check_tiocsti
     resolve_workspace
     validate_workspace
@@ -526,6 +634,9 @@ main() {
     resolve_signing_key
     if ((!dry_run)); then
         ensure_state_dirs
+        if ((${AGENT_DISABLE_USERNS[${agent}]})); then
+            probe_userns_blockable
+        fi
     fi
     add_namespace_args
     add_env_args
