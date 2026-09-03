@@ -30,7 +30,7 @@ Trailing input after `/skill:py-conventions` specifies paths, symbols, or requir
 - Format strings using f-strings; avoid `.format()` or `%` string formatting.
 - Compare against `None` using identity checks (`is None` / `is not None`), never truthiness checks.
 - Never use mutable default arguments in function or method definitions.
-- Pass arguments by name whenever a function call takes more than one argument to prevent positional ambiguity.
+- Pass arguments by keyword when a call takes more than one argument and the parameters allow it; positional-only parameters and idiomatic builtins (`isinstance`, `range`, `zip`, `max`) stay positional.
 - Keep functions concise, modular, and focused on a single responsibility.
 
 ## Error Handling
@@ -43,5 +43,5 @@ Trailing input after `/skill:py-conventions` specifies paths, symbols, or requir
 
 - Write Google-style docstrings for all public modules, classes, and functions, including `Args:`, `Returns:`, and `Raises:` sections where applicable.
 - Write comments that explain why something is done rather than what the code is doing, using comments to demarcate distinct logical blocks.
-- Keep comments succinct with no trailing periods unless multi-sentence, and avoid inline comments.
+- Keep comments succinct with no trailing periods unless multi-sentence, and avoid inline comments except tool directives with a stated reason (`# noqa: CODE`, `# ty: ignore[rule]`).
 - Comments must always read as original and never explain something old or legacy that is no longer present.
