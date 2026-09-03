@@ -52,6 +52,7 @@
     { "pattern": "\\bgit\\s+stash\\s+clear\\b", "reason": "git stash clear deletes every stash" },
     { "pattern": "\\bgit\\s+reflog\\s+expire\\b", "reason": "git reflog expire destroys the recovery mechanism" },
     { "pattern": "\\bgit\\s+filter-branch\\b", "reason": "git filter-branch rewrites entire history" },
+    { "pattern": "\\bgit\\s+worktree\\s+(prune|remove)\\b", "reason": "git worktree prune/remove drops worktree entries; unmounted siblings look deleted from inside a container or sandbox", "ask": true },
 
     { "pattern": "\\bDROP\\s+DATABASE\\b", "reason": "DROP DATABASE" },
     { "pattern": "\\bDROP\\s+(TABLE|SCHEMA)\\b", "reason": "DROP TABLE/SCHEMA", "ask": true },
