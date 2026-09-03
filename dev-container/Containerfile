@@ -163,7 +163,6 @@ USER "${NEW_USER}"
 RUN curl -fsSL https://opencode.ai/install | bash \
     && ln -s "${HOME_DIR}/.opencode/bin/opencode" "${HOME_DIR}/.local/bin/opencode"
 RUN curl -fsSL https://pi.dev/install.sh | sh
-RUN echo 'min-release-age-exclude="@plannotator/pi-extension"' >> "${HOME_DIR}/.npmrc"
 RUN curl -fsSL https://omp.sh/install | sh
 
 # Shadow the agent names on PATH (~/bin precedes the real executables) so every
