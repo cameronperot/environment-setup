@@ -138,6 +138,8 @@ def build_run_command(
     cwd: Path,
     mounts: list[Path],
     krun: bool,
+    cpus: int,
+    ram_mib: int,
     extra_args: list[str],
     command: list[str],
 ) -> list[str]:
@@ -191,7 +193,15 @@ def build_run_command(
         # mounting the ssh-agent socket, forward guest connections to port 7777
         # to the host's loopback signer; the entrypoint bridges SSH_AUTH_SOCK
         # to that port. /run rejects the bind in the guest, hence /tmp.
-        cmd += ["--runtime=krun", "--network", "pasta:-T,7777"]
+        cmd += [
+            "--runtime=krun",
+            "--network",
+            "pasta:-T,7777",
+            "--annotation",
+            f"krun.cpus={cpus}",
+            "--annotation",
+            f"krun.ram_mib={ram_mib}",
+        ]
     else:
         cmd += ["-v", f"{xdg_runtime_dir}/llm-agent.sock:/tmp/ssh-agent.sock"]
     cmd += extra_args
@@ -218,6 +228,20 @@ def main() -> None:
         "-k",
         action="store_true",
         help="Pass --runtime=krun plus the pasta TCP bridge for signing when creating a new container",
+    )
+    parser.add_argument(
+        "--cpus",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of CPUs for a new krun container (default: 4)",
+    )
+    parser.add_argument(
+        "--ram-mib",
+        type=int,
+        default=None,
+        metavar="MIB",
+        help="RAM in MiB for a new krun container (default: 8192)",
     )
     parser.add_argument(
         "--arg",
@@ -255,6 +279,8 @@ def main() -> None:
         parser.error("-k/--krun cannot be used with -r/--running")
     if args.arg and args.running:
         parser.error("-a/--arg cannot be used with -r/--running")
+    if (args.cpus is not None or args.ram_mib is not None) and not args.krun:
+        parser.error("--cpus/--ram-mib require -k/--krun")
     if args.container and not args.running:
         parser.error("-c/--container requires -r/--running")
 
@@ -270,7 +296,16 @@ def main() -> None:
         mounts = resolve_mounts(cwd)
         for mount in mounts:
             refuse_denied_mount(mount)
-        exec_cmd = build_run_command(runtime, cwd, mounts, args.krun, args.arg, command)
+        exec_cmd = build_run_command(
+            runtime,
+            cwd,
+            mounts,
+            args.krun,
+            args.cpus if args.cpus is not None else 4,
+            args.ram_mib if args.ram_mib is not None else 8192,
+            args.arg,
+            command,
+        )
         if args.dry_run:
             print(" ".join(exec_cmd))
             return
