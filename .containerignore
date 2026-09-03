@@ -1,0 +1,49 @@
+# podman build context filter (the context is the repository root). The image
+# needs only environment.yml, install.py, dotfiles/ and the two dev-container
+# files the Containerfile copies; everything else stays out of the layers.
+.git
+.gitignore
+.containerignore
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+.venv
+sources
+ignore
+specs
+tests
+python
+julia
+dev-vm
+LICENSE
+Makefile
+README.md
+dotfiles.yaml
+sync_dotfiles.py
+sync_dotfiles.log
+dev-container/Containerfile
+dev-container/README.md
+dev-container/build.sh
+dev-container/compose*.yml
+
+# host-only tooling: c drives podman, which the image does not have
+dotfiles/bin/c
+
+# agent runtime state and credentials: gitignored, bind-mounted at run time
+dotfiles/.aider*
+dotfiles/.plannotator
+dotfiles/.omp/**/*.db*
+dotfiles/.omp/**/*sessions
+dotfiles/.omp/**/cache
+dotfiles/.omp/**/last-changelog-version
+dotfiles/.pi/**/*sessions
+dotfiles/.pi/**/*.log
+dotfiles/.pi/**/auth.json
+dotfiles/.pi/**/docs
+dotfiles/.pi/**/models-store.json
+dotfiles/.pi/**/node_modules
+dotfiles/.pi/**/npm
+dotfiles/.pi/**/specs
+dotfiles/.pi/**/tmp
+dotfiles/.pi/pi-notebook
