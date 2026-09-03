@@ -8,6 +8,9 @@ ARG NEW_GID=1000
 ARG HOME_DIR=/home/${NEW_USER}
 ARG GIT_DELTA_VERSION=0.19.2
 ARG GIT_SIGNING_KEY=""
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN test -n "${GIT_SIGNING_KEY}" || { echo "GIT_SIGNING_KEY build arg is required" >&2; exit 1; }
 
 # Env vars
 ENV COLORTERM=truecolor \
@@ -92,7 +95,7 @@ RUN apt-get update \
     libdrm2 \
     libxshmfence1 \
     && apt-get clean all \
-    && apt-get autoremove \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/fdfind /usr/bin/fd
 
@@ -122,25 +125,31 @@ RUN mkdir -p \
 
 USER "${NEW_USER}"
 
+# Install uv and micromamba (independent of the repository, so they cache across dotfile edits)
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh && uv python install 3.14
+RUN curl -fsSL https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
+COPY --chown="${NEW_USER}:${NEW_USER}" environment.yml /tmp/environment-setup/environment.yml
+RUN micromamba env create -f /tmp/environment-setup/environment.yml \
+    && micromamba clean --all --yes
+
+# Install coding agents. pi goes through npm straight into ~/.local so the binary
+# sits in ~/.local/bin like omp and opencode: micromamba activation prepends the
+# env bin dir in interactive zsh, which would otherwise put the real pi ahead of
+# the ~/bin shadow.
+RUN curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path \
+    && ln -s "${HOME_DIR}/.opencode/bin/opencode" "${HOME_DIR}/.local/bin/opencode"
+RUN npm install -g --ignore-scripts --min-release-age=0 --no-fund --no-audit \
+    --prefix "${HOME_DIR}/.local" @earendil-works/pi-coding-agent
+RUN curl -fsSL https://omp.sh/install | sh
+
 COPY --chown="${NEW_USER}:${NEW_USER}" . /tmp/environment-setup/
 
-# Install uv and micromamba
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && uv python install 3.14
-RUN curl -fsSL https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
-RUN micromamba env create -f /tmp/environment-setup/environment.yml \
-    && micromamba clean --all --yes \
-    && rm /tmp/environment-setup/environment.yml
-
 # Configure dev environment
-RUN test -n "${GIT_SIGNING_KEY}" || { echo "GIT_SIGNING_KEY build arg is required" >&2; exit 1; } \
-    && "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
+RUN "${MAMBA_ROOT_PREFIX}/envs/dev/bin/python" /tmp/environment-setup/install.py --neovim-version none \
     && rm -rf "${HOME_DIR}/.config/nvim" \
-    && echo "source ${HOME_DIR}/.bash_aliases" >> "${HOME_DIR}/.bashrc" \
     && mkdir -p "${HOME_DIR}/.jupyter" \
     && cp /tmp/environment-setup/dev-container/jupyter_server_config.py "${HOME_DIR}/.jupyter/jupyter_server_config.py" \
-    && git config --global gpg.format ssh \
     && git config --global user.signingkey "${GIT_SIGNING_KEY}" \
-    && git config --global gpg.ssh.allowedSignersFile "${HOME_DIR}/.ssh/allowed_signers" \
     && echo "$(git config user.email) $(git config user.signingkey)" >> "${HOME_DIR}/.ssh/allowed_signers"
 
 # Configure agents
@@ -150,6 +159,14 @@ RUN rm -rf "${HOME_DIR}/.pi/agent/prompts" "${HOME_DIR}/.pi/agent/skills" "${HOM
     && ln -s "${HOME_DIR}/.agent/prompts" "${HOME_DIR}/.pi/agent/prompts" \
     && ln -s "${HOME_DIR}/.agent/prompts" "${HOME_DIR}/.omp/agent/prompts"
 
+# Shadow the agent names on PATH (~/bin precedes the real executables) so every
+# entry point — podman exec, zsh, bash — launches them through agent-sandbox.
+RUN for agent in pi omp opencode; do ln -s agent-shadow "${HOME_DIR}/bin/${agent}"; done
+
+# Warm antidote: .zshrc clones it and bundles the plugins on first start, so do
+# that at build time and the first shell in a fresh container needs no network.
+RUN zsh -ic exit
+
 # Configure root environment
 USER root
 RUN chown -R root:root /tmp/environment-setup \
@@ -158,21 +175,6 @@ RUN chown -R root:root /tmp/environment-setup \
     && rm -rf /tmp/environment-setup \
     && echo "source /root/.bash_aliases" >> /root/.bashrc
 USER "${NEW_USER}"
-
-# Install coding agents
-RUN curl -fsSL https://opencode.ai/install | bash \
-    && ln -s "${HOME_DIR}/.opencode/bin/opencode" "${HOME_DIR}/.local/bin/opencode"
-# pi goes through npm straight into ~/.local so the binary sits in ~/.local/bin
-# like omp and opencode: micromamba activation prepends the env bin dir in
-# interactive zsh, which would otherwise put the real pi ahead of the ~/bin
-# shadow.
-RUN npm install -g --ignore-scripts --min-release-age=0 --no-fund --no-audit \
-    --prefix "${HOME_DIR}/.local" @earendil-works/pi-coding-agent
-RUN curl -fsSL https://omp.sh/install | sh
-
-# Shadow the agent names on PATH (~/bin precedes the real executables) so every
-# entry point — podman exec, zsh, bash — launches them through agent-sandbox.
-RUN for agent in pi omp opencode; do ln -s agent-shadow "${HOME_DIR}/bin/${agent}"; done
 
 # Custom entry point to drop from guest root to the OCI user under krun
 COPY --chmod=0755 dev-container/entrypoint.sh /usr/local/bin/entrypoint.sh
