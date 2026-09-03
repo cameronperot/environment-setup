@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""devc — create a throwaway container from dev:latest and run a command in it,
+"""c — create a throwaway container from dev:latest and run a command in it,
 bind-mounting the repository root at its host path so git's absolute worktree
 links stay valid inside: the directory containing `.bare` for a `.bare` layout,
 the toplevel plus the common git dir for a linked worktree of a plain repo,
