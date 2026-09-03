@@ -21,7 +21,7 @@ Trailing input after `/skill:plan-execute` is the path to the plan file, followe
    - Build a todo list covering every task of every phase in plan order. The todo list is the live, session-visible status; it is not persisted — the plan file is.
    - If the plan file uses checkboxes, they are the source of truth for progress: resume from the first unchecked task, and spot-check that already-checked work actually exists before trusting it.
    - Mirror progress in the todo list: mark each task in progress before starting it, and mark it complete immediately after its verification passes.
-   - At each phase gate, also update the plan file's checkboxes (step 5) so the persisted record stays in sync with the todo list.
+   - Tick the task's checkbox in the plan file at the same moment; the file is the persisted record, so a resumed session never redoes finished work.
 4. **Execute current phase**:
    - Read the context a task needs before starting it, and finish each task fully before starting the next.
    - Complete tasks in plan order unless the plan specifies a different dependency order or marks tasks as order-independent; in the latter case any order is acceptable, but a task is still only started after its stated dependencies are done.
@@ -35,7 +35,7 @@ Trailing input after `/skill:plan-execute` is the path to the plan file, followe
 5. **Phase gate**:
    - Re-read the phase's section in the plan and compare each task against what was actually done.
    - Confirm every task in the phase is complete and every verification passes with evidence. "Mostly done", skipped, or deferred means the phase is not complete.
-   - Mark the phase's tasks complete in the plan file if it uses checkboxes.
+   - Confirm every task checkbox in the phase is ticked in the plan file.
    - Do not commit unless the plan or the user asked for commits; if per-phase commits were requested, commit the phase's code changes after its gate passes, and keep plan-file checkbox updates in a separate commit from code.
    - Only then begin the next phase. Never pull tasks from a later phase forward, even when editing the same file.
 6. **Repeat steps 4–5** until every phase in the plan is complete.
