@@ -10,6 +10,7 @@
     ".env.*",
     ".envrc",
     ".git-credentials",
+    "auth.*",
     "credentials.json",
     "credentials.toml",
     "credentials.yaml",
