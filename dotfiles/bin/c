@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""devc — run a command in the running container whose bind mount best matches $CWD.
+"""devc — create a throwaway container from dev:latest and run a command in it,
+bind-mounting the repository root at its host path so git's absolute worktree
+links stay valid inside: the directory containing `.bare` for a `.bare` layout,
+the toplevel plus the common git dir for a linked worktree of a plain repo,
+otherwise the toplevel (or the cwd outside git). The container starts in the
+cwd and gets the agent dotfiles, ssh-agent socket, and API-key environment
+variables passed through.
 
-With -n/--new, instead create a throwaway container from dev:latest, bind-mounting
-the repository root at its host path so git's absolute worktree links stay valid
-inside: the directory containing `.bare` for a `.bare` layout, the toplevel plus
-the common git dir for a linked worktree of a plain repo, otherwise the toplevel
-(or the cwd outside git). The container starts in the cwd and gets the agent
-dotfiles, ssh-agent socket, and API-key environment variables passed through.
+With -r/--running, instead run the command in the already-running container
+whose bind mount best matches $CWD.
 """
 
 import argparse
@@ -215,20 +217,19 @@ def build_run_command(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run a command in the container whose bind mount best matches $CWD, or with -n in a new throwaway container.",
+        description="Run a command in a new throwaway container from dev:latest, or with -r in the running container whose bind mount best matches $CWD.",
     )
     parser.add_argument(
-        "--new",
-        "-n",
+        "--running",
+        "-r",
         action="store_true",
-        help="Create a new throwaway container from dev:latest instead of exec'ing into a running one; "
-        "the repository root is mounted at its host path and $CWD is the working directory",
+        help="Exec into the running container whose bind mount best matches $CWD instead of creating a new throwaway container",
     )
     parser.add_argument(
         "--krun",
         "-k",
         action="store_true",
-        help="With -n, pass --runtime=krun to the container engine",
+        help="Pass --runtime=krun to the container engine when creating a new container",
     )
     parser.add_argument(
         "--arg",
@@ -236,7 +237,7 @@ def main() -> None:
         action="append",
         default=[],
         metavar="ARG",
-        help="With -n, pass an additional argument to the container engine's run command (repeatable)",
+        help="Pass an additional argument to the container engine's run command when creating a new container (repeatable)",
     )
     parser.add_argument(
         "--runtime",
@@ -248,7 +249,7 @@ def main() -> None:
         "--container",
         "-c",
         default=None,
-        help="Override container selection by name or id",
+        help="Override container selection by name or id (requires -r/--running)",
     )
     parser.add_argument(
         "--dry-run",
@@ -262,23 +263,22 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.krun and not args.new:
-        parser.error("-k/--krun requires -n/--new")
-    if args.arg and not args.new:
-        parser.error("-a/--arg requires -n/--new")
+    if args.krun and args.running:
+        parser.error("-k/--krun cannot be used with -r/--running")
+    if args.arg and args.running:
+        parser.error("-a/--arg cannot be used with -r/--running")
+    if args.container and not args.running:
+        parser.error("-c/--container requires -r/--running")
 
     # Strip leading '--' that argparse.REMAINDER may capture
     command = args.command
     if command and command[0] == "--":
         command = command[1:]
 
-    if not args.new and not command:
-        parser.error("no command specified")
-
     runtime = args.runtime or find_runtime()
     cwd = Path.cwd().resolve()
 
-    if args.new:
+    if not args.running:
         mounts = resolve_mounts(cwd)
         for mount in mounts:
             refuse_denied_mount(mount)
@@ -289,6 +289,9 @@ def main() -> None:
         mounted = ", ".join(str(m) for m in mounts)
         print(f"▶ dev:latest:{cwd} (mounted: {mounted})", file=sys.stderr)
         os.execvp(runtime, exec_cmd)
+
+    if not command:
+        parser.error("no command specified")
 
     if args.container:
         # Direct container override — still need to find the right workdir
