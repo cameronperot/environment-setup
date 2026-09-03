@@ -9,6 +9,9 @@ repository root (the parent of this directory). Run the provided script from any
 ```bash
 ./dev-container/build.sh
 ```
+`build.sh` passes the invoking user's UID/GID as build args, so the image's dev user (`user`, homed at `/home/user`) is created with the builder's numeric identity. Containers run with `--userns keep-id`, which maps the host user's UID to the same UID inside the container, so the image must be rebuilt by whoever uses it — or after a host UID change — for home ownership and bind mounts to resolve correctly.
+
+`make container-build` delegates to the same script.
 
 ## Usage
 `c` (from `dotfiles/bin`, deployed to `~/bin` by `install.py`) runs a command in the running
@@ -22,6 +25,10 @@ With `-n` the repository root is mounted at its host path and the current direct
 A compose file running Jupyter lab is also provided for a longer running environment:
 ```bash
 podman-compose -f compose.yml up
+```
+`compose-dev.yml` additionally mounts the signing-agent socket from the host runtime directory, which depends on the host UID; it reads `HOST_UID` from the environment (defaulting to 1000):
+```bash
+HOST_UID=$(id -u) podman-compose -f compose-dev.yml up
 ```
 
 ## LLM-Agent Commit Signing

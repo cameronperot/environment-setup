@@ -9,5 +9,7 @@ cd "${DIR}/.."
 
 podman build \
     --build-arg "GIT_SIGNING_KEY=${GIT_SIGNING_KEY}" \
+    --build-arg "NEW_UID=$(id -u)" \
+    --build-arg "NEW_GID=$(id -g)" \
     -t dev:latest \
     -f dev-container/Containerfile .

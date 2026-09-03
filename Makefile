@@ -1,4 +1,3 @@
-CONTAINER_CLI ?= podman
 CONTAINER_COMPOSE ?= podman-compose
 MICROMAMBA ?= micromamba
 NEOVIM_VERSION ?= stable
@@ -21,7 +20,7 @@ update-dotfiles: ## Sync dotfiles from $HOME into dotfiles/ (DOTFILES_ARGS="--dr
 	uv run sync_dotfiles.py $(DOTFILES_ARGS)
 
 container-build: ## Build the dev container image (dev:latest)
-	$(CONTAINER_CLI) build -t dev:latest -f dev-container/Containerfile .
+	./dev-container/build.sh
 
 mamba-install: ## Install micromamba
 	curl -Ls https://raw.githubusercontent.com/cameronperot/shell-scripts/refs/heads/master/scripts/install_micromamba.sh | bash
