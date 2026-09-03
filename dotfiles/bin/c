@@ -197,12 +197,6 @@ def build_run_command(
         f"{xdg_runtime_dir}/llm-agent.sock:/run/ssh-agent.sock",
         "-e",
         "SSH_AUTH_SOCK=/run/ssh-agent.sock",
-        "-e",
-        "GEMINI_API_KEY",
-        "-e",
-        "OPENROUTER_API_KEY",
-        "-e",
-        "OPENCODE_API_KEY",
     ]
     if krun:
         cmd += ["--runtime=krun"]
