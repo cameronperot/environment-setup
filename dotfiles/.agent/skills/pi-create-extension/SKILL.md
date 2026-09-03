@@ -82,7 +82,7 @@ Load paths: `~/.pi/agent/extensions/` (global), `.pi/extensions/` (project, afte
 
 ## House repo integration
 
-Apply only when authoring inside a Pi config repo that has these files (e.g. this environment's `pi/agent/extensions/`):
+Apply only when authoring inside a Pi config repo that has these files (e.g. this environment's `.pi/agent/extensions/`):
 
 - Open the file with a block comment stating what the extension does and why; indent with tabs; import from `@earendil-works/pi-coding-agent` at the repo's pinned version range.
 - Put policy shared across extensions in `shared/` modules rather than duplicating it.
