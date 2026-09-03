@@ -56,3 +56,11 @@ alias svc-start="systemctl --user start"
 alias svc-status="systemctl --user status"
 alias svc-stop-all="find ~/.config/containers/systemd/ -name '*.container' -exec basename {} .container \; | xargs -r systemctl --user stop"
 alias svc-stop="systemctl --user stop"
+
+# Agents
+alias pi="c -a=--init pi"
+alias omp="c -a=--init omp"
+alias oc="c -a=--init opencode"
+alias pik="c -k pi"
+alias ompk="c -k omp"
+alias ock="c -k opencode"
