@@ -37,7 +37,7 @@ GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh  
 Three layers, each bounding something the previous one does not:
 - **Container** (`c`, compose): bounds what the host exposes. Only the repository, the agent dotfiles and the signing socket are mounted, and no API keys are forwarded. It shares the host kernel, so on its own it is not a security boundary.
 - **Agent sandbox** (`agent-sandbox`, bubblewrap): bounds what the agent process can touch inside the container. The system tree, `/etc`, `/opt/mamba` and a slice of `$HOME` (`.config`, `.gitconfig`, `.local`) are read-only; `$HOME`, `/tmp` and `/run` are ephemeral tmpfs; only the workspace (the git toplevel, or the directory holding `.bare`) and the agent's own state directories are writable, at their real paths; the environment is cleared down to an allowlist; IPC, UTS, PID and user namespaces are unshared, with nested user namespaces disabled where the kernel allows; and the sandbox refuses to start while the TIOCSTI terminal-injection escape is open. A prompt-injected command therefore cannot read other repositories or other agents' credentials, nor rewrite the shell config or the shadows that put it in the sandbox. Network stays shared for LLM API egress, since bubblewrap cannot filter it.
-- **microVM** (`c -k`, libkrun): boots the container on its own guest kernel (libkrunfw), so a kernel exploit or container escape stays inside the VM instead of reaching the host. The rootfs and bind mounts are shared into the guest over virtio-fs, which passes files but not Unix-domain socket endpoints, so the mounted `llm-agent.sock` is a dead inode in the guest and the host's ssh-agent is unreachable. The entrypoint therefore sets `commit.gpgsign false` in the container's copy of `~/.gitconfig`: commits made under `c -k` are unsigned; sign them from the host if needed.
+- **microVM** (`c -k`, libkrun): boots the container on its own guest kernel (libkrunfw), so a kernel exploit or container escape stays inside the VM instead of reaching the host. The rootfs and bind mounts are shared into the guest over virtio-fs, which passes files but not Unix-domain socket endpoints, so the mounted `llm-agent.sock` is a dead inode in the guest and the host's ssh-agent is unreachable. The entrypoint therefore sets `commit.gpgsign false` in the container's copy of `~/.gitconfig`: commits made under `c -k` are unsigned; sign them from the host if needed, or bridge the agent over TCP (see [Signing under `c -k`](#signing-under-c--k-pasta-bridge)).
 
 ## Agents
 `pi`, `omp` and `opencode` resolve to shadows in `~/bin` that launch the real binary through `agent-sandbox` (the bubblewrap layer above) from every entry point: `c`, `c -r`, zsh, bash. Escape hatches: `AGENT_SANDBOX_DISABLE=1 pi …` runs one invocation unsandboxed, and an absolute path bypasses the shadow.
@@ -90,3 +90,37 @@ git commit --allow-empty -m "test: verify signature"
 git log --show-signature -1
 ```
 Expected: `Good "git" signature for <your GitHub email> with ED25519 key SHA256:...`
+
+### Signing under `c -k` (pasta bridge)
+virtio-fs cannot carry the socket into the microVM, but TSI does proxy the guest's TCP connections into the container's network namespace, and pasta can forward a port from there to the host's loopback. Bridging the agent over TCP therefore works without changing the runtime. The ssh-agent protocol has no authentication: while the bridge runs, any local user on the host can request signatures over `127.0.0.1:7777`, so only use it on a single-user machine.
+
+1. Host: expose the agent on loopback with a systemd user unit `~/.config/systemd/user/llm-ssh-agent-tcp.service` (`socat` required):
+```ini
+[Unit]
+Description=TCP bridge to the isolated LLM ssh-agent
+Requires=llm-ssh-agent.service
+After=llm-ssh-agent.service
+
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:7777,bind=127.0.0.1,reuseaddr,fork UNIX-CONNECT:%t/llm-agent.sock
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+```zsh
+systemctl --user daemon-reload
+systemctl --user enable --now llm-ssh-agent-tcp.service
+```
+2. Start the container with pasta forwarding the port from the container's network namespace to the host's loopback:
+```zsh
+c -k --arg=--network=pasta:-T,7777 zsh
+```
+3. Container: bridge a local socket to the forwarded port, point `SSH_AUTH_SOCK` at it and re-enable signing, which the entrypoint turned off:
+```bash
+socat UNIX-LISTEN:/tmp/ssh-agent.sock,fork TCP:127.0.0.1:7777 &
+export SSH_AUTH_SOCK=/tmp/ssh-agent.sock
+git config --global commit.gpgsign true
+ssh-add -l
+```
+`ssh-add -l` must list the signing key; then verify as in step 5. `agent-sandbox` forwards the socket like any other invoker-owned `SSH_AUTH_SOCK`.

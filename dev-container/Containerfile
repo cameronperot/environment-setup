@@ -71,6 +71,7 @@ RUN apt-get update \
     sd \
     shellcheck \
     shfmt \
+    socat \
     sudo \
     tar \
     tmux \
