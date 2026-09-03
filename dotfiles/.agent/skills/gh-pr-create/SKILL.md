@@ -26,11 +26,21 @@ Run these checks in order before writing anything:
 
 ## 3. Title
 
-Format: `<type>: <imperative description>`
+Format: `type(scope): subject` — imperative mood, lowercase subject, no trailing period, ≤72 characters. Scope is optional; use the scope the branch's commits share when they have one. Types are the same set as commit headers:
 
-- Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
-- At most 72 characters, no trailing period.
-- Specific enough to identify the change in a list of merged PRs: `fix: prevent double-fill on partial cancel`, not `fix: bug fix`.
+| Type | Use for |
+|---|---|
+| `feat` | New user-facing capability |
+| `fix` | Bug fix |
+| `refactor` | Code change that alters neither behavior nor interface |
+| `perf` | Performance improvement |
+| `docs` | Documentation only |
+| `test` | Adding or fixing tests |
+| `build` | Build system or dependencies |
+| `ci` | CI configuration |
+| `chore` | Maintenance that fits none of the above |
+
+Specific enough to identify the change in a list of merged PRs: `fix(orders): prevent double-fill on partial cancel`, not `fix: bug fix`.
 
 ## 4. Body
 
