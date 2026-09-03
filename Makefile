@@ -3,8 +3,8 @@ MICROMAMBA ?= micromamba
 NEOVIM_VERSION ?= stable
 
 .DEFAULT_GOAL := help
-.PHONY: help install update-dotfiles env julia-env container-build compose-up compose-up-dev \
-	micromamba-install micromamba-init rust-install juliaup-install
+.PHONY: help install update-dotfiles container-build mamba-install mamba-init mamba-env \
+	rust-install juliaup-install
 
 help: ## Print this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

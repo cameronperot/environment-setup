@@ -4,8 +4,7 @@ bind-mounting the repository root at its host path so git's absolute worktree
 links stay valid inside: the directory containing `.bare` for a `.bare` layout,
 the toplevel plus the common git dir for a linked worktree of a plain repo,
 otherwise the toplevel (or the cwd outside git). The container starts in the
-cwd and gets the agent dotfiles, ssh-agent socket, and API-key environment
-variables passed through.
+cwd and gets the agent dotfiles and ssh-agent socket passed through.
 
 With -r/--running, instead run the command in the already-running container
 whose bind mount best matches $CWD.
@@ -14,18 +13,9 @@ whose bind mount best matches $CWD.
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
-
-
-def find_runtime() -> str:
-    for rt in ("docker", "podman"):
-        if shutil.which(rt):
-            return rt
-    print("error: neither docker nor podman found on PATH", file=sys.stderr)
-    sys.exit(1)
 
 
 def running_containers(runtime: str) -> list[str]:
@@ -176,8 +166,6 @@ def build_run_command(
         cmd += ["-v", f"{mount}:{mount}"]
     cmd += [
         "-v",
-        "dev-antidote:/home/user/.antidote",
-        "-v",
         f"{agent_config_dir}/.agent:/home/user/.agent",
         "-v",
         f"{agent_config_dir}/.pi/agent:/home/user/.pi/agent",
@@ -237,7 +225,7 @@ def main() -> None:
         "--runtime",
         choices=["docker", "podman"],
         default="podman",
-        help="Container runtime to use (default: auto-detect)",
+        help="Container runtime to use (default: podman)",
     )
     parser.add_argument(
         "--container",
@@ -269,7 +257,7 @@ def main() -> None:
     if command and command[0] == "--":
         command = command[1:]
 
-    runtime = args.runtime or find_runtime()
+    runtime = args.runtime
     cwd = Path.cwd().resolve()
 
     if not args.running:
