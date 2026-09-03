@@ -4,7 +4,9 @@ bind-mounting the repository root at its host path so git's absolute worktree
 links stay valid inside: the directory containing `.bare` for a `.bare` layout,
 the toplevel plus the common git dir for a linked worktree of a plain repo,
 otherwise the toplevel (or the cwd outside git). The container starts in the
-cwd and gets the agent dotfiles and ssh-agent socket passed through.
+cwd and gets the agent dotfiles and the host's ssh-agent passed through:
+via a socket bind-mount, or under krun via a pasta TCP bridge that the image
+entrypoint bridges to SSH_AUTH_SOCK.
 
 With -r/--running, instead run the command in the already-running container
 whose bind mount best matches $CWD.
@@ -181,13 +183,17 @@ def build_run_command(
         f"{agent_config_dir}/.agent/prompts:/home/user/.omp/agent/prompts",
         "-v",
         f"{agent_config_dir}/.plannotator:/home/user/.plannotator",
-        "-v",
-        f"{xdg_runtime_dir}/llm-agent.sock:/run/ssh-agent.sock",
         "-e",
-        "SSH_AUTH_SOCK=/run/ssh-agent.sock",
+        "SSH_AUTH_SOCK=/tmp/ssh-agent.sock",
     ]
     if krun:
-        cmd += ["--runtime=krun"]
+        # virtio-fs passes files but not Unix-socket endpoints, so instead of
+        # mounting the ssh-agent socket, forward guest connections to port 7777
+        # to the host's loopback signer; the entrypoint bridges SSH_AUTH_SOCK
+        # to that port. /run rejects the bind in the guest, hence /tmp.
+        cmd += ["--runtime=krun", "--network", "pasta:-T,7777"]
+    else:
+        cmd += ["-v", f"{xdg_runtime_dir}/llm-agent.sock:/tmp/ssh-agent.sock"]
     cmd += extra_args
     if sys.stdin.isatty():
         cmd += ["-i", "-t"]
@@ -211,7 +217,7 @@ def main() -> None:
         "--krun",
         "-k",
         action="store_true",
-        help="Pass --runtime=krun to the container engine when creating a new container",
+        help="Pass --runtime=krun plus the pasta TCP bridge for signing when creating a new container",
     )
     parser.add_argument(
         "--arg",

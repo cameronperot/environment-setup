@@ -1,13 +1,13 @@
 # Dev Container
 
-`dev:latest` is a Debian image for running LLM coding agents against a repository with a bounded view of the host: a container sees the repository, the agent dotfiles and an isolated ssh-agent socket, and the agents themselves run inside a bubblewrap sandbox. A container alone is not a security boundary; `c -k` adds one by booting it in a microVM (see [Isolation](#isolation)).
+`dev:latest` is a Debian image for running LLM coding agents against a repository with a bounded view of the host: a container sees the repository, the agent dotfiles and the host's isolated ssh-agent, and the agents themselves run inside a bubblewrap sandbox. A container alone is not a security boundary; `c -k` adds one by booting it in a microVM (see [Isolation](#isolation)).
 
 | File | Purpose |
 | :--- | :--- |
 | `Containerfile` | Image: Debian 13, user `user` (`/home/user`), micromamba env `dev`, uv, the coding agents, dotfiles via `install.py` |
 | `build.sh` | Builds the image from the repository root with the builder's UID/GID and `GIT_SIGNING_KEY` |
 | `compose.yml` | Long-running JupyterLab container `dev_container` |
-| `entrypoint.sh` | Execs the command; under `--runtime=krun` first drops from guest root to the image user, disables TIOCSTI and turns off commit signing |
+| `entrypoint.sh` | Execs the command; under `--runtime=krun` first drops from guest root to the image user, disables TIOCSTI and bridges the TCP signer to `SSH_AUTH_SOCK` |
 | `jupyter_server_config.py` | JupyterLab settings baked into the image (root `/work`, token `dev`) |
 
 ## Build
@@ -28,7 +28,7 @@ GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh  
 `c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags (`-a` for extra `podman run` arguments, `--dry-run`). A throwaway container gets:
 - the repository root bind-mounted at its host path and used as the working directory; for a `.bare` layout that is the directory holding `.bare`, so every worktree resolves, and outside git it is the current directory
 - `$AGENT_CONFIG_DIR/{.agent,.pi/agent,.omp/agent,.plannotator}` at the same paths under `/home/user` (`AGENT_CONFIG_DIR` must be set)
-- the isolated ssh-agent socket as `SSH_AUTH_SOCK`
+- the isolated ssh-agent as `SSH_AUTH_SOCK`: socket bind-mount, or under `c -k` a TCP bridge to the host signer (see [Isolation](#isolation) and [Signing under `c -k`](#signing-under-c--k-pasta-bridge))
 - no API-key environment variables
 
 `compose.yml` mounts its own directory at `/work`, Jupyter's root. Keep machine-specific additions such as project mounts or the signing socket in a second compose file passed with another `-f`.
@@ -37,13 +37,13 @@ GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh  
 Three layers, each bounding something the previous one does not:
 - **Container** (`c`, compose): bounds what the host exposes. Only the repository, the agent dotfiles and the signing socket are mounted, and no API keys are forwarded. It shares the host kernel, so on its own it is not a security boundary.
 - **Agent sandbox** (`agent-sandbox`, bubblewrap): bounds what the agent process can touch inside the container. The system tree, `/etc`, `/opt/mamba` and a slice of `$HOME` (`.config`, `.gitconfig`, `.local`) are read-only; `$HOME`, `/tmp` and `/run` are ephemeral tmpfs; only the workspace (the git toplevel, or the directory holding `.bare`) and the agent's own state directories are writable, at their real paths; the environment is cleared down to an allowlist; IPC, UTS, PID and user namespaces are unshared, with nested user namespaces disabled where the kernel allows; and the sandbox refuses to start while the TIOCSTI terminal-injection escape is open. A prompt-injected command therefore cannot read other repositories or other agents' credentials, nor rewrite the shell config or the shadows that put it in the sandbox. Network stays shared for LLM API egress, since bubblewrap cannot filter it.
-- **microVM** (`c -k`, libkrun): boots the container on its own guest kernel (libkrunfw), so a kernel exploit or container escape stays inside the VM instead of reaching the host. The rootfs and bind mounts are shared into the guest over virtio-fs, which passes files but not Unix-domain socket endpoints, so the mounted `llm-agent.sock` is a dead inode in the guest and the host's ssh-agent is unreachable. The entrypoint therefore sets `commit.gpgsign false` in the container's copy of `~/.gitconfig`: commits made under `c -k` are unsigned; sign them from the host if needed, or bridge the agent over TCP (see [Signing under `c -k`](#signing-under-c--k-pasta-bridge)).
+- **microVM** (`c -k`, libkrun): boots the container on its own guest kernel (libkrunfw), so a kernel exploit or container escape stays inside the VM instead of reaching the host. The rootfs and bind mounts are shared into the guest over virtio-fs, which passes files but not Unix-domain socket endpoints, so the ssh-agent is bridged over TCP instead: `c -k` adds `--network=pasta:-T,7777` (TSI proxies the guest's TCP connections into the container's network namespace, and pasta forwards port 7777 from there to the host's loopback) and the entrypoint bridges `127.0.0.1:7777` to the socket `SSH_AUTH_SOCK` expects. This requires the host-side TCP bridge of [Signing under `c -k`](#signing-under-c--k-pasta-bridge) to be running; while it runs, the ssh-agent protocol's lack of authentication lets any local host user request signatures over `127.0.0.1:7777`, so only use it on a single-user machine.
 
 ## Agents
 `pi`, `omp` and `opencode` resolve to shadows in `~/bin` that launch the real binary through `agent-sandbox` (the bubblewrap layer above) from every entry point: `c`, `c -r`, zsh, bash. Escape hatches: `AGENT_SANDBOX_DISABLE=1 pi …` runs one invocation unsandboxed, and an absolute path bypasses the shadow.
 
 ## Commit Signing
-Commits made inside a container are signed with a dedicated SSH key that never enters the container: an isolated ssh-agent on the host holds it and only its socket is mounted. `dotfiles/.gitconfig` turns on SSH signing; the image build sets `user.signingkey` and `~/.ssh/allowed_signers` from `GIT_SIGNING_KEY`.
+Commits made inside a container are signed with a dedicated SSH key that never enters the container: an isolated ssh-agent on the host holds it and only its socket is mounted (under `c -k` the agent is reached over TCP instead, see [Signing under `c -k`](#signing-under-c--k-pasta-bridge)). `dotfiles/.gitconfig` turns on SSH signing; the image build sets `user.signingkey` and `~/.ssh/allowed_signers` from `GIT_SIGNING_KEY`.
 
 ### 1. Generate the key (host)
 ```zsh
@@ -78,10 +78,10 @@ systemctl --user enable --now llm-ssh-agent.service
 ```
 
 ### 4. Build and run with the key
-Build with `GIT_SIGNING_KEY` as in [Build](#build). `c` mounts the socket automatically (under `c -k` it is unreachable and signing is disabled, see [Isolation](#isolation)); for a plain `podman run` or a compose override add:
+Build with `GIT_SIGNING_KEY` as in [Build](#build). `c` mounts the socket automatically, and `c -k` bridges the agent over TCP (see [Signing under `c -k`](#signing-under-c--k-pasta-bridge)); for a plain `podman run` or a compose override add:
 ```zsh
--v "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/llm-agent.sock:/run/ssh-agent.sock" \
--e SSH_AUTH_SOCK=/run/ssh-agent.sock \
+-v "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/llm-agent.sock:/tmp/ssh-agent.sock" \
+-e SSH_AUTH_SOCK=/tmp/ssh-agent.sock \
 ```
 
 ### 5. Verify (container)
@@ -92,7 +92,7 @@ git log --show-signature -1
 Expected: `Good "git" signature for <your GitHub email> with ED25519 key SHA256:...`
 
 ### Signing under `c -k` (pasta bridge)
-virtio-fs cannot carry the socket into the microVM, but TSI does proxy the guest's TCP connections into the container's network namespace, and pasta can forward a port from there to the host's loopback. Bridging the agent over TCP therefore works without changing the runtime. The ssh-agent protocol has no authentication: while the bridge runs, any local user on the host can request signatures over `127.0.0.1:7777`, so only use it on a single-user machine.
+virtio-fs cannot carry the socket into the microVM, but TSI does proxy the guest's TCP connections into the container's network namespace, and pasta can forward a port from there to the host's loopback. `c -k` adds `--network=pasta:-T,7777` automatically and the image's entrypoint bridges `127.0.0.1:7777` to `SSH_AUTH_SOCK`, so signing works unchanged once the host-side bridge below is running. The ssh-agent protocol has no authentication: while the bridge runs, any local user on the host can request signatures over `127.0.0.1:7777`, so only use it on a single-user machine.
 
 1. Host: expose the agent on loopback with a systemd user unit `~/.config/systemd/user/llm-ssh-agent-tcp.service` (`socat` required):
 ```ini
@@ -112,15 +112,5 @@ WantedBy=default.target
 systemctl --user daemon-reload
 systemctl --user enable --now llm-ssh-agent-tcp.service
 ```
-2. Start the container with pasta forwarding the port from the container's network namespace to the host's loopback:
-```zsh
-c -k --arg=--network=pasta:-T,7777 zsh
-```
-3. Container: bridge a local socket to the forwarded port, point `SSH_AUTH_SOCK` at it and re-enable signing, which the entrypoint turned off:
-```bash
-socat UNIX-LISTEN:/tmp/ssh-agent.sock,fork TCP:127.0.0.1:7777 &
-export SSH_AUTH_SOCK=/tmp/ssh-agent.sock
-git config --global commit.gpgsign true
-ssh-add -l
-```
-`ssh-add -l` must list the signing key; then verify as in step 5. `agent-sandbox` forwards the socket like any other invoker-owned `SSH_AUTH_SOCK`.
+
+`ssh-add -l` in the container must list the signing key; then verify as in step 5. `agent-sandbox` forwards the socket like any other invoker-owned `SSH_AUTH_SOCK`.

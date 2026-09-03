@@ -7,8 +7,8 @@
 # process.user says; crun leaves the OCI config in the guest rootfs as
 # /.krun_config.json, so read the intended user from it and drop to it first,
 # after closing the TIOCSTI escape that agent-sandbox refuses to run with and
-# disabling commit signing, since the host ssh-agent socket cannot cross the VM
-# boundary.
+# bridging the TCP signer, since virtio-fs cannot pass the host ssh-agent
+# socket through.
 
 set -euo pipefail
 
@@ -22,11 +22,12 @@ if [[ -e /.krun_config.json && "$(id -u)" -eq 0 ]]; then
     read -r uid gid groups <<<"${user}"
     groups_arg="--clear-groups"
     [[ -n "${groups}" ]] && groups_arg="--groups=${groups}"
-    # The bind-mounted ssh-agent socket is a dead inode over virtio-fs, so
-    # signing cannot work in the guest: turn it off in the user's gitconfig
-    home="$(getent passwd "${uid}" | cut -d: -f6)"
-    setpriv --reuid="${uid}" --regid="${gid}" "${groups_arg}" -- \
-        git config --file "${home}/.gitconfig" commit.gpgsign false
+    # virtio-fs passes files but not Unix-socket endpoints, so the signer is
+    # reached over TCP: `c -k` has pasta forward guest connections on port 7777
+    # to the host's loopback (see dev-container/README.md). Bridge it to the
+    # socket path SSH_AUTH_SOCK expects; /run rejects the bind in the guest,
+    # hence /tmp.
+    socat UNIX-LISTEN:/tmp/ssh-agent.sock,fork,mode=0666 TCP:127.0.0.1:7777 &
     exec setpriv --reuid="${uid}" --regid="${gid}" "${groups_arg}" -- "$@"
 fi
 
