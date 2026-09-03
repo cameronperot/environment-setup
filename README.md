@@ -5,6 +5,7 @@ Configuration and setup scripts for a Linux development environment built around
 ## Repository Layout
 - `install.py` — rsyncs `dotfiles/` and installs neovim
 - `dotfiles/` — tracked dotfiles (zsh, tmux, Neovim, ranger, sway, kitty, VS Code, etc.)
+- `dotfiles/bin/` — user scripts rsynced to `~/bin`
 - `dotfiles.yaml` — manifest driving `sync_dotfiles.py` (which files to sync, ignore, and watch)
 - `sync_dotfiles.py` — copies dotfiles from your home directory back into `dotfiles/`
 - `environment.yml` — root micromamba environment (Python + core tooling)
