@@ -92,7 +92,7 @@ The `plan-mode/` directory is staged as `index.ts.disabled`, so Pi's loader skip
 
 | Extension | What it does | Registers |
 |---|---|---|
-| `worktree.ts` | Git worktree management. Worktrees live in a sibling folder (default `../.worktrees/<repo>/<name>`) so the main checkout stays clean; each worktree's session directory is symlinked to the main worktree's, so `/resume` lists sessions from all of them alike. Config: `~/.pi/agent/worktree.json` (global) or `<main-worktree>/.pi/worktree.json` (repo, trust-gated) — `root`, `copyFiles`, `setupCommand`. | `/worktree create\|list\|remove\|open`, `pi --gwt <name>` |
+| `worktree.ts` | Git worktree management. Worktrees live in a sibling folder (default `../.worktrees/<repo>/<name>`) so the main checkout stays clean; in a `.bare` layout (`.bare/` plus sibling worktrees, as `git-bareify` produces) they are created next to `.bare`. Each worktree's session directory is symlinked to the main worktree's, so `/resume` lists sessions from all of them alike. The extension never prunes: entries git reports as prunable show as `missing` in `list`, and `create`, `--gwt` and `remove` ask before removing that single stale entry (its directory may only be unmounted in a container or sandbox). Config: `~/.pi/agent/worktree.json` (global) or `<main-worktree>/.pi/worktree.json` (repo, trust-gated) — `root`, `copyFiles`, `setupCommand`. | `/worktree create\|list\|remove\|open`, `pi --gwt <name>` |
 
 ## Display
 

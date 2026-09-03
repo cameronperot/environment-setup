@@ -24,6 +24,10 @@
  * (~/.pi/agent/sessions/--<encoded-cwd>--) is symlinked to the main worktree's
  * session directory, so /resume lists sessions from the main checkout and all
  * worktrees alike, and new sessions land in the shared directory.
+ *
+ * The extension never prunes: entries git reports as prunable (directory
+ * missing, possibly just not mounted here) are shown by /worktree list and
+ * removed only one at a time, after confirmation, by create, --gwt and remove.
  */
 
 import { spawn } from "node:child_process";
@@ -44,6 +48,7 @@ import {
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { createInterface } from "node:readline/promises";
 import { type ExtensionAPI, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 
 // =============================================================================
@@ -67,7 +72,10 @@ interface Worktree {
 	head: string;
 	branch?: string; // short name
 	bare?: boolean; // bare gitdir entry (`.bare`-style repos)
+	prunable?: string; // git's reason when the directory is missing
 }
+
+type Confirm = (title: string, message: string) => Promise<boolean>;
 
 // =============================================================================
 // Helpers
@@ -111,6 +119,7 @@ async function listWorktrees(pi: ExtensionAPI, mainWorktree: string): Promise<Wo
 			else if (wt && line.startsWith("HEAD ")) wt.head = line.slice(5);
 			else if (wt && line.startsWith("branch refs/heads/")) wt.branch = line.slice(18);
 			else if (wt && line === "bare") wt.bare = true;
+			else if (wt && line.startsWith("prunable ")) wt.prunable = line.slice(9);
 		}
 		if (wt) worktrees.push(wt);
 	}
@@ -352,6 +361,8 @@ interface EnsureResult {
 /**
  * Create the worktree for `name` (attaching to an existing branch if needed).
  * With `reuse`, an existing worktree for the branch is returned as-is.
+ * A prunable entry is removed (that entry only) and recreated when `confirm`
+ * agrees; otherwise the call fails, since the directory may just be unmounted.
  */
 async function ensureWorktree(
 	pi: ExtensionAPI,
@@ -360,14 +371,22 @@ async function ensureWorktree(
 	name: string,
 	base: string | undefined,
 	reuse: boolean,
+	confirm: Confirm,
 ): Promise<EnsureResult> {
 	const root = worktreeRoot(config, mainWorktree);
 	const path = join(root, name);
 
 	let existing = findWorktree(await listWorktrees(pi, mainWorktree), name, root);
-	if (existing && !existsSync(existing.path)) {
-		// Stale entry: the directory is gone from disk. Prune and create fresh.
-		await git(pi, ["worktree", "prune"], mainWorktree);
+	if (existing?.prunable) {
+		const ok = await confirm(
+			`Recreate worktree '${name}'?`,
+			`registered at ${existing.path} but the directory is missing here (${existing.prunable}). ` +
+				"Remove the stale entry and create it fresh? Choose No if it is only not mounted here.",
+		);
+		if (!ok) {
+			throw new Error(`worktree '${name}' is registered at ${existing.path} but has no directory here (${existing.prunable})`);
+		}
+		await git(pi, ["worktree", "remove", existing.path], mainWorktree);
 		existing = undefined;
 	}
 	if (existing) {
@@ -467,6 +486,17 @@ function fail(message: string): never {
 	process.exit(1);
 }
 
+/** y/N prompt on the terminal; isInteractiveArgv has already guaranteed a TTY. */
+async function confirmOnTerminal(title: string, message: string): Promise<boolean> {
+	const rl = createInterface({ input: process.stdin, output: process.stderr });
+	try {
+		const answer = await rl.question(`pi-gwt: ${title}\n${message} [y/N] `);
+		return ["y", "yes"].includes(answer.trim().toLowerCase());
+	} finally {
+		rl.close();
+	}
+}
+
 /** Returns a warning message if the child could not be launched; never returns on success. */
 async function handleGwt(pi: ExtensionAPI): Promise<string | undefined> {
 	const { present, name, filtered } = parseGwtArgv(process.argv.slice(2));
@@ -485,7 +515,7 @@ async function handleGwt(pi: ExtensionAPI): Promise<string | undefined> {
 		const mainWorktree = await getMainWorktree(pi);
 		const { config, errors, notices } = loadConfig(mainWorktree, isTrustedFromFile(mainWorktree));
 		for (const m of [...errors, ...notices]) console.error(`pi-gwt: ${m}`);
-		result = await ensureWorktree(pi, mainWorktree, config, name, undefined, true);
+		result = await ensureWorktree(pi, mainWorktree, config, name, undefined, true, confirmOnTerminal);
 	} catch (e) {
 		fail(e instanceof Error ? e.message : String(e));
 	}
@@ -544,7 +574,9 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 
 	async function create(ctx: ExtensionContext, name: string, base?: string): Promise<void> {
 		const { mainWorktree, config } = await prepare(ctx);
-		const r = await ensureWorktree(pi, mainWorktree, config, name, base, false);
+		const r = await ensureWorktree(pi, mainWorktree, config, name, base, false, (title, message) =>
+			ctx.ui.confirm(title, message),
+		);
 		const lines = [`worktree '${name}' created at ${r.path}`];
 		if (r.copied.length) lines.push(`copied: ${r.copied.join(", ")}`);
 		if (r.skipped.length) lines.push(`skipped (missing): ${r.skipped.join(", ")}`);
@@ -566,11 +598,18 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 				rows.push([marker, "(bare)", "-", "-", "-", wt.path]);
 				continue;
 			}
+			const name = i === 0 ? "(main)" : basename(wt.path);
+			const branch = wt.branch ?? `detached@${wt.head.slice(0, 8)}`;
+			// Prunable entry: no directory here (deleted, or not mounted), so
+			// there is nothing to run git status / rev-list in.
+			if (wt.prunable) {
+				rows.push([marker, name, branch, "missing", wt.prunable, wt.path]);
+				continue;
+			}
 			const dirty = (await isDirty(pi, wt.path)) > 0 ? "dirty" : "clean";
 			const base = wt.branch ? await getBase(pi, mainWorktree, wt.branch) : undefined;
 			const sync = base ? `${await aheadBehind(pi, wt.path, base)} vs ${base}` : "base unknown";
-			const name = i === 0 ? "(main)" : basename(wt.path);
-			rows.push([marker, name, wt.branch ?? `detached@${wt.head.slice(0, 8)}`, dirty, sync, wt.path]);
+			rows.push([marker, name, branch, dirty, sync, wt.path]);
 		}
 		const widths = rows[0].map((_, c) => Math.max(...rows.map((r) => r[c].length)));
 		const table = rows.map((r) => r.map((cell, c) => cell.padEnd(widths[c])).join("  ").trimEnd());
@@ -583,10 +622,18 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 			throw new Error(`cannot remove the worktree pi is running in (${target.path})`);
 		}
 
-		const dirtyCount = await isDirty(pi, target.path);
-		if (dirtyCount > 0) {
-			const ok = await ctx.ui.confirm("Remove dirty worktree?", `${dirtyCount} tracked files modified in ${target.path}`);
+		if (target.prunable) {
+			const ok = await ctx.ui.confirm(
+				`Remove stale worktree entry '${name}'?`,
+				`directory missing here (${target.prunable}); choose No if it is only not mounted here`,
+			);
 			if (!ok) return;
+		} else {
+			const dirtyCount = await isDirty(pi, target.path);
+			if (dirtyCount > 0) {
+				const ok = await ctx.ui.confirm("Remove dirty worktree?", `${dirtyCount} tracked files modified in ${target.path}`);
+				if (!ok) return;
+			}
 		}
 		await git(pi, ["worktree", "remove", "--force", target.path], mainWorktree);
 
@@ -697,9 +744,6 @@ export default async function worktreeExtension(pi: ExtensionAPI): Promise<void>
 		} catch {
 			return;
 		}
-		const prune = await pi.exec("git", ["worktree", "prune"], { cwd: mainWorktree });
-		if (prune.code !== 0) ctx.ui.notify(`worktree prune failed: ${prune.stderr.trim()}`, "warning");
-
 		const active = process.env[ENV_ACTIVE];
 		if (active) ctx.ui.notify(`worktree: ${active} (${ctx.cwd})`, "info");
 
