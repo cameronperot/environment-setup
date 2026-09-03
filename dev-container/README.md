@@ -1,60 +1,61 @@
 # Dev Container
-This dev container is designed for LLM-assisted coding to restrict the data and information the agent has access to and reduce the chance of harmful changes to the host system.
 
-Note: Containers are not a security measure. If you need security isolation then consider using a VM.
+`dev:latest` is a Debian image for running LLM coding agents against a repository with a bounded view of the host: a container sees the repository, the agent dotfiles and an isolated ssh-agent socket, and the agents themselves run inside a bubblewrap sandbox. A container alone is not a security boundary; `c -k` adds one by booting it in a microVM (see [Isolation](#isolation)).
 
-## Building
-The Containerfile copies the repository root into the image, so the build context is the
-repository root (the parent of this directory). Run the provided script from anywhere:
+| File | Purpose |
+| :--- | :--- |
+| `Containerfile` | Image: Debian 13, user `user` (`/home/user`), micromamba env `dev`, uv, the coding agents, dotfiles via `install.py` |
+| `build.sh` | Builds the image from the repository root with the builder's UID/GID and `GIT_SIGNING_KEY` |
+| `compose.yml` | Long-running JupyterLab container `dev_container` |
+| `entrypoint.sh` | Execs the command; under `--runtime=krun` first drops from guest root to the image user, disables TIOCSTI and turns off commit signing |
+| `jupyter_server_config.py` | JupyterLab settings baked into the image (root `/work`, token `dev`) |
+
+## Build
 ```bash
-./dev-container/build.sh
+GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh   # or: make container-build
 ```
-`build.sh` passes the invoking user's UID/GID as build args, so the image's dev user (`user`, homed at `/home/user`) is created with the builder's numeric identity. Containers run with `--userns keep-id`, which maps the host user's UID to the same UID inside the container, so the image must be rebuilt by whoever uses it — or after a host UID change — for home ownership and bind mounts to resolve correctly.
+- The build context is the repository root, filtered by `.containerignore`. `GIT_SIGNING_KEY` (see [Commit Signing](#commit-signing)) is written into the image's git config.
+- The image user takes the builder's UID/GID and containers run with `--userns keep-id`, so each host user builds their own image and rebuilds after a UID change.
 
-`make container-build` delegates to the same script.
+## Run
+| Command | Effect |
+| :--- | :--- |
+| `c CMD` | Throwaway container from `dev:latest`, started in the current directory |
+| `c -r CMD` | Exec in the running container whose bind mount contains the current directory (`dev_container` preferred) |
+| `c -k CMD` | Like `c CMD`, inside a libkrun microVM via `--runtime=krun` (see [Isolation](#isolation)) |
+| `podman-compose -f compose.yml up` | JupyterLab at `http://127.0.0.1:8888/?token=dev`, Plannotator on port 8889 |
 
-## Usage
-`c` (from `dotfiles/bin`, deployed to `~/bin` by `install.py`) runs a command in a throwaway container from `dev:latest`, or with `-r` in the running container whose bind mount best matches the current directory:
-```bash
-c some_executable       # new throwaway container from dev:latest
-c -r some_executable    # exec into the running container (compose-dev.yml)
-```
-The repository root is mounted at its host path and the current directory is the working directory, so git worktrees of `.bare` repos work inside: the directory containing `.bare` is what gets mounted, and every worktree registered there resolves. Outside git the current directory itself is mounted. The agent dotfiles under `$AGENT_CONFIG_DIR`, the ssh-agent socket and the API-key variables are passed through. `~/bin` is on `PATH` in the image, so `agent-sandbox`, `c` and `git-bareify` are reachable from any entry point, e.g. `c agent-sandbox pi`.
+`c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags (`-a` for extra `podman run` arguments, `--dry-run`). A throwaway container gets:
+- the repository root bind-mounted at its host path and used as the working directory; for a `.bare` layout that is the directory holding `.bare`, so every worktree resolves, and outside git it is the current directory
+- `$AGENT_CONFIG_DIR/{.agent,.pi/agent,.omp/agent,.plannotator}` at the same paths under `/home/user` (`AGENT_CONFIG_DIR` must be set)
+- the isolated ssh-agent socket as `SSH_AUTH_SOCK`
+- no API-key environment variables
 
-The image's entrypoint (`entrypoint.sh`) execs the command unchanged, except under `--runtime=krun` (`c -k`): libkrun's guest init starts the workload as root regardless of the OCI user, so the entrypoint reads `process.user` from the `/.krun_config.json` that crun leaves in the guest rootfs and switches to that uid/gid via `setpriv` first. While still root it also sets `dev.tty.legacy_tiocsti=0`, since libkrunfw's guest kernel enables the TIOCSTI ioctl that `agent-sandbox` refuses to run with.
+`compose.yml` mounts its own directory at `/work`, Jupyter's root. Keep machine-specific additions such as project mounts or the signing socket in a second compose file passed with another `-f`.
 
-`pi`, `omp` and `opencode` are shadowed in `~/bin` (symlinks to `agent-shadow`, which execs the sibling `agent-sandbox` with the invoked name), so from the rebuilt image every entry point — `podman exec` (i.e. `c -r pi`), interactive zsh, plain bash — launches them inside the sandbox. To exec an agent unsandboxed for a single invocation, set `AGENT_SANDBOX_DISABLE=1` (e.g. `c -r env AGENT_SANDBOX_DISABLE=1 pi ...`); invoking an agent by absolute path bypasses the shadow entirely.
+## Isolation
+Three layers, each bounding something the previous one does not:
+- **Container** (`c`, compose): bounds what the host exposes. Only the repository, the agent dotfiles and the signing socket are mounted, and no API keys are forwarded. It shares the host kernel, so on its own it is not a security boundary.
+- **Agent sandbox** (`agent-sandbox`, bubblewrap): bounds what the agent process can touch inside the container. The system tree, `/etc`, `/opt/mamba` and a slice of `$HOME` (`.config`, `.gitconfig`, `.local`) are read-only; `$HOME`, `/tmp` and `/run` are ephemeral tmpfs; only the workspace (the git toplevel, or the directory holding `.bare`) and the agent's own state directories are writable, at their real paths; the environment is cleared down to an allowlist; IPC, UTS, PID and user namespaces are unshared, with nested user namespaces disabled where the kernel allows; and the sandbox refuses to start while the TIOCSTI terminal-injection escape is open. A prompt-injected command therefore cannot read other repositories or other agents' credentials, nor rewrite the shell config or the shadows that put it in the sandbox. Network stays shared for LLM API egress, since bubblewrap cannot filter it.
+- **microVM** (`c -k`, libkrun): boots the container on its own guest kernel (libkrunfw), so a kernel exploit or container escape stays inside the VM instead of reaching the host. The rootfs and bind mounts are shared into the guest over virtio-fs, which passes files but not Unix-domain socket endpoints, so the mounted `llm-agent.sock` is a dead inode in the guest and the host's ssh-agent is unreachable. The entrypoint therefore sets `commit.gpgsign false` in the container's copy of `~/.gitconfig`: commits made under `c -k` are unsigned; sign them from the host if needed.
 
-A compose file running Jupyter lab is also provided for a longer running environment:
-```bash
-podman-compose -f compose.yml up
-```
-`compose-dev.yml` additionally mounts the signing-agent socket from the host runtime directory, which depends on the host UID; it reads `HOST_UID` from the environment (defaulting to 1000):
-```bash
-HOST_UID=$(id -u) podman-compose -f compose-dev.yml up
-```
+## Agents
+`pi`, `omp` and `opencode` resolve to shadows in `~/bin` that launch the real binary through `agent-sandbox` (the bubblewrap layer above) from every entry point: `c`, `c -r`, zsh, bash. Escape hatches: `AGENT_SANDBOX_DISABLE=1 pi …` runs one invocation unsandboxed, and an absolute path bypasses the shadow.
 
-## LLM-Agent Commit Signing
-### 1. Generate the Isolated Key (Host)
+## Commit Signing
+Commits made inside a container are signed with a dedicated SSH key that never enters the container: an isolated ssh-agent on the host holds it and only its socket is mounted. `dotfiles/.gitconfig` turns on SSH signing; the image build sets `user.signingkey` and `~/.ssh/allowed_signers` from `GIT_SIGNING_KEY`.
+
+### 1. Generate the key (host)
 ```zsh
 ssh-keygen -t ed25519 -f ~/.ssh/llm_agent_ed25519 -C "llm-agent" -N ""
 ```
 
----
+### 2. Register it on GitHub (host)
+1. `cat ~/.ssh/llm_agent_ed25519.pub`
+2. GitHub → Settings → SSH and GPG keys → New SSH key, **Key type: Signing Key**, paste.
 
-### 2. Add to GitHub (Host)
-1. Copy the public key:
-   ```zsh
-   cat ~/.ssh/llm_agent_ed25519.pub
-   ```
-2. Go to **GitHub → Settings → SSH and GPG keys → New SSH Key**.
-3. Set **Key type** to **Signing Key** and paste the key.
-
----
-
-### 3. Create the Systemd User Service (Host)
+### 3. Run an isolated ssh-agent (host)
 Create `~/.config/systemd/user/llm-ssh-agent.service`:
-
 ```ini
 [Unit]
 Description=Isolated SSH Agent for LLM Coding Agent
@@ -71,51 +72,21 @@ Restart=on-failure
 [Install]
 WantedBy=default.target
 ```
-
-Enable and start the service:
 ```zsh
 systemctl --user daemon-reload
 systemctl --user enable --now llm-ssh-agent.service
 ```
 
----
-
-### 4. Run the Container
-
-Pass these args when running the container:
+### 4. Build and run with the key
+Build with `GIT_SIGNING_KEY` as in [Build](#build). `c` mounts the socket automatically (under `c -k` it is unreachable and signing is disabled, see [Isolation](#isolation)); for a plain `podman run` or a compose override add:
 ```zsh
--v "/run/user/$(id -u)/llm-agent.sock:/run/ssh-agent.sock:z" \
+-v "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/llm-agent.sock:/run/ssh-agent.sock" \
 -e SSH_AUTH_SOCK=/run/ssh-agent.sock \
 ```
----
 
-### 5. Configure Git & Local Verification (Inside Container)
-
-Run these inside the container to set up signing and local signature verification:
-
-```bash
-# 1. Configure SSH signing via the mounted socket
-git config --global gpg.format ssh
-git config --global commit.gpgsign true
-git config --global user.signingkey "$(ssh-add -L)"
-
-# 2. Configure local signature verification (allowed_signers)
-mkdir -p ~/.ssh
-echo "$(git config user.email) $(git config user.signingkey -L)" > ~/.ssh/allowed_signers
-git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
-```
-
----
-
-### 6. Verify
-
-Create a signed commit and check the signature:
+### 5. Verify (container)
 ```bash
 git commit --allow-empty -m "test: verify signature"
 git log --show-signature -1
 ```
-
-**Expected output:**
-```text
-Good "git" signature for your-github-verified-email@example.com with ED25519 key SHA256:...
-```
+Expected: `Good "git" signature for <your GitHub email> with ED25519 key SHA256:...`

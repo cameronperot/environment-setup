@@ -1,46 +1,50 @@
 # Development Environment
 
-Configuration and setup scripts for a Linux development environment built around zsh, tmux, Neovim, and ranger, with optional dotfiles for sway/i3, kitty, and related tooling. Also includes a dev container for sandboxed/LLM-assisted coding and instructions for a KVM/QEMU dev VM.
+Configuration and setup scripts for a Linux development environment built around zsh, tmux, Neovim and ranger, with optional dotfiles for sway/i3, kitty and related desktop tooling. Also includes a [dev container](dev-container/README.md) for sandboxed LLM-assisted coding and instructions for a [KVM/QEMU dev VM](dev-vm/README.md).
 
-## Repository Layout
-- `install.py` — rsyncs `dotfiles/` and installs neovim
-- `dotfiles/` — tracked dotfiles (zsh, tmux, Neovim, ranger, sway, kitty, VS Code, etc.)
-- `dotfiles/bin/` — user scripts rsynced to `~/bin`
-- `dotfiles.yaml` — manifest driving `sync_dotfiles.py` (which files to sync, ignore, and watch)
-- `sync_dotfiles.py` — copies dotfiles from your home directory back into `dotfiles/`
-- `environment.yml` — root micromamba environment (Python + core tooling)
-- `python/environments/` — additional micromamba environments (data, ml, finance, jupyter, dev)
-- `julia/julia-setup.jl` — installs the default Julia package set
-- `dev-container/` — [dev container](dev-container/README.md) for sandboxed coding
-- `dev-vm/` — [dev VM](dev-vm/README.md) (KVM + QEMU + libvirt) instructions
-- `Makefile` — shortcuts for all of the above
+## Layout
+| Path | Purpose |
+| :--- | :--- |
+| `install.py` | Rsyncs `dotfiles/` into `$HOME`, installs Neovim, and adjusts the deployed copies to the host |
+| `dotfiles/` | Tracked dotfiles: zsh, tmux, Neovim, ranger, git, coding-agent config, and `.config/` for sway, i3, kitty, VS Code and more |
+| `dotfiles/bin/` | User scripts deployed to `~/bin`: `c`, `agent-sandbox`, `agent-shadow`, `git-bareify` |
+| `dotfiles.yaml` | Manifest for `sync_dotfiles.py`: what to sync, exclude and watch |
+| `sync_dotfiles.py` | Copies dotfiles from `$HOME` back into `dotfiles/`, the reverse of `install.py` |
+| `environment.yml` | Micromamba environment `dev` (Python and core tooling) |
+| `python/environments/` | Further micromamba environments: `base`, `data`, `dev`, `finance`, `jupyter`, `ml` |
+| `julia/julia-setup.jl` | Installs the default Julia package set |
+| `dev-container/` | Dev container image, compose file and entrypoint; the root `.containerignore` filters its build context |
+| `dev-vm/` | KVM + QEMU + libvirt VM instructions |
+| `Makefile` | Shortcuts for the commands below (`make help`) |
 
-## Installation
+## Install
+Requires `rsync`, plus `wget` when Neovim is installed.
 ```bash
 git clone https://github.com/cameronperot/environment-setup.git
 cd environment-setup
-./install.py
+./install.py   # or: make install
 ```
+Options:
+- `--neovim-version <version>`: Neovim release to install (default `stable`; `none` skips it)
+- `--extract-appimage`: extract the appimage instead of running it directly (systems without FUSE)
+- `--dry-run`: preview the dotfile changes without modifying anything
 
-CLI options:
-```bash
-./install.py --help
-```
+`make install` takes `NEOVIM_VERSION=vX.Y.Z` and `EXTRACT_APPIMAGE=1` for the same options.
 
-- `--neovim-version <version>` — Neovim release to install (default: `stable`; use `none` to skip)
-- `--extract-appimage` — extract the appimage instead of running it directly (needed on systems without FUSE)
-- `--dry-run` — preview the dotfile changes without modifying anything
-
-Most repository commands are also available as Makefile targets:
-```bash
-make help
-```
+## Toolchains
+| Command | Effect |
+| :--- | :--- |
+| `make mamba-install` | Install micromamba |
+| `make mamba-init` | Initialize micromamba for the current shell |
+| `make mamba-env` | Create the `dev` environment from `environment.yml` |
+| `micromamba create -f python/environments/<name>.yml` | Create one of the additional environments |
+| `make rust-install` | Install Rust via rustup |
+| `make juliaup-install` | Install Julia via Juliaup |
+| `julia julia/julia-setup.jl` | Install the default Julia packages |
+| `make container-build` | Build the dev container image (see its [README](dev-container/README.md)) |
 
 ## Updating Dotfiles
-
-`sync_dotfiles.py` pulls dotfiles from your home directory into `dotfiles/` (the reverse of `install.py`).
-It reports changes but never commits or pushes; review the output and commit yourself, or pass `--stage` to `git add` the changes:
-
+`sync_dotfiles.py` pulls dotfiles from `$HOME` into `dotfiles/`. It reports changes `git status`-style but never commits or pushes; review and commit yourself, or pass `--stage` to `git add` the result.
 ```bash
 make update-dotfiles                          # real sync
 make update-dotfiles DOTFILES_ARGS=--dry-run  # preview without touching anything
@@ -49,13 +53,10 @@ uv run sync_dotfiles.py --status              # report without syncing
 uv run sync_dotfiles.py --discover            # audit untracked dotfiles in $HOME
 uv run sync_dotfiles.py --prune               # also delete orphaned repo files and copies of entries missing in $HOME
 ```
-
-Exit codes: `0` success (a real sync exits 0 whether or not it applied changes), `1` error, `2` changes pending (`--dry-run`/`--check` only), so `--check` slots into cron or CI.
+Exit codes: `0` success (a real sync exits 0 whether or not it applied changes), `1` error, `2` changes pending (`--dry-run` and `--check` only), so `--check` slots into cron or CI.
 
 ### Manifest (`dotfiles.yaml`)
-
-The manifest is a tree of scopes built from a single recursive grammar: every scope, from `$HOME` down to individual directories, has `include:` and `exclude:` lists, and any directory include entry may carry a nested scope of the same shape, with its lists relative to that directory:
-
+Every scope, from `$HOME` down to individual directories, has `include:` and `exclude:` lists, and a directory include entry may carry a nested scope of the same shape with its lists relative to that directory:
 ```yaml
 include:                          # root scope: $HOME
   - .zshrc                        # plain string: file or directory
@@ -77,14 +78,11 @@ exclude:                          # root scope: patterns match $HOME-relative pa
 secret_patterns:                  # extra regexes for the secret guard
   - 'API_KEY\s*=\s*["''](?!\$)[^"'']{8,}["'']'
 ```
-
-Semantics:
 - `include` items are literal paths or fnmatch globs (`*`, `?`, `**`), as plain strings or mappings (`path:` plus `optional:` and, for directories, a nested scope).
-- A nested scope may carry `include:`, `exclude:`, or both; with `include:` the directory's contents are curated, and files outside the selection surface as orphans (unless an `allow_orphan` exclude tolerates them, see below).
-- `exclude` items are regexes with search semantics (anchors control scope) matched against paths relative to the scope where they are declared; a match prunes the whole subtree. Exclude patterns also silence the untracked watch within their scope. Repository files beneath an exclude are orphans (warned about and deleted by `--prune`) unless the exclude is marked `allow_orphan: true`, which tolerates them in the repo while the `$HOME` side stays untracked either way.
-- The untracked watch warns about top-level `$HOME` dot-entries and the contents of curated directories that no entry covers (e.g. a new `~/.newtool`); resolve warnings by adding an include or an exclude to the enclosing scope. `--discover` reports the same candidates.
-- Exclude patterns that match nothing during a run produce an unused-pattern warning unless marked `optional: true`.
-- Outgoing (added or changed) files are scanned for secret signatures (private key blocks, AWS keys, credential assignments) plus `secret_patterns`; flagged files are skipped with a warning, or abort the run under `--strict-secrets`.
-- Symlinks are skipped with a warning; `--follow-symlinks` dereferences them.
-- Glob matches that pass through a symlinked directory mid-path (e.g. `link/x.conf` under `'.config/*/x.conf'`) are skipped the same way unless `--follow-symlinks` is given.
-- Changes are reported `git status`-style after syncing; nothing is ever committed or pushed.
+- A nested scope may carry `include:`, `exclude:` or both; an `include:` curates the directory, and files outside the selection are orphans unless an `allow_orphan` exclude tolerates them.
+- `exclude` items are regexes with search semantics (anchors control scope), matched against paths relative to the declaring scope; a match prunes the whole subtree and silences the untracked watch there.
+- Repository files beneath an exclude are orphans (warned about, deleted by `--prune`) unless the exclude has `allow_orphan: true`, which keeps them in the repo while the `$HOME` side stays untracked.
+- The untracked watch warns about top-level `$HOME` dot-entries and contents of curated directories that no entry covers (e.g. a new `~/.newtool`); fix it by adding an include or exclude to the enclosing scope. `--discover` lists the same candidates.
+- Exclude patterns that match nothing produce an unused-pattern warning unless marked `optional: true`.
+- Outgoing files are scanned for secret signatures (private key blocks, AWS keys, credential assignments) plus `secret_patterns`; flagged files are skipped with a warning, or abort the run under `--strict-secrets`.
+- Symlinks, and glob matches that pass through a symlinked directory, are skipped with a warning unless `--follow-symlinks` is given.
