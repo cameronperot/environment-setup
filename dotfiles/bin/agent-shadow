@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# agent-shadow — route a coding agent through agent-sandbox.
+#
+# Deployed to ~/bin by install.py; the dev-container image symlinks the
+# agent names (pi, omp, opencode) to this file, and ~/bin precedes the
+# real executables on PATH, so every entry point (podman exec, zsh,
+# bash) launches the agent through the sandbox. The invoking name
+# selects the agent; agent-sandbox validates it.
+
+set -euo pipefail
+
+agent="${BASH_SOURCE[0]##*/}"
+readonly agent
+shadow_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly shadow_dir
+
+exec "${shadow_dir}/agent-sandbox" "${agent}" "$@"

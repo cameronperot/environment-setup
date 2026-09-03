@@ -166,5 +166,9 @@ RUN curl -fsSL https://pi.dev/install.sh | sh
 RUN echo 'min-release-age-exclude="@plannotator/pi-extension"' >> "${HOME_DIR}/.npmrc"
 RUN curl -fsSL https://omp.sh/install | sh
 
+# Shadow the agent names on PATH (~/bin precedes the real executables) so every
+# entry point — podman exec, zsh, bash — launches them through agent-sandbox.
+RUN for agent in pi omp opencode; do ln -s agent-shadow "${HOME_DIR}/bin/${agent}"; done
+
 # Set the working directory
 WORKDIR /work

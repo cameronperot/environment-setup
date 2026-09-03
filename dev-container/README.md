@@ -22,6 +22,8 @@ c -n some_executable    # new throwaway container
 ```
 With `-n` the repository root is mounted at its host path and the current directory is the working directory, so git worktrees of `.bare` repos work inside: the directory containing `.bare` is what gets mounted, and every worktree registered there resolves. Outside git the current directory itself is mounted. The agent dotfiles under `$AGENT_CONFIG_DIR`, the ssh-agent socket and the API-key variables are passed through. `~/bin` is on `PATH` in the image, so `agent-sandbox`, `c` and `git-bareify` are reachable from any entry point, e.g. `c -n agent-sandbox pi`.
 
+`pi`, `omp` and `opencode` are shadowed in `~/bin` (symlinks to `agent-shadow`, which execs the sibling `agent-sandbox` with the invoked name), so from the rebuilt image every entry point — `podman exec` (i.e. `c pi`), interactive zsh, plain bash — launches them inside the sandbox. To exec an agent unsandboxed for a single invocation, set `AGENT_SANDBOX_DISABLE=1` (e.g. `c env AGENT_SANDBOX_DISABLE=1 pi ...`); invoking an agent by absolute path bypasses the shadow entirely.
+
 A compose file running Jupyter lab is also provided for a longer running environment:
 ```bash
 podman-compose -f compose.yml up
