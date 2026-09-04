@@ -3,8 +3,8 @@ MICROMAMBA ?= micromamba
 NEOVIM_VERSION ?= stable
 
 .DEFAULT_GOAL := help
-.PHONY: help install update-dotfiles container-build mamba-install mamba-init mamba-env \
-	rust-install juliaup-install
+.PHONY: help install update-dotfiles test test-cov container-build mamba-install \
+	mamba-init mamba-env rust-install juliaup-install
 
 help: ## Print this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -18,6 +18,13 @@ endif
 
 update-dotfiles: ## Sync dotfiles from $HOME into dotfiles/ (DOTFILES_ARGS="--dry-run" to preview)
 	uv run sync_dotfiles.py $(DOTFILES_ARGS)
+
+test: ## Run the test suite
+	uv run --no-project --with pytest --with pyyaml pytest
+
+test-cov: ## Run the test suite with a coverage report
+	uv run --no-project --with pytest --with pytest-cov --with pyyaml \
+		pytest --cov=sync_dotfiles --cov=install --cov=dotfiles --cov-report=term-missing
 
 container-build: ## Build the dev container image (dev:latest)
 	./dev-container/build.sh

@@ -15,6 +15,8 @@ Configuration and setup scripts for a Linux development environment built around
 | `julia/julia-setup.jl` | Installs the default Julia package set |
 | `dev-container/` | Dev container image, compose file and entrypoint; the root `.containerignore` filters its build context |
 | `dev-vm/` | KVM + QEMU + libvirt VM instructions |
+| `tests/` | Pytest suite for `install.py`, `sync_dotfiles.py` and `dotfiles/bin/c` |
+| `pyproject.toml` | Pytest and coverage configuration (the repo is not a Python package) |
 | `Makefile` | Shortcuts for the commands below (`make help`) |
 
 ## Install

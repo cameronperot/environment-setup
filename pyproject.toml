@@ -1,0 +1,48 @@
+[project]
+name = "config"
+version = "0.0.1"
+requires-python = ">=3.14"
+
+[tool.uv]
+exclude-newer = "30 days"
+exclude-newer-package = { ty = false, ruff = false }
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint.per-file-ignores]
+"dev-container/jupyter_server_config.py" = ["F821"]  # traitlets injects `c` into config-file namespace
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modern syntax for the requires-python floor)
+    "B",   # flake8-bugbear (likely bugs)
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+
+[tool.ty.src]
+# Environment/tool trees, not project source: jupyter config (`c` is traitlets-injected),
+# ranger plugin (ranger not importable here), and pi-notebook fixtures (intentionally invalid).
+exclude = ["dev-container", "dotfiles"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov --strict-markers --strict-config"
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ['if __name__ == "__main__":']
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.6",
+    "ty>=0.0.78",
+]

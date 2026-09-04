@@ -19,6 +19,7 @@ dev-vm
 LICENSE
 Makefile
 README.md
+pyproject.toml
 dotfiles.yaml
 sync_dotfiles.py
 sync_dotfiles.log
