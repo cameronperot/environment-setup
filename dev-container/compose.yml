@@ -9,7 +9,7 @@ services:
     security_opt:
       - label=disable
     restart: on-failure
-    command: jupyter lab
+    command: micromamba run -n dev jupyter lab
     environment:
       PLANNOTATOR_REMOTE: 1
       PLANNOTATOR_PORT: 8889
