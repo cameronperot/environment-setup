@@ -112,6 +112,9 @@ Notes:
   same variable is also exported on the host.
   ~/.agent is shared across all agents by design.
   Commit from inside the sandbox, push from the host (no GH_TOKEN).
+  A host-set PLANNOTATOR_PORT is passed into the sandbox (with
+  PLANNOTATOR_REMOTE, defaulting to 1); with PLANNOTATOR_PORT unset the
+  sandbox adds nothing.
   Sibling worktrees are not visible and worktrees cannot be created
   from inside the sandbox by design; manage them from the host.
   Exception: for a .bare layout the whole .bare container directory is
@@ -437,6 +440,15 @@ add_env_args() {
     done
     if [[ -n "${ssh_sock}" ]]; then
         bwrap_args+=(--setenv SSH_AUTH_SOCK "${ssh_sock}")
+    fi
+    # Plannotator plan UI: forward a host-set port; with the port unset
+    # the sandbox adds nothing and the choice stays with the caller.
+    if [[ -n "${PLANNOTATOR_PORT:-}" ]]; then
+        bwrap_args+=(
+            --setenv PLANNOTATOR_PORT "${PLANNOTATOR_PORT}"
+            --setenv PLANNOTATOR_REMOTE "${PLANNOTATOR_REMOTE:-1}"
+        )
+        log_verbose "plannotator UI port: ${PLANNOTATOR_PORT}"
     fi
     if [[ "${agent}" == claude ]]; then
         bwrap_args+=(--setenv CLAUDE_CONFIG_DIR "${HOME_DIR}/.claude")

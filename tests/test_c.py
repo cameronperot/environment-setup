@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import socket
 import subprocess
 import sys
 import types
@@ -363,6 +364,7 @@ def run_argv(**overrides: object) -> list[str]:
         "krun": False,
         "cpus": None,
         "ram_mib": None,
+        "plannotator_port": None,
         "extra_args": [],
         "tty": False,
         "command": ["bash"],
@@ -445,6 +447,44 @@ def test_run_argv_extra_args_precede_tty_flags_and_image() -> None:
     ]
 
 
+def test_run_argv_publishes_plannotator_port_on_both_networks() -> None:
+    publish = [
+        *(
+            "-p",
+            "127.0.0.1:19555:19555",
+            "-e",
+            "PLANNOTATOR_REMOTE=1",
+            "-e",
+            "PLANNOTATOR_PORT=19555",
+        )
+    ]
+
+    assert run_argv(plannotator_port=19555) == [
+        *EXPECTED_HEAD,
+        *SOCKET_MOUNT,
+        *publish,
+        "dev:latest",
+        "bash",
+    ]
+    assert run_argv(krun=True, cpus=4, ram_mib=8192, plannotator_port=19555)[
+        len(EXPECTED_HEAD) :
+    ] == [
+        *("--runtime=krun", "--network", "pasta:-T,7777"),
+        *("--annotation", "krun.cpus=4", "--annotation", "krun.ram_mib=8192"),
+        *publish,
+        "dev:latest",
+        "bash",
+    ]
+
+
+def test_pick_free_port_yields_bindable_loopback_port() -> None:
+    port = c.pick_free_port()
+
+    assert isinstance(port, int)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", port))
+
+
 def test_exec_argv() -> None:
     interactive = c.exec_argv(
         name="dev_container", workdir=Path("/work/sub"), tty=True, command=["bash"]
@@ -515,6 +555,28 @@ def test_usage_errors_accepts_new_container_combinations() -> None:
     assert c.usage_errors(parse()) == ()
     assert c.usage_errors(parse("--cpus", "2", "bash")) == ()
     assert c.usage_errors(parse("-k", "--ram-mib", "1024", "-a=--net=host")) == ()
+    assert c.usage_errors(parse("--plannotator-port", "19555", "bash")) == ()
+    assert c.usage_errors(parse("--no-plannotator-port", "bash")) == ()
+
+
+def test_usage_errors_rejects_plannotator_flag_combinations() -> None:
+    assert c.usage_errors(
+        parse("--plannotator-port", "1", "--no-plannotator-port", "bash")
+    ) == ("--plannotator-port and --no-plannotator-port are mutually exclusive",)
+    assert c.usage_errors(parse("-r", "--plannotator-port", "1", "bash")) == (
+        "--plannotator-port cannot be used with -r/--running",
+    )
+    assert c.usage_errors(parse("-r", "--no-plannotator-port", "bash")) == (
+        "--no-plannotator-port cannot be used with -r/--running",
+    )
+
+
+def test_parser_reads_plannotator_flags() -> None:
+    override = parse("--plannotator-port", "19555", "bash")
+    opt_out = parse("--no-plannotator-port", "bash")
+
+    assert (override.plannotator_port, override.no_plannotator_port) == (19555, False)
+    assert (opt_out.plannotator_port, opt_out.no_plannotator_port) == (None, True)
 
 
 # --- main
@@ -535,6 +597,7 @@ def test_main_dry_run_prints_run_argv(
     monkeypatch.chdir(plain_repo / "sub")
     monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
     monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/7")
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
 
     c.main(["--dry-run", "--cpus", "2", "bash", "-c", "echo hi"])
 
@@ -547,8 +610,42 @@ def test_main_dry_run_prints_run_argv(
     )
     assert out.endswith(
         " -v /run/user/7/llm-agent.sock:/tmp/ssh-agent.sock --cpus 2 "
+        "-p 127.0.0.1:19555:19555 -e PLANNOTATOR_REMOTE=1 -e PLANNOTATOR_PORT=19555 "
         "dev:latest bash -c 'echo hi'\n"
     )
+
+
+def test_new_container_banner_advertises_plan_ui(
+    plain_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    args = c.build_parser().parse_args(["bash"])
+    cmd, _ = c.new_container(args, cwd=Path(plain_repo / "sub"), tty=False)
+
+    assert cmd[cmd.index("-p") : cmd.index("-p") + 2] == ["-p", "127.0.0.1:19555:19555"]
+
+
+def test_main_plannotator_port_flags(
+    plain_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    monkeypatch.chdir(plain_repo)
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+
+    c.main(["--dry-run", "--plannotator-port", "19999", "bash"])
+    override = capsys.readouterr().out
+    assert " -p 127.0.0.1:19999:19999 -e PLANNOTATOR_REMOTE=1 " in override
+    assert "-e PLANNOTATOR_PORT=19999 " in override
+
+    c.main(["--dry-run", "--no-plannotator-port", "bash"])
+    opt_out = capsys.readouterr().out
+    assert "127.0.0.1:" not in opt_out
+    assert "PLANNOTATOR" not in opt_out
 
 
 def test_main_strips_one_command_separator(

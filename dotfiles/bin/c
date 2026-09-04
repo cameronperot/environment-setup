@@ -15,12 +15,19 @@ Mounted at its host path: the directory holding `.bare` for a `.bare` layout
 (plus the toplevel when it lies elsewhere), the toplevel and the common git dir
 for a linked worktree of a plain repository, otherwise the toplevel, or the
 current directory outside git.
+
+The Plannotator plan UI port is exposed by default: a free loopback port is
+picked on the host and published one-to-one into the container, with
+PLANNOTATOR_REMOTE=1 and PLANNOTATOR_PORT set so the URL Plannotator prints
+inside is already clickable on the host. `--plannotator-port PORT` pins the
+port, `--no-plannotator-port` opts out.
 """
 
 import argparse
 import json
 import os
 import shlex
+import socket
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -165,6 +172,29 @@ def resolve_mounts(cwd: Path) -> tuple[Path, ...]:
     return (toplevel, common)
 
 
+def pick_free_port() -> int:
+    """Grab a free loopback port from the host.
+
+    Binds an ephemeral port and closes the socket again, so the port is
+    free at call time; the engine later fails loudly if something takes it
+    in between.
+
+    Returns:
+        The port number.
+
+    Raises:
+        Error: When no port can be bound.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("127.0.0.1", 0))
+    except OSError as e:
+        raise Error(f"cannot pick a free plannotator port: {e}") from None
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
 def check_mount_allowed(path: Path) -> None:
     """Refuse mounting ``$HOME`` or one of its ancestors (``/`` included).
 
@@ -250,6 +280,7 @@ def run_argv(
     krun: bool,
     cpus: int | None,
     ram_mib: int | None,
+    plannotator_port: int | None,
     extra_args: list[str],
     tty: bool,
     command: list[str],
@@ -266,6 +297,9 @@ def run_argv(
             ``--cpus`` limit, omitted when None.
         ram_mib: Under ``krun`` the VM RAM in MiB (must be set); otherwise the
             ``--memory`` limit, omitted when None.
+        plannotator_port: Host port for the Plannotator plan UI, published to
+            the same port in the container with ``PLANNOTATOR_REMOTE=1`` and
+            ``PLANNOTATOR_PORT`` set; omitted when None.
         extra_args: Additional ``podman run`` arguments, placed before the image.
         tty: Whether to attach an interactive terminal (``-i -t``).
         command: Command to run; empty for the image's default.
@@ -310,6 +344,15 @@ def run_argv(
             argv += ["--cpus", str(cpus)]
         if ram_mib is not None:
             argv += ["--memory", f"{ram_mib}m"]
+    if plannotator_port is not None:
+        argv += [
+            "-p",
+            f"127.0.0.1:{plannotator_port}:{plannotator_port}",
+            "-e",
+            "PLANNOTATOR_REMOTE=1",
+            "-e",
+            f"PLANNOTATOR_PORT={plannotator_port}",
+        ]
     argv += extra_args
     if tty:
         argv += ["-i", "-t"]
@@ -344,7 +387,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="c",
         usage=(
-            "%(prog)s [--dry-run] [-k] [--cpus N] [--ram-mib MIB] [-a=ARG ...] "
+            "%(prog)s [--dry-run] [-k] [--cpus N] [--ram-mib MIB] "
+            "[--plannotator-port PORT | --no-plannotator-port] [-a=ARG ...] "
             "[--] [CMD ...]\n"
             "       %(prog)s [--dry-run] -r [-c NAME] [--] CMD ..."
         ),
@@ -382,6 +426,20 @@ def build_parser() -> argparse.ArgumentParser:
             "memory limit in MiB: `podman run --memory MIBm`, or RAM under -k "
             f"(unset: no limit; -k default {KRUN_RAM_MIB})"
         ),
+    )
+    new.add_argument(
+        "--plannotator-port",
+        type=int,
+        metavar="PORT",
+        help=(
+            "host port for the Plannotator plan UI, published to the same port "
+            "in the container (default: a free port is picked)"
+        ),
+    )
+    new.add_argument(
+        "--no-plannotator-port",
+        action="store_true",
+        help="do not expose the Plannotator plan UI port",
     )
     new.add_argument(
         "-a",
@@ -428,14 +486,20 @@ def usage_errors(args: argparse.Namespace) -> tuple[str, ...]:
     Returns:
         One message per problem, for ``parser.error``; empty when valid.
     """
-    if not args.running:
-        return ()
     problems = []
+    if args.plannotator_port is not None and args.no_plannotator_port:
+        problems.append(
+            "--plannotator-port and --no-plannotator-port are mutually exclusive"
+        )
+    if not args.running:
+        return tuple(problems)
     new_only = (
         ("-k/--krun", args.krun),
         ("-a/--arg", bool(args.arg)),
         ("--cpus", args.cpus is not None),
         ("--ram-mib", args.ram_mib is not None),
+        ("--plannotator-port", args.plannotator_port is not None),
+        ("--no-plannotator-port", args.no_plannotator_port),
     )
     given = [flag for flag, on in new_only if on]
     if given:
@@ -459,7 +523,8 @@ def new_container(
         The argv and the banner printed before exec.
 
     Raises:
-        Error: When a mount is refused or ``AGENT_CONFIG_DIR`` is unset.
+        Error: When a mount is refused, ``AGENT_CONFIG_DIR`` is unset, or no
+            free plannotator port can be found.
     """
     mounts = resolve_mounts(cwd)
     for mount in mounts:
@@ -472,6 +537,12 @@ def new_container(
     if args.krun:
         cpus = KRUN_CPUS if cpus is None else cpus
         ram_mib = KRUN_RAM_MIB if ram_mib is None else ram_mib
+    if args.no_plannotator_port:
+        plannotator_port = None
+    elif args.plannotator_port is not None:
+        plannotator_port = args.plannotator_port
+    else:
+        plannotator_port = pick_free_port()
     cmd = run_argv(
         cwd=cwd,
         mounts=mounts,
@@ -480,12 +551,15 @@ def new_container(
         krun=args.krun,
         cpus=cpus,
         ram_mib=ram_mib,
+        plannotator_port=plannotator_port,
         extra_args=args.arg,
         tty=tty,
         command=args.command,
     )
     mounted = ", ".join(str(m) for m in mounts)
-    return cmd, f"{IMAGE}:{cwd} (mounted: {mounted})"
+    banner = f"{IMAGE}:{cwd} (mounted: {mounted})"
+
+    return cmd, banner
 
 
 def exec_running(
