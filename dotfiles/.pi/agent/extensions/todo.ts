@@ -8,12 +8,17 @@
  * State is stored in tool result details (not external files), which allows
  * proper branching - when you branch, the todo state is automatically
  * correct for that point in history.
+ *
+ * The call and result rows render through `shared/render.ts`, so the tool reads
+ * the same as `read` `bash` `edit` `write`: a call row, a tree-drawn body
+ * bounded to PREVIEW.TODO_ITEMS, and a status row with the done count.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, Text, truncateToWidth } from "@earendil-works/pi-tui";
+import { Container, matchesKey, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { BodyText, callRow, moreRow, PREVIEW, statusRow, SYM } from "./shared/render.ts";
 
 interface Todo {
 	id: number;
@@ -219,65 +224,54 @@ export default function (pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("todo ")) + theme.fg("muted", args.action);
-			if (args.text) text += ` ${theme.fg("dim", `"${args.text}"`)}`;
-			if (args.id !== undefined) text += ` ${theme.fg("accent", `#${args.id}`)}`;
-			return new Text(text, 0, 0);
+			const meta: string[] = [];
+			if (args.text) meta.push(theme.fg("dim", `"${args.text}"`));
+			if (args.id !== undefined) meta.push(theme.fg("accent", `#${args.id}`));
+			return new Text(
+				callRow(theme, { glyph: SYM.todo, name: "todo", arg: theme.fg("accent", args.action), meta }),
+				0,
+				0,
+			);
 		},
 
-		renderResult(result, { expanded }, theme, _context) {
+		renderResult(result, { expanded }, theme, context) {
 			const details = result.details as TodoDetails | undefined;
 			if (!details) {
 				const text = result.content[0];
 				return new Text(text?.type === "text" ? text.text : "", 0, 0);
 			}
-
 			if (details.error) {
-				return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+				return new Text(statusRow(theme, "error", details.error), 0, 0);
 			}
 
 			const todoList = details.todos;
-
-			switch (details.action) {
-				case "list": {
-					if (todoList.length === 0) {
-						return new Text(theme.fg("dim", "No todos"), 0, 0);
-					}
-					let listText = theme.fg("muted", `${todoList.length} todo(s):`);
-					const display = expanded ? todoList : todoList.slice(0, 5);
-					for (const t of display) {
-						const check = t.done ? theme.fg("success", "✓") : theme.fg("dim", "○");
-						const itemText = t.done ? theme.fg("dim", t.text) : theme.fg("muted", t.text);
-						listText += `\n${check} ${theme.fg("accent", `#${t.id}`)} ${itemText}`;
-					}
-					if (!expanded && todoList.length > 5) {
-						listText += `\n${theme.fg("dim", `... ${todoList.length - 5} more`)}`;
-					}
-					return new Text(listText, 0, 0);
-				}
-
-				case "add": {
-					const added = todoList[todoList.length - 1];
-					return new Text(
-						theme.fg("success", "✓ Added ") +
-							theme.fg("accent", `#${added.id}`) +
-							" " +
-							theme.fg("muted", added.text),
-						0,
-						0,
-					);
-				}
-
-				case "toggle": {
-					const text = result.content[0];
-					const msg = text?.type === "text" ? text.text : "";
-					return new Text(theme.fg("success", "✓ ") + theme.fg("muted", msg), 0, 0);
-				}
-
-				case "clear":
-					return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared all todos"), 0, 0);
+			if (todoList.length === 0) {
+				const label = details.action === "clear" ? "cleared" : "no todos";
+				return new Text(statusRow(theme, "success", label), 0, 0);
 			}
-		},
+
+			const shown = expanded ? todoList : todoList.slice(0, PREVIEW.TODO_ITEMS);
+			const hidden = todoList.length - shown.length;
+			const rows = shown.map((todo, index) => {
+				const isLast = hidden === 0 && index === shown.length - 1;
+				const branch = theme.fg("dim", isLast ? SYM.last : SYM.branch);
+				const box = todo.done ? theme.fg("success", SYM.checked) : theme.fg("dim", SYM.unchecked);
+				const label = todo.done
+					? theme.fg("dim", theme.strikethrough(todo.text))
+					: theme.fg("toolOutput", todo.text);
+				return `${branch} ${box} ${theme.fg("accent", `#${todo.id}`)} ${label}`;
+			});
+			if (hidden > 0) {
+				rows.push(`${theme.fg("dim", SYM.last)} ${moreRow(theme, hidden, "todo")}`);
+			}
+
+			const done = todoList.filter((todo) => todo.done).length;
+			const container = context.lastComponent instanceof Container ? context.lastComponent : new Container();
+			container.clear();
+			container.addChild(new BodyText({ theme, mode: "indent", rows }));
+			container.addChild(new Text(statusRow(theme, "success", `${done}/${todoList.length} done`), 0, 0));
+			return container;
+				},
 	});
 
 	// Register the /todos command for users

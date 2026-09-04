@@ -2,9 +2,6 @@
  * /shake - mechanical context reduction
  *
  * Replaces old tool results with short stubs in the payload sent to the model.
- * Modelled on the /shake command in oh-my-pi (github.com/can1357/oh-my-pi),
- * which is a separate agent rather than a Pi extension, so the behaviour is
- * reimplemented here on Pi's `context` event.
  *
  * Non-destructive by construction. The `context` handler is a pure transform:
  * core applies it to a local variable on the way to the provider (pi-agent-core

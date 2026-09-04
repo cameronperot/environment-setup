@@ -21,6 +21,16 @@
  * block also notifies and appends the same `guard-block` session entry the other
  * three guards do, so the read path leaves the same trace they leave.
  *
+ * All four render through `shared/render.ts`: a call row (glyph, tool name,
+ * argument), a body bounded to a visual-row budget behind a gutter or a
+ * line-number column, and a status row carrying outcome, size and elapsed time.
+ * Diffs go through Pi's own `renderDiff` and previews through `highlightCode`,
+ * so the colouring matches the rest of the TUI and costs no dependency.
+ *
+ * `bash` reads its outcome from `context.isError` plus the trailer Pi appends
+ * when the command fails, not from the output text alone: a non-zero exit is
+ * thrown, and the earlier `exit code:` pattern never matched what core emits.
+ *
  * The base tools are built per-cwd, and `read`/`bash` are given the same
  * settings-derived options core passes in _buildRuntime (images.autoResize,
  * shellCommandPrefix, shellPath). Building them once from process.cwd() with no
@@ -28,21 +38,112 @@
  * pins the tools to the startup directory. `edit` and `write` take no options.
  */
 
-import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@earendil-works/pi-coding-agent";
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import type {
+	BashToolDetails,
+	EditToolDetails,
+	ExtensionAPI,
+	ReadToolDetails,
+	Theme,
+} from "@earendil-works/pi-coding-agent";
 import {
 	createBashTool,
 	createEditTool,
 	createReadTool,
 	createWriteTool,
+	getLanguageFromPath,
+	highlightCode,
+	renderDiff,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
+import { Container, Text } from "@earendil-works/pi-tui";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { LOG_FILE, logAccess } from "./shared/access-log.ts";
+import {
+	BodyText,
+	callRow,
+	elapsed,
+	elide,
+	fileLink,
+	langIcon,
+	markSettled,
+	markStarted,
+	moreRow,
+	numbered,
+	plural,
+	PREVIEW,
+	shortPath,
+	type StatusKind,
+	statusRow,
+	SYM,
+	type TimedState,
+} from "./shared/render.ts";
 import { blockReason, type GuardAudit, takeLoadIssue, zeroAccessMatch } from "./shared/rules.ts";
 
 const BLOCKED_PREFIX = "Access denied:";
+
+/** Width budget for a path in a call row, before the middle ellipsis kicks in. */
+const PATH_WIDTH = 72;
+
+/** Unfiltered line count: what is shown and what is counted must agree. */
+function countLines(text: string): number {
+	const trimmed = text.replace(/\n+$/, "");
+	return trimmed.length === 0 ? 0 : trimmed.split("\n").length;
+}
+
+function firstLine(content: TextContent | ImageContent | undefined, fallback: string): string {
+	if (content?.type !== "text") return fallback;
+	return content.text.split("\n")[0] ?? fallback;
+}
+
+/** Language icon plus a linked, shortened path — the argument shape edit and write share. */
+function pathArg(theme: Theme, cwd: string, path: string): string {
+	const icon = theme.fg("muted", langIcon(getLanguageFromPath(path)));
+	const display = theme.fg("accent", elide(shortPath(cwd, path), PATH_WIDTH));
+	return `${icon} ${fileLink(resolve(cwd, path), display)}`;
+}
+
+/** Reuse the row's previous container so a spinner tick repaints instead of reallocating. */
+function reuseContainer(context: { lastComponent: Component | undefined }): Container {
+	const container = context.lastComponent instanceof Container ? context.lastComponent : new Container();
+	container.clear();
+	return container;
+}
+
+/**
+ * Pi's bash tool throws on a non-zero exit, appending the reason to the output
+ * (core/tools/bash.js: `Command exited with code N`). Splitting that trailer off
+ * gives both the status label and a body without a redundant last line.
+ */
+function splitBashOutput(
+	output: string,
+	isError: boolean,
+): { body: string; kind: StatusKind; label: string } {
+	const trim = (text: string) => text.replace(/\n+$/, "");
+	if (!isError) return { body: trim(output), kind: "success", label: "ok" };
+
+	const match = output.match(
+		/(?:^|\n\n)(?:Command exited with code (\d+)|Command timed out after (\d+) seconds|Command aborted)$/,
+	);
+	if (!match) return { body: trim(output), kind: "error", label: "failed" };
+
+	const body = trim(output.slice(0, output.length - match[0].length));
+	if (match[1] !== undefined) return { body, kind: "error", label: `exit ${match[1]}` };
+	if (match[2] !== undefined) return { body, kind: "warning", label: `timeout ${match[2]}s` };
+	return { body, kind: "aborted", label: "aborted" };
+}
+
+function countPatch(patch: string | undefined): { added: number; removed: number } {
+	let added = 0;
+	let removed = 0;
+	for (const line of (patch ?? "").split("\n")) {
+		if (line.startsWith("+") && !line.startsWith("+++")) added++;
+		else if (line.startsWith("-") && !line.startsWith("---")) removed++;
+	}
+	return { added, removed };
+}
 
 /**
  * Base tools for a working directory, built with the settings that apply there.
@@ -83,7 +184,7 @@ export default function (pi: ExtensionAPI) {
 	// execute() resolves its own set from ctx.cwd.
 	const template = baseTools(process.cwd());
 
-	// --- Read tool: audit access, then show path and line count ---
+	// --- Read tool: audit access, then show path and a highlighted preview ---
 	pi.registerTool({
 		name: "read",
 		label: "read (audited)",
@@ -126,58 +227,77 @@ export default function (pi: ExtensionAPI) {
 			return baseTools(ctx.cwd).read.execute(toolCallId, params, signal, onUpdate);
 		},
 
-		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("read "));
-			text += theme.fg("accent", args.path);
-			if (args.offset || args.limit) {
-				const parts: string[] = [];
-				if (args.offset) parts.push(`offset=${args.offset}`);
-				if (args.limit) parts.push(`limit=${args.limit}`);
-				text += theme.fg("dim", ` (${parts.join(", ")})`);
-			}
-			return new Text(text, 0, 0);
+		renderCall(args, theme, context) {
+			markStarted(context);
+			const meta: string[] = [];
+			if (args.offset) meta.push(theme.fg("dim", `offset ${args.offset}`));
+			if (args.limit) meta.push(theme.fg("dim", `limit ${args.limit}`));
+			return new Text(
+				callRow(theme, {
+					glyph: SYM.read,
+					name: "read",
+					arg: fileLink(
+						resolve(context.cwd, args.path),
+						theme.fg("accent", elide(shortPath(context.cwd, args.path), PATH_WIDTH)),
+						args.offset,
+					),
+					meta,
+				}),
+				0,
+				0,
+			);
 		},
 
-		renderResult(result, { expanded, isPartial }, theme, _context) {
-			if (isPartial) return new Text(theme.fg("warning", "Reading..."), 0, 0);
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			markSettled(context, isPartial);
+			const state: TimedState = context.state;
+
+			if (isPartial) {
+				return new Text(statusRow(theme, "running", "reading", [], state.frame), 0, 0);
+			}
 
 			const details = result.details as ReadToolDetails | undefined;
 			const content = result.content[0];
 
 			if (content?.type === "image") {
-				return new Text(theme.fg("success", "Image loaded"), 0, 0);
+				return new Text(statusRow(theme, "success", "image", [theme.fg("dim", elapsed(state))]), 0, 0);
 			}
-
 			if (content?.type !== "text") {
-				return new Text(theme.fg("error", "No content"), 0, 0);
+				return new Text(statusRow(theme, "error", "no content"), 0, 0);
 			}
-
 			if (content.text.startsWith(BLOCKED_PREFIX)) {
-				return new Text(theme.fg("error", "blocked (zero-access path)"), 0, 0);
+				return new Text(statusRow(theme, "error", "blocked (zero-access path)"), 0, 0);
 			}
 
-			const lineCount = content.text.split("\n").length;
-			let text = theme.fg("success", `${lineCount} lines`);
-
+			const meta = [theme.fg("dim", plural(countLines(content.text), "line"))];
 			if (details?.truncation?.truncated) {
-				text += theme.fg("warning", ` (truncated from ${details.truncation.totalLines})`);
+				meta.push(theme.fg("warning", `truncated from ${details.truncation.totalLines}`));
 			}
+			meta.push(theme.fg("dim", elapsed(state)));
 
-			if (expanded) {
-				const lines = content.text.split("\n").slice(0, 15);
-				for (const line of lines) {
-					text += `\n${theme.fg("dim", line)}`;
-				}
-				if (lineCount > 15) {
-					text += `\n${theme.fg("muted", `... ${lineCount - 15} more lines`)}`;
-				}
-			}
-
-			return new Text(text, 0, 0);
+			const budget = expanded ? PREVIEW.EXPANDED : PREVIEW.READ;
+			const container = reuseContainer(context);
+			container.addChild(
+				new BodyText({
+					theme,
+					mode: "indent",
+					rows: numbered(
+						theme,
+						content.text,
+						getLanguageFromPath(context.args.path),
+						context.args.offset ?? 1,
+						budget,
+					),
+					hidden: Math.max(0, countLines(content.text) - budget),
+					more: (hidden) => moreRow(theme, hidden, "line"),
+				}),
+			);
+			container.addChild(new Text(statusRow(theme, "success", "read", meta), 0, 0));
+			return container;
 		},
 	});
 
-	// --- Bash tool: show command and exit code ---
+	// --- Bash tool: show command, output tail and outcome ---
 	pi.registerTool({
 		name: "bash",
 		label: "bash",
@@ -188,117 +308,131 @@ export default function (pi: ExtensionAPI) {
 			return baseTools(ctx.cwd).bash.execute(toolCallId, params, signal, onUpdate);
 		},
 
-		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("$ "));
-			text += theme.fg("accent", args.command);
-			if (args.timeout) {
-				text += theme.fg("dim", ` (timeout: ${args.timeout}s)`);
-			}
-			return new Text(text, 0, 0);
+		renderCall(args, theme, context) {
+			markStarted(context);
+			const meta = args.timeout ? [theme.fg("dim", `timeout ${args.timeout}s`)] : [];
+			const prefix =
+				context.cwd === process.cwd()
+					? ""
+					: theme.fg("dim", `cd ${shortPath(process.cwd(), context.cwd)} && `);
+			return new Text(
+				callRow(theme, {
+					glyph: SYM.bash,
+					name: "bash",
+					arg: prefix + highlightCode(args.command, "bash").join("\n"),
+					meta,
+				}),
+				0,
+				0,
+			);
 		},
 
-		renderResult(result, { expanded, isPartial }, theme, _context) {
-			if (isPartial) return new Text(theme.fg("warning", "Running..."), 0, 0);
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			markSettled(context, isPartial);
+			const state: TimedState = context.state;
+
+			const content = result.content[0];
+			const outcome = splitBashOutput(content?.type === "text" ? content.text : "", context.isError);
+			const container = reuseContainer(context);
+
+			if (outcome.body.length > 0) {
+				container.addChild(
+					new BodyText({
+						theme,
+						mode: "gutter",
+						rows: outcome.body.split("\n").map((line) => theme.fg("toolOutput", line)),
+						limit: expanded ? undefined : PREVIEW.BASH,
+						from: "tail",
+						more: (hidden) => moreRow(theme, hidden, "line", "tail"),
+					}),
+				);
+			}
+
+			if (isPartial) {
+				container.addChild(
+					new Text(statusRow(theme, "running", "running", [theme.fg("dim", elapsed(state))], state.frame), 0, 0),
+				);
+				return container;
+			}
 
 			const details = result.details as BashToolDetails | undefined;
-			const content = result.content[0];
-			const output = content?.type === "text" ? content.text : "";
-
-			const exitMatch = output.match(/exit code: (\d+)/);
-			const exitCode = exitMatch ? parseInt(exitMatch[1], 10) : null;
-			const lineCount = output.split("\n").filter((l) => l.trim()).length;
-
-			let text = "";
-			if (exitCode === 0 || exitCode === null) {
-				text += theme.fg("success", "done");
-			} else {
-				text += theme.fg("error", `exit ${exitCode}`);
-			}
-			text += theme.fg("dim", ` (${lineCount} lines)`);
-
-			if (details?.truncation?.truncated) {
-				text += theme.fg("warning", " [truncated]");
-			}
-
-			if (expanded) {
-				const lines = output.split("\n").slice(0, 20);
-				for (const line of lines) {
-					text += `\n${theme.fg("dim", line)}`;
-				}
-				if (output.split("\n").length > 20) {
-					text += `\n${theme.fg("muted", "... more output")}`;
-				}
-			}
-
-			return new Text(text, 0, 0);
+			const meta = [theme.fg("dim", plural(countLines(outcome.body), "line"))];
+			if (details?.truncation?.truncated) meta.push(theme.fg("warning", "truncated"));
+			meta.push(theme.fg("dim", elapsed(state)));
+			container.addChild(new Text(statusRow(theme, outcome.kind, outcome.label, meta), 0, 0));
+			return container;
 		},
 	});
 
-	// --- Edit tool: show path and diff stats ---
+	// --- Edit tool: show path and the diff ---
 	pi.registerTool({
 		name: "edit",
 		label: "edit",
 		description: template.edit.description,
 		parameters: template.edit.parameters,
-		renderShell: "self",
+		renderShell: "default",
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			return baseTools(ctx.cwd).edit.execute(toolCallId, params, signal, onUpdate);
 		},
 
-		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("edit "));
-			text += theme.fg("accent", args.path);
-			return new Text(text, 0, 0);
+		renderCall(args, theme, context) {
+			markStarted(context);
+			return new Text(
+				callRow(theme, {
+					glyph: SYM.edit,
+					name: "edit",
+					arg: pathArg(theme, context.cwd, args.path),
+				}),
+				0,
+				0,
+			);
 		},
 
-		renderResult(result, { expanded, isPartial }, theme, _context) {
-			if (isPartial) return new Text(theme.fg("warning", "Editing..."), 0, 0);
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			markSettled(context, isPartial);
+			const state: TimedState = context.state;
+
+			if (isPartial) {
+				return new Text(statusRow(theme, "running", "editing", [theme.fg("dim", elapsed(state))], state.frame), 0, 0);
+			}
+
+			const content = result.content[0];
+			if (context.isError || (content?.type === "text" && content.text.startsWith("Error"))) {
+				return new Text(statusRow(theme, "error", firstLine(content, "edit failed")), 0, 0);
+			}
 
 			const details = result.details as EditToolDetails | undefined;
-			const content = result.content[0];
-
-			if (content?.type === "text" && content.text.startsWith("Error")) {
-				return new Text(theme.fg("error", content.text.split("\n")[0]), 0, 0);
-			}
-
 			if (!details?.diff) {
-				return new Text(theme.fg("success", "Applied"), 0, 0);
+				return new Text(statusRow(theme, "success", "applied", [theme.fg("dim", elapsed(state))]), 0, 0);
 			}
 
-			// Count additions and removals from the diff
-			const diffLines = details.diff.split("\n");
-			let additions = 0;
-			let removals = 0;
-			for (const line of diffLines) {
-				if (line.startsWith("+") && !line.startsWith("+++")) additions++;
-				if (line.startsWith("-") && !line.startsWith("---")) removals++;
-			}
-
-			let text = theme.fg("success", `+${additions}`);
-			text += theme.fg("dim", " / ");
-			text += theme.fg("error", `-${removals}`);
-
-			if (expanded) {
-				for (const line of diffLines.slice(0, 30)) {
-					if (line.startsWith("+") && !line.startsWith("+++")) {
-						text += `\n${theme.fg("success", line)}`;
-					} else if (line.startsWith("-") && !line.startsWith("---")) {
-						text += `\n${theme.fg("error", line)}`;
-					} else {
-						text += `\n${theme.fg("dim", line)}`;
-					}
-				}
-				if (diffLines.length > 30) {
-					text += `\n${theme.fg("muted", `... ${diffLines.length - 30} more diff lines`)}`;
-				}
-			}
-
-			return new Text(text, 0, 0);
+			const { added, removed } = countPatch(details.patch);
+			const container = reuseContainer(context);
+			container.addChild(
+				new BodyText({
+					theme,
+					mode: "indent",
+					rows: renderDiff(details.diff).split("\n"),
+					limit: expanded ? undefined : PREVIEW.DIFF_ROWS,
+					more: (hidden) => moreRow(theme, hidden, "line"),
+				}),
+			);
+			container.addChild(
+				new Text(
+					statusRow(theme, "success", "applied", [
+						`${theme.fg("toolDiffAdded", `+${added}`)} ${theme.fg("toolDiffRemoved", `-${removed}`)}`,
+						theme.fg("dim", elapsed(state)),
+					]),
+					0,
+					0,
+				),
+			);
+			return container;
 		},
 	});
 
-	// --- Write tool: show path and size ---
+	// --- Write tool: show path and a highlighted preview ---
 	pi.registerTool({
 		name: "write",
 		label: "write",
@@ -309,23 +443,56 @@ export default function (pi: ExtensionAPI) {
 			return baseTools(ctx.cwd).write.execute(toolCallId, params, signal, onUpdate);
 		},
 
-		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("write "));
-			text += theme.fg("accent", args.path);
-			const lineCount = args.content.split("\n").length;
-			text += theme.fg("dim", ` (${lineCount} lines)`);
-			return new Text(text, 0, 0);
+		renderCall(args, theme, context) {
+			markStarted(context);
+			return new Text(
+				callRow(theme, {
+					glyph: SYM.write,
+					name: "write",
+					arg: pathArg(theme, context.cwd, args.path),
+					meta: [theme.fg("dim", plural(countLines(args.content), "line"))],
+				}),
+				0,
+				0,
+			);
 		},
 
-		renderResult(result, { isPartial }, theme, _context) {
-			if (isPartial) return new Text(theme.fg("warning", "Writing..."), 0, 0);
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			markSettled(context, isPartial);
+			const state: TimedState = context.state;
 
-			const content = result.content[0];
-			if (content?.type === "text" && content.text.startsWith("Error")) {
-				return new Text(theme.fg("error", content.text.split("\n")[0]), 0, 0);
+			if (isPartial) {
+				return new Text(statusRow(theme, "running", "writing", [theme.fg("dim", elapsed(state))], state.frame), 0, 0);
 			}
 
-			return new Text(theme.fg("success", "Written"), 0, 0);
+			const content = result.content[0];
+			if (context.isError || (content?.type === "text" && content.text.startsWith("Error"))) {
+				return new Text(statusRow(theme, "error", firstLine(content, "write failed")), 0, 0);
+			}
+
+			const source = context.args.content;
+			const budget = expanded ? PREVIEW.EXPANDED : PREVIEW.WRITE_HEAD;
+			const container = reuseContainer(context);
+			container.addChild(
+				new BodyText({
+					theme,
+					mode: "indent",
+					rows: numbered(theme, source, getLanguageFromPath(context.args.path), 1, budget),
+					hidden: Math.max(0, countLines(source) - budget),
+					more: (hidden) => moreRow(theme, hidden, "line"),
+				}),
+			);
+			container.addChild(
+				new Text(
+					statusRow(theme, "success", "written", [
+						theme.fg("dim", plural(countLines(source), "line")),
+						theme.fg("dim", elapsed(state)),
+					]),
+					0,
+					0,
+				),
+			);
+			return container;
 		},
 	});
 
