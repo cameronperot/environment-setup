@@ -1,95 +1,134 @@
 #!/usr/bin/env python3
-"""c — create a throwaway container from dev:latest and run a command in it,
-bind-mounting the repository root at its host path so git's absolute worktree
-links stay valid inside: the directory containing `.bare` for a `.bare` layout,
-the toplevel plus the common git dir for a linked worktree of a plain repo,
-otherwise the toplevel (or the cwd outside git). The container starts in the
-cwd and gets the agent dotfiles and the host's ssh-agent passed through:
-via a socket bind-mount, or under krun via a pasta TCP bridge that the image
-entrypoint bridges to SSH_AUTH_SOCK.
+"""c — run a command in a dev:latest container.
 
-With -r/--running, instead run the command in the already-running container
-whose bind mount best matches $CWD.
+By default a throwaway container is created with `podman run --rm`: the
+repository root is bind-mounted at its host path so git's absolute worktree
+links stay valid inside, the container starts in the current directory, and it
+gets the agent dotfiles from $AGENT_CONFIG_DIR plus the host's isolated
+ssh-agent (a socket bind mount, or under -k a pasta TCP bridge that the image
+entrypoint connects to SSH_AUTH_SOCK).
+
+With -r (or -c) the command runs instead in the already-running container whose
+bind mount contains the current directory, translated to its container path.
+
+Mounted at its host path: the directory holding `.bare` for a `.bare` layout
+(plus the toplevel when it lies elsewhere), the toplevel and the common git dir
+for a linked worktree of a plain repository, otherwise the toplevel, or the
+current directory outside git.
 """
 
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
-
-def running_containers(runtime: str) -> list[str]:
-    result = subprocess.run(
-        [runtime, "ps", "-q"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return [cid for cid in result.stdout.strip().splitlines() if cid]
-
-
-def inspect_mounts(runtime: str, container_ids: list[str]) -> list[dict]:
-    """Return a list of dicts with id, name, and bind mounts for each container."""
-    if not container_ids:
-        return []
-    result = subprocess.run(
-        [runtime, "inspect"] + container_ids,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    infos = json.loads(result.stdout)
-    containers = []
-    for info in infos:
-        cid = info["Id"]
-        name = info.get("Name", "").lstrip("/")
-        mounts = []
-        for m in info.get("Mounts", []):
-            if m.get("Type") == "bind":
-                mounts.append(
-                    {
-                        "source": Path(m["Source"]),
-                        "destination": Path(m["Destination"]),
-                    }
-                )
-        if mounts:
-            containers.append({"id": cid, "name": name, "mounts": mounts})
-    return containers
+ENGINE = "podman"
+IMAGE = "dev:latest"
+PREFERRED_CONTAINER = "dev_container"
+CONTAINER_HOME = Path("/home/user")
+# /run rejects the socket bind in the krun guest, hence /tmp
+CONTAINER_SSH_SOCK = "/tmp/ssh-agent.sock"
+KRUN_SSH_PORT = 7777
+KRUN_CPUS = 4
+KRUN_RAM_MIB = 8192
+# (path under AGENT_CONFIG_DIR, path under CONTAINER_HOME), parents before children.
+# The host's .pi/agent and .omp/agent shadow the image's symlinks to
+# .agent/{skills,prompts}, so those two are mounted again underneath each agent.
+AGENT_CONFIG_MOUNTS = (
+    (".agent", ".agent"),
+    (".pi/agent", ".pi/agent"),
+    (".omp/agent", ".omp/agent"),
+    (".agent/skills", ".pi/agent/skills"),
+    (".agent/skills", ".omp/agent/skills"),
+    (".agent/prompts", ".pi/agent/prompts"),
+    (".agent/prompts", ".omp/agent/prompts"),
+    (".plannotator", ".plannotator"),
+)
 
 
-def best_match(
-    cwd: Path, containers: list[dict], preferred_name: str = "dev_container"
-) -> tuple[dict, dict] | None:
-    """Find the container + mount matching cwd, prioritizing `preferred_name`."""
-    best = None
-    best_score = (-1, -1)  # (is_preferred, mount_depth)
-
-    for container in containers:
-        is_preferred = 1 if container["name"] == preferred_name else 0
-        for mount in container["mounts"]:
-            source = mount["source"]
-            try:
-                cwd.relative_to(source)
-            except ValueError:
-                continue
-
-            score = (is_preferred, len(source.parts))
-            if score > best_score:
-                best_score = score
-                best = (container, mount)
-
-    return best
+class Error(Exception):
+    """Fatal condition reported as `c: error: ...`."""
 
 
-def translate_path(cwd: Path, mount: dict) -> str:
-    """Translate host cwd to the corresponding container path."""
-    relative = cwd.relative_to(mount["source"])
-    return str(mount["destination"] / relative)
+@dataclass(frozen=True)
+class Mount:
+    """A bind mount of a running container."""
+
+    source: Path
+    destination: Path
+
+    def contains(self, path: Path) -> bool:
+        """Report whether ``path`` lies at or under the mount source.
+
+        Args:
+            path: Absolute host path.
+
+        Returns:
+            True when ``path`` is the source or inside it.
+        """
+        return path.is_relative_to(self.source)
+
+    def translate(self, path: Path) -> Path:
+        """Map a host path under the source to its path inside the container.
+
+        Args:
+            path: Absolute host path at or under the source.
+
+        Returns:
+            The corresponding path under the destination.
+        """
+        return self.destination / path.relative_to(self.source)
+
+
+@dataclass(frozen=True)
+class Container:
+    """A running container and its bind mounts."""
+
+    id: str
+    name: str
+    mounts: tuple[Mount, ...]
+
+
+def run(*argv: str) -> str:
+    """Run an engine command and return its stdout.
+
+    Args:
+        *argv: The command and its arguments.
+
+    Returns:
+        The command's stdout.
+
+    Raises:
+        Error: When the executable is missing or exits non-zero; the message
+            carries the command's stderr.
+    """
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, check=True)
+    except FileNotFoundError:
+        raise Error(f"{argv[0]}: command not found") from None
+    except subprocess.CalledProcessError as e:
+        raise Error(f"{argv[0]} failed: {e.stderr.strip()}") from None
+    return result.stdout
 
 
 def git_rev_parse(cwd: Path, *args: str) -> Path:
+    """Run ``git rev-parse`` in ``cwd`` and resolve the printed path.
+
+    Args:
+        cwd: Directory to run git in.
+        *args: ``rev-parse`` arguments.
+
+    Returns:
+        The printed path, with symlinks resolved.
+
+    Raises:
+        subprocess.CalledProcessError: When git exits non-zero, e.g. outside a
+            work tree.
+    """
     result = subprocess.run(
         ["git", "-C", str(cwd), "rev-parse", *args],
         capture_output=True,
@@ -99,281 +138,410 @@ def git_rev_parse(cwd: Path, *args: str) -> Path:
     return Path(result.stdout.strip()).resolve()
 
 
-def resolve_mounts(cwd: Path) -> list[Path]:
+def resolve_mounts(cwd: Path) -> tuple[Path, ...]:
     """Directories to bind at their host paths so git works inside the container.
 
-    Outside a work tree (a non-git dir, or the `.bare` parent itself) just cwd.
-    In a `.bare` layout the directory containing `.bare`, plus the toplevel when
-    it lies elsewhere. In a linked worktree of a plain repo the toplevel and the
-    common git dir. Otherwise the toplevel.
+    Args:
+        cwd: The resolved current directory.
+
+    Returns:
+        Outside a work tree (a non-git dir, or the ``.bare`` parent itself) just
+            ``cwd``. In a ``.bare`` layout the directory containing ``.bare``, plus
+            the toplevel when it lies elsewhere. In a linked worktree of a plain
+            repo the toplevel and the common git dir. Otherwise the toplevel.
     """
     try:
         toplevel = git_rev_parse(cwd, "--show-toplevel")
     except subprocess.CalledProcessError:
-        return [cwd]
+        return (cwd,)
     common = git_rev_parse(cwd, "--path-format=absolute", "--git-common-dir")
     if common.is_relative_to(toplevel):
-        return [toplevel]
+        return (toplevel,)
     if common.name == ".bare":
         parent = common.parent
         if toplevel.is_relative_to(parent):
-            return [parent]
-        return [parent, toplevel]
-    return [toplevel, common]
+            return (parent,)
+        return (parent, toplevel)
+    return (toplevel, common)
 
 
-def refuse_denied_mount(path: Path) -> None:
-    """Refuse $HOME and its ancestors (/ included): bound at an identical path
-    such a mount would shadow the container's home and expose the host's."""
+def check_mount_allowed(path: Path) -> None:
+    """Refuse mounting ``$HOME`` or one of its ancestors (``/`` included).
+
+    Bound at an identical path such a mount would shadow the container's home
+    and expose the host's.
+
+    Args:
+        path: Candidate mount source.
+
+    Raises:
+        Error: When ``path`` is ``$HOME`` or an ancestor of it.
+    """
     if Path.home().resolve().is_relative_to(path):
-        print(
-            f"error: refusing to mount {path}: it is $HOME or an ancestor of it",
-            file=sys.stderr,
+        raise Error(f"refusing to mount {path}: it is $HOME or an ancestor of it")
+
+
+def running_containers() -> tuple[Container, ...]:
+    """Inspect every running container.
+
+    Returns:
+        One entry per running container with its bind mounts only; a container
+            without bind mounts has an empty ``mounts`` tuple.
+
+    Raises:
+        Error: When the engine is missing or ``ps``/``inspect`` fail.
+    """
+    ids = run(ENGINE, "ps", "-q").split()
+    if not ids:
+        return ()
+    containers = []
+    for info in json.loads(run(ENGINE, "inspect", *ids)):
+        mounts = tuple(
+            Mount(source=Path(m["Source"]), destination=Path(m["Destination"]))
+            for m in info["Mounts"]
+            if m["Type"] == "bind"
         )
-        sys.exit(1)
+        containers.append(Container(id=info["Id"], name=info["Name"], mounts=mounts))
+    return tuple(containers)
 
 
-def build_run_command(
-    runtime: str,
+def select_container(
+    *, cwd: Path, containers: tuple[Container, ...], name: str | None
+) -> tuple[Container, Mount]:
+    """Pick the container and bind mount to exec in for ``cwd``.
+
+    Args:
+        cwd: The resolved current directory.
+        containers: The running containers.
+        name: Restrict the choice to the container with this name or id prefix.
+
+    Returns:
+        The ``(container, mount)`` pair whose mount contains ``cwd``, preferring
+            ``PREFERRED_CONTAINER``, then the deepest mount, then the first found.
+
+    Raises:
+        Error: When no container is running, ``name`` matches none, or no bind
+            mount contains ``cwd``.
+    """
+    if not containers:
+        raise Error("no running containers")
+    if name is not None:
+        containers = tuple(
+            c for c in containers if c.name == name or c.id.startswith(name)
+        )
+        if not containers:
+            raise Error(f"no running container named '{name}'")
+    candidates = [(c, m) for c in containers for m in c.mounts if m.contains(cwd)]
+    if not candidates:
+        where = f"'{name}'" if name is not None else "any running container"
+        raise Error(f"no bind mount in {where} contains {cwd}")
+    return max(
+        candidates,
+        key=lambda cm: (cm[0].name == PREFERRED_CONTAINER, len(cm[1].source.parts)),
+    )
+
+
+def run_argv(
+    *,
     cwd: Path,
-    mounts: list[Path],
+    mounts: tuple[Path, ...],
+    agent_config_dir: Path,
+    ssh_sock: Path,
     krun: bool,
-    cpus: int,
-    ram_mib: int,
+    cpus: int | None,
+    ram_mib: int | None,
     extra_args: list[str],
+    tty: bool,
     command: list[str],
 ) -> list[str]:
-    """Assemble the `podman run` argv for a throwaway dev container."""
-    agent_config_dir = os.environ.get("AGENT_CONFIG_DIR", "")
-    if not agent_config_dir:
-        print(
-            "error: AGENT_CONFIG_DIR must be set to create a temp container",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    """Assemble the ``podman run`` argv for a throwaway dev container.
 
-    run_uid = os.getuid()
-    xdg_runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{run_uid}")
+    Args:
+        cwd: Working directory inside the container, identical to the host path.
+        mounts: Host directories to bind at their own paths.
+        agent_config_dir: Host directory holding the agent dotfiles.
+        ssh_sock: Host ssh-agent socket, bind-mounted unless ``krun``.
+        krun: Boot a libkrun microVM and bridge the ssh-agent over TCP instead.
+        cpus: Under ``krun`` the vCPU count (must be set); otherwise the
+            ``--cpus`` limit, omitted when None.
+        ram_mib: Under ``krun`` the VM RAM in MiB (must be set); otherwise the
+            ``--memory`` limit, omitted when None.
+        extra_args: Additional ``podman run`` arguments, placed before the image.
+        tty: Whether to attach an interactive terminal (``-i -t``).
+        command: Command to run; empty for the image's default.
 
-    cmd = [
-        runtime,
+    Returns:
+        The argv, starting with the engine.
+    """
+    argv = [
+        ENGINE,
         "run",
         "--rm",
         "--userns",
         "keep-id",
         "--security-opt",
         "label=disable",
-        "-w",
-        str(cwd),
     ]
+    argv += ["-w", str(cwd)]
     for mount in mounts:
-        cmd += ["-v", f"{mount}:{mount}"]
-    cmd += [
-        "-v",
-        f"{agent_config_dir}/.agent:/home/user/.agent",
-        "-v",
-        f"{agent_config_dir}/.pi/agent:/home/user/.pi/agent",
-        "-v",
-        f"{agent_config_dir}/.omp/agent:/home/user/.omp/agent",
-        "-v",
-        f"{agent_config_dir}/.agent/skills:/home/user/.pi/agent/skills",
-        "-v",
-        f"{agent_config_dir}/.agent/skills:/home/user/.omp/agent/skills",
-        "-v",
-        f"{agent_config_dir}/.agent/prompts:/home/user/.pi/agent/prompts",
-        "-v",
-        f"{agent_config_dir}/.agent/prompts:/home/user/.omp/agent/prompts",
-        "-v",
-        f"{agent_config_dir}/.plannotator:/home/user/.plannotator",
-        "-e",
-        "SSH_AUTH_SOCK=/tmp/ssh-agent.sock",
-    ]
+        argv += ["-v", f"{mount}:{mount}"]
+    for host_rel, container_rel in AGENT_CONFIG_MOUNTS:
+        argv += [
+            "-v",
+            f"{agent_config_dir / host_rel}:{CONTAINER_HOME / container_rel}",
+        ]
+    argv += ["-e", f"SSH_AUTH_SOCK={CONTAINER_SSH_SOCK}"]
     if krun:
         # virtio-fs passes files but not Unix-socket endpoints, so instead of
-        # mounting the ssh-agent socket, forward guest connections to port 7777
-        # to the host's loopback signer; the entrypoint bridges SSH_AUTH_SOCK
-        # to that port. /run rejects the bind in the guest, hence /tmp.
-        cmd += [
+        # mounting the ssh-agent socket, forward guest connections to KRUN_SSH_PORT
+        # to the host's loopback signer; the entrypoint bridges SSH_AUTH_SOCK to it
+        argv += [
             "--runtime=krun",
             "--network",
-            "pasta:-T,7777",
+            f"pasta:-T,{KRUN_SSH_PORT}",
             "--annotation",
             f"krun.cpus={cpus}",
             "--annotation",
             f"krun.ram_mib={ram_mib}",
         ]
     else:
-        cmd += ["-v", f"{xdg_runtime_dir}/llm-agent.sock:/tmp/ssh-agent.sock"]
-    cmd += extra_args
-    if sys.stdin.isatty():
-        cmd += ["-i", "-t"]
-    cmd += ["dev:latest"]
-    if command:
-        cmd += command
-    return cmd
+        argv += ["-v", f"{ssh_sock}:{CONTAINER_SSH_SOCK}"]
+        if cpus is not None:
+            argv += ["--cpus", str(cpus)]
+        if ram_mib is not None:
+            argv += ["--memory", f"{ram_mib}m"]
+    argv += extra_args
+    if tty:
+        argv += ["-i", "-t"]
+    return [*argv, IMAGE, *command]
 
 
-def main() -> None:
+def exec_argv(*, name: str, workdir: Path, tty: bool, command: list[str]) -> list[str]:
+    """Assemble the ``podman exec`` argv for a running container.
+
+    Args:
+        name: Container name.
+        workdir: Working directory inside the container.
+        tty: Whether to attach an interactive terminal (``-i -t``).
+        command: Command to run.
+
+    Returns:
+        The argv, starting with the engine.
+    """
+    argv = [ENGINE, "exec", "-w", str(workdir)]
+    if tty:
+        argv += ["-i", "-t"]
+    return [*argv, name, *command]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser.
+
+    Returns:
+        The parser; ``command`` is an ``argparse.REMAINDER`` positional so the
+            command's own flags pass through untouched.
+    """
     parser = argparse.ArgumentParser(
-        description="Run a command in a new throwaway container from dev:latest, or with -r in the running container whose bind mount best matches $CWD.",
-    )
-    parser.add_argument(
-        "--running",
-        "-r",
-        action="store_true",
-        help="Exec into the running container whose bind mount best matches $CWD instead of creating a new throwaway container",
-    )
-    parser.add_argument(
-        "--krun",
-        "-k",
-        action="store_true",
-        help="Pass --runtime=krun plus the pasta TCP bridge for signing when creating a new container",
-    )
-    parser.add_argument(
-        "--cpus",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Number of CPUs for a new krun container (default: 4)",
-    )
-    parser.add_argument(
-        "--ram-mib",
-        type=int,
-        default=None,
-        metavar="MIB",
-        help="RAM in MiB for a new krun container (default: 8192)",
-    )
-    parser.add_argument(
-        "--arg",
-        "-a",
-        action="append",
-        default=[],
-        metavar="ARG",
-        help="Pass an additional argument to the container engine's run command when creating a new container (repeatable)",
-    )
-    parser.add_argument(
-        "--runtime",
-        choices=["docker", "podman"],
-        default="podman",
-        help="Container runtime to use (default: podman)",
-    )
-    parser.add_argument(
-        "--container",
-        "-c",
-        default=None,
-        help="Override container selection by name or id (requires -r/--running)",
+        prog="c",
+        usage=(
+            "%(prog)s [--dry-run] [-k] [--cpus N] [--ram-mib MIB] [-a=ARG ...] "
+            "[--] [CMD ...]\n"
+            "       %(prog)s [--dry-run] -r [-c NAME] [--] CMD ..."
+        ),
+        description=(
+            f"Run CMD in a {IMAGE} container: a throwaway one by default, or with -r "
+            "the running one whose bind mount contains the current directory."
+        ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print the command that would be executed without running it",
+        help="print the podman argv instead of running it",
+    )
+    new = parser.add_argument_group("new container (default)")
+    new.add_argument(
+        "-k",
+        "--krun",
+        action="store_true",
+        help="boot the container in a libkrun microVM",
+    )
+    new.add_argument(
+        "--cpus",
+        type=int,
+        metavar="N",
+        help=(
+            "CPU limit: `podman run --cpus N`, or vCPUs under -k "
+            f"(unset: no limit; -k default {KRUN_CPUS})"
+        ),
+    )
+    new.add_argument(
+        "--ram-mib",
+        type=int,
+        metavar="MIB",
+        help=(
+            "memory limit in MiB: `podman run --memory MIBm`, or RAM under -k "
+            f"(unset: no limit; -k default {KRUN_RAM_MIB})"
+        ),
+    )
+    new.add_argument(
+        "-a",
+        "--arg",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help=(
+            "extra `podman run` argument, repeatable; "
+            "write option-like values as -a=--network=host"
+        ),
+    )
+    running = parser.add_argument_group("running container")
+    running.add_argument(
+        "-r",
+        "--running",
+        action="store_true",
+        help=(
+            "exec in the running container whose bind mount contains the current "
+            f"directory ({PREFERRED_CONTAINER} preferred)"
+        ),
+    )
+    running.add_argument(
+        "-c",
+        "--container",
+        metavar="NAME",
+        help="pick the container by name or id prefix (implies -r)",
     )
     parser.add_argument(
         "command",
         nargs=argparse.REMAINDER,
-        help="Command (and arguments) to run in the container",
+        metavar="CMD",
+        help="command and arguments to run (a new container defaults to the image's)",
     )
-    args = parser.parse_args()
+    return parser
 
-    if args.krun and args.running:
-        parser.error("-k/--krun cannot be used with -r/--running")
-    if args.arg and args.running:
-        parser.error("-a/--arg cannot be used with -r/--running")
-    if (args.cpus is not None or args.ram_mib is not None) and not args.krun:
-        parser.error("--cpus/--ram-mib require -k/--krun")
-    if args.container and not args.running:
-        parser.error("-c/--container requires -r/--running")
 
-    # Strip leading '--' that argparse.REMAINDER may capture
-    command = args.command
-    if command and command[0] == "--":
-        command = command[1:]
+def usage_errors(args: argparse.Namespace) -> tuple[str, ...]:
+    """Check flag combinations the parser cannot express.
 
-    runtime = args.runtime
-    cwd = Path.cwd().resolve()
+    Args:
+        args: Parsed arguments, with ``running`` already implied by ``container``.
 
+    Returns:
+        One message per problem, for ``parser.error``; empty when valid.
+    """
     if not args.running:
-        mounts = resolve_mounts(cwd)
-        for mount in mounts:
-            refuse_denied_mount(mount)
-        exec_cmd = build_run_command(
-            runtime,
-            cwd,
-            mounts,
-            args.krun,
-            args.cpus if args.cpus is not None else 4,
-            args.ram_mib if args.ram_mib is not None else 8192,
-            args.arg,
-            command,
-        )
-        if args.dry_run:
-            print(" ".join(exec_cmd))
-            return
-        mounted = ", ".join(str(m) for m in mounts)
-        print(f"▶ dev:latest:{cwd} (mounted: {mounted})", file=sys.stderr)
-        os.execvp(runtime, exec_cmd)
+        return ()
+    problems = []
+    new_only = (
+        ("-k/--krun", args.krun),
+        ("-a/--arg", bool(args.arg)),
+        ("--cpus", args.cpus is not None),
+        ("--ram-mib", args.ram_mib is not None),
+    )
+    given = [flag for flag, on in new_only if on]
+    if given:
+        problems.append(f"{', '.join(given)} cannot be used with -r/--running")
+    if not args.command:
+        problems.append("no command specified")
+    return tuple(problems)
 
-    if not command:
-        parser.error("no command specified")
 
-    if args.container:
-        # Direct container override — still need to find the right workdir
-        ids = running_containers(runtime)
-        containers = inspect_mounts(runtime, ids)
-        target = None
-        for c in containers:
-            if c["name"] == args.container or c["id"].startswith(args.container):
-                target = c
-                break
-        if target is None:
-            print(
-                f"error: container '{args.container}' not found or has no bind mounts",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        # Find best mount within the chosen container
-        match = best_match(cwd, [target])
-        if match is None:
-            print(
-                f"error: no bind mount in '{args.container}' matches {cwd}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        container, mount = match
-    else:
-        ids = running_containers(runtime)
-        if not ids:
-            print("error: no running containers found", file=sys.stderr)
-            sys.exit(1)
-        containers = inspect_mounts(runtime, ids)
-        if not containers:
-            print(
-                "error: no running containers with bind mounts found", file=sys.stderr
-            )
-            sys.exit(1)
-        match = best_match(cwd, containers)
-        if match is None:
-            print(
-                f"error: no container has a bind mount matching {cwd}", file=sys.stderr
-            )
-            sys.exit(1)
-        container, mount = match
+def new_container(
+    args: argparse.Namespace, *, cwd: Path, tty: bool
+) -> tuple[list[str], str]:
+    """Build the ``podman run`` argv and banner for a throwaway container.
 
-    container_path = translate_path(cwd, mount)
-    label = container["name"] or container["id"][:12]
+    Args:
+        args: Parsed arguments.
+        cwd: The resolved current directory.
+        tty: Whether stdin is a terminal.
 
-    exec_flags = ["-w", container_path]
-    if sys.stdin.isatty():
-        exec_flags += ["-i", "-t"]
-    exec_cmd = [runtime, "exec"] + exec_flags + [container["id"]] + command
+    Returns:
+        The argv and the banner printed before exec.
 
+    Raises:
+        Error: When a mount is refused or ``AGENT_CONFIG_DIR`` is unset.
+    """
+    mounts = resolve_mounts(cwd)
+    for mount in mounts:
+        check_mount_allowed(mount)
+    agent_config_dir = os.environ.get("AGENT_CONFIG_DIR")
+    if not agent_config_dir:
+        raise Error("AGENT_CONFIG_DIR must be set to create a new container")
+    xdg_runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    cpus, ram_mib = args.cpus, args.ram_mib
+    if args.krun:
+        cpus = KRUN_CPUS if cpus is None else cpus
+        ram_mib = KRUN_RAM_MIB if ram_mib is None else ram_mib
+    cmd = run_argv(
+        cwd=cwd,
+        mounts=mounts,
+        agent_config_dir=Path(agent_config_dir),
+        ssh_sock=Path(xdg_runtime_dir) / "llm-agent.sock",
+        krun=args.krun,
+        cpus=cpus,
+        ram_mib=ram_mib,
+        extra_args=args.arg,
+        tty=tty,
+        command=args.command,
+    )
+    mounted = ", ".join(str(m) for m in mounts)
+    return cmd, f"{IMAGE}:{cwd} (mounted: {mounted})"
+
+
+def exec_running(
+    args: argparse.Namespace, *, cwd: Path, tty: bool
+) -> tuple[list[str], str]:
+    """Build the ``podman exec`` argv and banner for the container matching ``cwd``.
+
+    Args:
+        args: Parsed arguments.
+        cwd: The resolved current directory.
+        tty: Whether stdin is a terminal.
+
+    Returns:
+        The argv and the banner printed before exec.
+
+    Raises:
+        Error: When the engine fails or no running container matches.
+    """
+    container, mount = select_container(
+        cwd=cwd, containers=running_containers(), name=args.container
+    )
+    workdir = mount.translate(cwd)
+    cmd = exec_argv(name=container.name, workdir=workdir, tty=tty, command=args.command)
+    return cmd, f"{container.name}:{workdir}"
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Parse arguments, then print (``--dry-run``) or exec the engine command.
+
+    Args:
+        argv: Command-line arguments; ``sys.argv[1:]`` when None.
+    """
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    # argparse leaves the separator in a REMAINDER list
+    if args.command[:1] == ["--"]:
+        args.command = args.command[1:]
+    args.running = args.running or args.container is not None
+    problems = usage_errors(args)
+    if problems:
+        parser.error("; ".join(problems))
+
+    cwd = Path.cwd().resolve()
+    tty = sys.stdin.isatty()
+    try:
+        if args.running:
+            cmd, banner = exec_running(args, cwd=cwd, tty=tty)
+        else:
+            cmd, banner = new_container(args, cwd=cwd, tty=tty)
+    except Error as e:
+        sys.exit(f"{parser.prog}: error: {e}")
     if args.dry_run:
-        display = [runtime, "exec"] + exec_flags + [label] + command
-        print(" ".join(display))
+        print(shlex.join(cmd))
         return
-
-    print(f"▶ {label}:{container_path}", file=sys.stderr)
-    os.execvp(runtime, exec_cmd)
+    print(f"▶ {banner}", file=sys.stderr)
+    os.execvp(cmd[0], cmd)
 
 
 if __name__ == "__main__":

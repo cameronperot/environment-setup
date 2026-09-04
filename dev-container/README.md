@@ -25,7 +25,7 @@ GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh  
 | `c -k CMD` | Like `c CMD`, inside a libkrun microVM via `--runtime=krun` (see [Isolation](#isolation)) |
 | `podman-compose -f compose.yml up` | JupyterLab at `http://127.0.0.1:8888/?token=dev`, Plannotator on port 8889 |
 
-`c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags (`-a` for extra `podman run` arguments, `--dry-run`). A throwaway container gets:
+`c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags: `-c NAME` to pick the running container, `--cpus`/`--ram-mib` for podman resource limits (or the microVM size under `-k`), `-a=ARG` for extra `podman run` arguments, and `--dry-run`. A throwaway container gets:
 - the repository root bind-mounted at its host path and used as the working directory; for a `.bare` layout that is the directory holding `.bare`, so every worktree resolves, and outside git it is the current directory
 - `$AGENT_CONFIG_DIR/{.agent,.pi/agent,.omp/agent,.plannotator}` at the same paths under `/home/user` (`AGENT_CONFIG_DIR` must be set)
 - the isolated ssh-agent as `SSH_AUTH_SOCK`: socket bind-mount, or under `c -k` a TCP bridge to the host signer (see [Isolation](#isolation) and [Signing under `c -k`](#signing-under-c--k-pasta-bridge))
