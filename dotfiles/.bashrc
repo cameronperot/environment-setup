@@ -53,6 +53,36 @@ if [[ $- != *i* ]]; then
 fi
 
 # Prompt theme
+__bash_prompt_dir() {
+    local n=2 rel
+    local -a segs
+    if [[ "${PWD}" == "${HOME}" ]]; then
+        segs=("~")
+    elif [[ "${PWD}" == "${HOME}"/* ]]; then
+        rel="${PWD#"${HOME}"/}"
+        IFS=/ read -r -a segs <<<"${rel}"
+        segs=("~" "${segs[@]}")
+    else
+        IFS=/ read -r -a segs <<<"${PWD#/}"
+    fi
+    if ((${#segs[@]} <= n)); then
+        if [[ "${segs[0]:-}" == "~" ]]; then
+            if ((${#segs[@]} == 1)); then
+                printf '~'
+            else
+                local IFS=/
+                # shellcheck disable=SC2088 # literal ~, not a path to expand
+                printf '~/%s' "${segs[*]:1}"
+            fi
+        else
+            printf '%s' "${PWD}"
+        fi
+    else
+        local IFS=/
+        printf '%s' "${segs[*]: -${n}}"
+    fi
+}
+
 __bash_git_prompt() {
     local branch
     branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
@@ -65,8 +95,7 @@ __bash_git_prompt() {
     fi
     printf '(%s%s)' "${branch}" "${dirty}"
 }
-PROMPT_DIRTRIM=2 # the closest bash has to zsh's %2~
-PS1='\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[36m\]$(__bash_git_prompt)\[\e[0m\] ⟩ '
+PS1='\[\e[1;32m\]\u@\h \[\e[1;34m\]$(__bash_prompt_dir)\[\e[0m\]\[\e[36m\]$(__bash_git_prompt)\[\e[0m\] ⟩ '
 
 # https://www.gnu.org/software/bash/manual/bash.html#The-Shopt-Builtin
 shopt -s extglob        # EXTENDED_GLOB
