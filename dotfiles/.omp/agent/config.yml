@@ -1,5 +1,5 @@
 modelRoles:
-  default: opencode-go/glm-5.3-flash
+  default: openrouter/z-ai/glm-5.3-flash:high
 symbolPreset: nerd
 theme:
   dark: titanium
