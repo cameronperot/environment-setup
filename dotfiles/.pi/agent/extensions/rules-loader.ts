@@ -47,7 +47,7 @@ export default function rulesLoader(pi: ExtensionAPI) {
 				if (closeIdx !== -1) {
 					return {
 						systemPrompt:
-							systemPrompt.slice(0, closeIdx) + `\n\n${rules}\n` + systemPrompt.slice(closeIdx),
+							systemPrompt.slice(0, closeIdx) + `\n${rules}\n` + systemPrompt.slice(closeIdx),
 					};
 				}
 			}
