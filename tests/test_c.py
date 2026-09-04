@@ -5,11 +5,16 @@ import importlib.util
 import io
 import json
 import os
+import re
 import socket
+import struct
 import subprocess
 import sys
+import threading
 import types
+from collections.abc import Callable, Iterator
 from importlib.machinery import SourceFileLoader
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -134,6 +139,140 @@ def bare_layout(tmp_path: Path) -> Path:
         "outside",
     )
     return d
+
+
+@pytest.fixture
+def tmp_sock_dir(tmp_path: Path) -> Path:
+    """A temp directory holding a bound ``llm-agent.sock``.
+
+    Args:
+        tmp_path: Pytest temporary directory root.
+
+    Returns:
+        The resolved directory with the socket.
+    """
+    runtime = tmp_path.resolve() / "run"
+    runtime.mkdir()
+    bind_unix_socket(runtime / "llm-agent.sock")
+    return runtime
+
+
+@pytest.fixture
+def signer_server() -> Iterator[Callable[[bytes | None], int]]:
+    """Serve one ssh-agent reply over TCP.
+
+    Yields:
+        A factory taking the reply bytes (None = accept and close without
+            replying) and returning the listening port; the server answers a
+            single connection and then closes.
+    """
+    servers: list[socket.socket] = []
+
+    def factory(reply: bytes | None) -> int:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.bind((LOCAL_HOST, 0))
+        srv.listen(1)
+        servers.append(srv)
+        port = srv.getsockname()[1]
+
+        def serve() -> None:
+            try:
+                conn, _ = srv.accept()
+                with conn:
+                    conn.recv(5)
+                    if reply is not None:
+                        conn.sendall(reply)
+            except OSError:
+                pass
+
+        threading.Thread(target=serve, daemon=True).start()
+        return port
+
+    yield factory
+    for srv in servers:
+        srv.close()
+
+
+def bind_unix_socket(path: Path) -> None:
+    """Bind a unix socket at ``path``.
+
+    Args:
+        path: Path to bind the socket at; the parent directory must exist.
+    """
+    sock = socket.socket(socket.AF_UNIX)
+    try:
+        sock.bind(str(path))
+    finally:
+        sock.close()
+
+
+def agent_identity_reply(keys: int) -> bytes:
+    """Build an ``SSH_AGENTC_REQUEST_IDENTITIES_ANSWER`` reporting ``keys`` keys.
+
+    Args:
+        keys: Key count to report.
+
+    Returns:
+        The 4-byte big-endian length, the answer type byte (12), and the
+            4-byte big-endian key count.
+    """
+    payload = bytes([12]) + struct.pack(">I", keys)
+    return struct.pack(">I", len(payload)) + payload
+
+
+def closed_tcp_port() -> int:
+    """Return a loopback port with nothing listening on it.
+
+    Returns:
+        The port number.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
+def usable_tcp_host() -> str:
+    """Return a local TCP address that reaches listeners bound on it.
+
+    Prefers ``127.0.0.1``. When a loopback self-connect is refused — sandboxed
+    networks can intercept loopback — the first other local address from the
+    routing table is used so fake signers stay reachable.
+
+    Returns:
+        The address to bind fake signers on and connect probes to.
+    """
+    candidates = ["127.0.0.1"]
+    try:
+        lines = Path("/proc/net/fib_trie").read_text().splitlines()
+    except OSError:
+        lines = []
+    for previous, line in pairwise(lines):
+        if "/32 host LOCAL" not in line:
+            continue
+        match = re.fullmatch(r"\s*\|-- (\d+\.\d+\.\d+\.\d+)", previous)
+        if match and not match[1].startswith("127.") and match[1] not in candidates:
+            candidates.append(match[1])
+    for host in candidates:
+        try:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.bind((host, 0))
+            srv.listen(1)
+            port = srv.getsockname()[1]
+            probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            probe.settimeout(1.0)
+            reachable = probe.connect_ex((host, port)) == 0
+            probe.close()
+            srv.close()
+        except OSError:
+            continue
+        if reachable:
+            return host
+    return "127.0.0.1"
+
+
+LOCAL_HOST = usable_tcp_host()
 
 
 def mount(source: str, destination: str = "/work") -> c.Mount:
@@ -368,6 +507,7 @@ def run_argv(**overrides: object) -> list[str]:
         "extra_args": [],
         "tty": False,
         "command": ["bash"],
+        "signing_disabled": False,
     }
     return c.run_argv(**(kwargs | overrides))
 
@@ -391,13 +531,35 @@ EXPECTED_HEAD = [
     *("-v", "/cfg/.agent/prompts:/home/user/.pi/agent/prompts"),
     *("-v", "/cfg/.agent/prompts:/home/user/.omp/agent/prompts"),
     *("-v", "/cfg/.plannotator:/home/user/.plannotator"),
-    *("-e", "SSH_AUTH_SOCK=/tmp/ssh-agent.sock"),
 ]
+SSH_ENV = ["-e", "SSH_AUTH_SOCK=/tmp/ssh-agent.sock"]
 SOCKET_MOUNT = ["-v", "/run/user/7/llm-agent.sock:/tmp/ssh-agent.sock"]
+SIGNING_OFF_ENV = [
+    "-e",
+    "GIT_CONFIG_COUNT=1",
+    "-e",
+    "GIT_CONFIG_KEY_0=commit.gpgsign",
+    "-e",
+    "GIT_CONFIG_VALUE_0=false",
+    "-e",
+    "GIT_SIGNING_DISABLED=1",
+]
 
 
 def test_run_argv_plain_container() -> None:
-    assert run_argv() == [*EXPECTED_HEAD, *SOCKET_MOUNT, "dev:latest", "bash"]
+    assert run_argv() == [
+        *EXPECTED_HEAD,
+        *SSH_ENV,
+        *SOCKET_MOUNT,
+        "dev:latest",
+        "bash",
+    ]
+
+
+def test_run_argv_without_socket_omits_ssh_env_and_mount() -> None:
+    argv = run_argv(ssh_sock=None)
+
+    assert argv == [*EXPECTED_HEAD, "dev:latest", "bash"]
 
 
 def test_run_argv_plain_container_limits_only_when_set() -> None:
@@ -405,6 +567,7 @@ def test_run_argv_plain_container_limits_only_when_set() -> None:
     ram_only = run_argv(ram_mib=512)
 
     assert both[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
         *SOCKET_MOUNT,
         "--cpus",
         "2",
@@ -414,6 +577,7 @@ def test_run_argv_plain_container_limits_only_when_set() -> None:
         "bash",
     ]
     assert ram_only[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
         *SOCKET_MOUNT,
         "--memory",
         "512m",
@@ -426,6 +590,7 @@ def test_run_argv_krun_uses_annotations_and_tcp_bridge() -> None:
     argv = run_argv(krun=True, cpus=4, ram_mib=8192)
 
     assert argv[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
         *("--runtime=krun", "--network", "pasta:-T,7777"),
         *("--annotation", "krun.cpus=4", "--annotation", "krun.ram_mib=8192"),
         "dev:latest",
@@ -439,6 +604,7 @@ def test_run_argv_extra_args_precede_tty_flags_and_image() -> None:
     argv = run_argv(extra_args=["--network=host"], tty=True, command=[])
 
     assert argv[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
         *SOCKET_MOUNT,
         "--network=host",
         "-i",
@@ -461,6 +627,7 @@ def test_run_argv_publishes_plannotator_port_on_both_networks() -> None:
 
     assert run_argv(plannotator_port=19555) == [
         *EXPECTED_HEAD,
+        *SSH_ENV,
         *SOCKET_MOUNT,
         *publish,
         "dev:latest",
@@ -469,9 +636,41 @@ def test_run_argv_publishes_plannotator_port_on_both_networks() -> None:
     assert run_argv(krun=True, cpus=4, ram_mib=8192, plannotator_port=19555)[
         len(EXPECTED_HEAD) :
     ] == [
+        *SSH_ENV,
         *("--runtime=krun", "--network", "pasta:-T,7777"),
         *("--annotation", "krun.cpus=4", "--annotation", "krun.ram_mib=8192"),
         *publish,
+        "dev:latest",
+        "bash",
+    ]
+
+
+def test_run_argv_signing_disabled_appends_git_config() -> None:
+    with_socket = run_argv(signing_disabled=True)
+    without_socket = run_argv(ssh_sock=None, signing_disabled=True)
+
+    assert with_socket[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
+        *SOCKET_MOUNT,
+        *SIGNING_OFF_ENV,
+        "dev:latest",
+        "bash",
+    ]
+    assert without_socket[len(EXPECTED_HEAD) :] == [
+        *SIGNING_OFF_ENV,
+        "dev:latest",
+        "bash",
+    ]
+
+
+def test_run_argv_signing_disabled_under_krun() -> None:
+    argv = run_argv(krun=True, cpus=4, ram_mib=8192, signing_disabled=True)
+
+    assert argv[len(EXPECTED_HEAD) :] == [
+        *SSH_ENV,
+        *("--runtime=krun", "--network", "pasta:-T,7777"),
+        *("--annotation", "krun.cpus=4", "--annotation", "krun.ram_mib=8192"),
+        *SIGNING_OFF_ENV,
         "dev:latest",
         "bash",
     ]
@@ -483,6 +682,39 @@ def test_pick_free_port_yields_bindable_loopback_port() -> None:
     assert isinstance(port, int)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", port))
+
+
+# --- probe_tcp_signer
+
+
+def test_probe_tcp_signer_accepts_nonempty_identity_reply(
+    signer_server: Callable[[bytes | None], int],
+) -> None:
+    assert c.probe_tcp_signer(LOCAL_HOST, signer_server(agent_identity_reply(2)))
+
+
+def test_probe_tcp_signer_rejects_empty_identity_reply(
+    signer_server: Callable[[bytes | None], int],
+) -> None:
+    assert not c.probe_tcp_signer(LOCAL_HOST, signer_server(agent_identity_reply(0)))
+
+
+def test_probe_tcp_signer_rejects_malformed_reply(
+    signer_server: Callable[[bytes | None], int],
+) -> None:
+    bad = b"\x00\x00\x00\x02\x05\x00"  # type 5 is not the identities answer
+
+    assert not c.probe_tcp_signer(LOCAL_HOST, signer_server(bad))
+
+
+def test_probe_tcp_signer_rejects_closed_connection(
+    signer_server: Callable[[bytes | None], int],
+) -> None:
+    assert not c.probe_tcp_signer(LOCAL_HOST, signer_server(None))
+
+
+def test_probe_tcp_signer_rejects_closed_port() -> None:
+    assert not c.probe_tcp_signer(LOCAL_HOST, closed_tcp_port())
 
 
 def test_exec_argv() -> None:
@@ -536,10 +768,11 @@ def test_parser_passes_command_flags_through() -> None:
 
 
 def test_usage_errors_lists_every_new_container_flag_given_with_running() -> None:
-    args = parse("-r", "-k", "-a=x", "--cpus", "1", "bash")
+    args = parse("-r", "-k", "-a=x", "--cpus", "1", "--no-git-signing", "bash")
 
     assert c.usage_errors(args) == (
-        "-k/--krun, -a/--arg, --cpus cannot be used with -r/--running",
+        "-k/--krun, -a/--arg, --cpus, --no-git-signing"
+        " cannot be used with -r/--running",
     )
 
 
@@ -579,6 +812,13 @@ def test_parser_reads_plannotator_flags() -> None:
     assert (opt_out.plannotator_port, opt_out.no_plannotator_port) == (None, True)
 
 
+def test_parser_reads_no_git_signing_flag() -> None:
+    default = parse("bash")
+    opt_out = parse("--no-git-signing", "bash")
+
+    assert (default.no_git_signing, opt_out.no_git_signing) == (False, True)
+
+
 # --- main
 
 
@@ -590,29 +830,205 @@ def batch_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_main_dry_run_prints_run_argv(
     plain_repo: Path,
+    tmp_sock_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     batch_stdin: None,
 ) -> None:
     monkeypatch.chdir(plain_repo / "sub")
     monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
-    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/7")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_sock_dir))
     monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
 
     c.main(["--dry-run", "--cpus", "2", "bash", "-c", "echo hi"])
 
-    out = capsys.readouterr().out
-    assert out.startswith(
+    read = capsys.readouterr()
+    assert read.out.startswith(
         "podman run --rm --userns keep-id --security-opt label=disable "
     )
     assert (
-        f" -w {plain_repo / 'sub'} -v {plain_repo}:{plain_repo} -v /cfg/.agent:" in out
+        f" -w {plain_repo / 'sub'} -v {plain_repo}:{plain_repo} -v /cfg/.agent:"
+        in read.out
     )
-    assert out.endswith(
-        " -v /run/user/7/llm-agent.sock:/tmp/ssh-agent.sock --cpus 2 "
+    assert read.out.endswith(
+        f" -v {tmp_sock_dir}/llm-agent.sock:/tmp/ssh-agent.sock --cpus 2 "
         "-p 127.0.0.1:19555:19555 -e PLANNOTATOR_REMOTE=1 -e PLANNOTATOR_PORT=19555 "
         "dev:latest bash -c 'echo hi'\n"
     )
+    assert " -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock " in read.out
+    assert "warning" not in read.err
+
+
+def test_main_dry_run_missing_socket_warns(
+    plain_repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    empty = tmp_path.resolve() / "run"
+    empty.mkdir()
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(empty))
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    c.main(["--dry-run", "bash"])
+
+    read = capsys.readouterr()
+    assert "llm-agent.sock" not in read.out
+    assert "SSH_AUTH_SOCK" not in read.out
+    assert (
+        f"c: warning: {empty / 'llm-agent.sock'}: signing agent socket not found; "
+        "running without ssh-agent\n" in read.err
+    )
+
+
+def test_main_dry_run_krun_signer_reachable_no_warning(
+    plain_repo: Path,
+    signer_server: Callable[[bytes | None], int],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    port = signer_server(agent_identity_reply(1))
+    monkeypatch.setattr(c, "KRUN_SSH_PORT", port)
+    monkeypatch.setattr(c, "SSH_PROBE_HOST", LOCAL_HOST)
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+
+    c.main(["--dry-run", "-k", "bash"])
+
+    read = capsys.readouterr()
+    assert (
+        f" --runtime=krun --network pasta:-T,{port} --annotation krun.cpus=4 "
+        "--annotation krun.ram_mib=8192 " in read.out
+    )
+    assert "warning" not in read.err
+
+
+def test_main_dry_run_krun_missing_signer_warns(
+    plain_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    port = closed_tcp_port()
+    monkeypatch.setattr(c, "KRUN_SSH_PORT", port)
+    monkeypatch.setattr(c, "SSH_PROBE_HOST", LOCAL_HOST)
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+
+    c.main(["--dry-run", "-k", "bash"])
+
+    read = capsys.readouterr()
+    assert (
+        f" --runtime=krun --network pasta:-T,{port} --annotation krun.cpus=4 "
+        "--annotation krun.ram_mib=8192 " in read.out
+    )
+    assert "llm-agent.sock" not in read.out
+    assert (
+        f"c: warning: {LOCAL_HOST}:{port}: no ssh-agent reachable; "
+        "running without ssh-agent\n" in read.err
+    )
+
+
+def test_main_dry_run_no_git_signing_flag_without_socket(
+    plain_repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    empty = tmp_path.resolve() / "run"
+    empty.mkdir()
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(empty))
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    c.main(["--dry-run", "--no-git-signing", "bash"])
+
+    read = capsys.readouterr()
+    assert "llm-agent.sock" not in read.out
+    assert "SSH_AUTH_SOCK" not in read.out
+    assert (
+        " -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=commit.gpgsign "
+        "-e GIT_CONFIG_VALUE_0=false " in read.out
+    )
+    assert "warning" not in read.err
+
+
+def test_main_dry_run_git_signing_disabled_env_without_socket(
+    plain_repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    empty = tmp_path.resolve() / "run"
+    empty.mkdir()
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(empty))
+    monkeypatch.setenv("GIT_SIGNING_DISABLED", "1")
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    c.main(["--dry-run", "bash"])
+
+    read = capsys.readouterr()
+    assert "llm-agent.sock" not in read.out
+    assert "SSH_AUTH_SOCK" not in read.out
+    assert (
+        " -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=commit.gpgsign "
+        "-e GIT_CONFIG_VALUE_0=false " in read.out
+    )
+    assert "warning" not in read.err
+
+
+def test_main_dry_run_no_git_signing_skips_present_socket(
+    plain_repo: Path,
+    tmp_sock_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_sock_dir))
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    c.main(["--dry-run", "--no-git-signing", "bash"])
+
+    read = capsys.readouterr()
+    assert "llm-agent.sock" not in read.out
+    assert "SSH_AUTH_SOCK" not in read.out
+    assert " -e GIT_CONFIG_COUNT=1 " in read.out
+    assert "warning" not in read.err
+
+
+def test_main_dry_run_krun_no_git_signing_skips_probe(
+    plain_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    port = closed_tcp_port()
+    monkeypatch.setattr(c, "KRUN_SSH_PORT", port)
+    monkeypatch.setattr(c, "SSH_PROBE_HOST", LOCAL_HOST)
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+
+    c.main(["--dry-run", "-k", "--no-git-signing", "bash"])
+
+    read = capsys.readouterr()
+    assert f" --runtime=krun --network pasta:-T,{port} " in read.out
+    assert (
+        " -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=commit.gpgsign "
+        "-e GIT_CONFIG_VALUE_0=false " in read.out
+    )
+    assert " -e GIT_SIGNING_DISABLED=1 " in read.out
+    assert "warning" not in read.err
 
 
 def test_new_container_banner_advertises_plan_ui(

@@ -6,7 +6,14 @@ repository root is bind-mounted at its host path so git's absolute worktree
 links stay valid inside, the container starts in the current directory, and it
 gets the agent dotfiles from $AGENT_CONFIG_DIR plus the host's isolated
 ssh-agent (a socket bind mount, or under -k a pasta TCP bridge that the image
-entrypoint connects to SSH_AUTH_SOCK).
+entrypoint connects to SSH_AUTH_SOCK). If the signing socket does not exist,
+`c` warns and starts the container without it; ssh signing then fails at
+commit time. Under -k, before booting, `c` probes the host's bridge port with
+an ssh-agent identity request and warns when no signer answers. With
+--no-git-signing (or a non-empty GIT_SIGNING_DISABLED), both checks are
+skipped, no socket is mounted, and commit.gpgsign=false is injected via
+GIT_CONFIG_* so commits succeed unsigned; GIT_SIGNING_DISABLED=1 is passed
+into the container so agent-sandbox does not warn about the unset socket.
 
 With -r (or -c) the command runs instead in the already-running container whose
 bind mount contains the current directory, translated to its container path.
@@ -28,6 +35,7 @@ import json
 import os
 import shlex
 import socket
+import struct
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -40,6 +48,8 @@ CONTAINER_HOME = Path("/home/user")
 # /run rejects the socket bind in the krun guest, hence /tmp
 CONTAINER_SSH_SOCK = "/tmp/ssh-agent.sock"
 KRUN_SSH_PORT = 7777
+# host loopback address the krun TCP signer check probes
+SSH_PROBE_HOST = "127.0.0.1"
 KRUN_CPUS = 4
 KRUN_RAM_MIB = 8192
 # (path under AGENT_CONFIG_DIR, path under CONTAINER_HOME), parents before children.
@@ -195,6 +205,49 @@ def pick_free_port() -> int:
     return port
 
 
+def probe_tcp_signer(host: str, port: int, timeout: float = 1.0) -> bool:
+    """Report whether an ssh-agent answers on a TCP endpoint with at least one key.
+
+    Speaks the ssh-agent wire protocol (4-byte big-endian length, then a
+    1-byte type) so a dead agent behind a live TCP bridge or an agent with an
+    empty key list count as unavailable.
+
+    Args:
+        host: Host to probe.
+        port: TCP port to probe.
+        timeout: Seconds allowed for the connect, the send, and each read.
+
+    Returns:
+        True only when the endpoint answers ``SSH_AGENTC_REQUEST_IDENTITIES``
+            (type 12) reporting at least one key; connection errors, timeouts,
+            malformed replies, and empty key lists return False.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            # SSH_AGENTC_REQUEST_IDENTITIES: length 1, type 11
+            sock.sendall(b"\x00\x00\x00\x01\x0b")
+            reply = b""
+            while len(reply) < 4:
+                chunk = sock.recv(4 - len(reply))
+                if not chunk:
+                    return False
+                reply += chunk
+            (length,) = struct.unpack(">I", reply)
+            payload = b""
+            while len(payload) < length:
+                chunk = sock.recv(length - len(payload))
+                if not chunk:
+                    return False
+                payload += chunk
+            # SSH_AGENTC_REQUEST_IDENTITIES_ANSWER (12): type byte + key count
+            if len(payload) < 5 or payload[0] != 0x0C:
+                return False
+            (keys,) = struct.unpack(">I", payload[1:5])
+            return keys >= 1
+    except OSError:
+        return False
+
+
 def check_mount_allowed(path: Path) -> None:
     """Refuse mounting ``$HOME`` or one of its ancestors (``/`` included).
 
@@ -276,11 +329,12 @@ def run_argv(
     cwd: Path,
     mounts: tuple[Path, ...],
     agent_config_dir: Path,
-    ssh_sock: Path,
+    ssh_sock: Path | None,
     krun: bool,
     cpus: int | None,
     ram_mib: int | None,
     plannotator_port: int | None,
+    signing_disabled: bool,
     extra_args: list[str],
     tty: bool,
     command: list[str],
@@ -291,7 +345,8 @@ def run_argv(
         cwd: Working directory inside the container, identical to the host path.
         mounts: Host directories to bind at their own paths.
         agent_config_dir: Host directory holding the agent dotfiles.
-        ssh_sock: Host ssh-agent socket, bind-mounted unless ``krun``.
+        ssh_sock: Host ssh-agent socket, bind-mounted unless ``krun``; None
+            mounts no socket and sets no ``SSH_AUTH_SOCK``.
         krun: Boot a libkrun microVM and bridge the ssh-agent over TCP instead.
         cpus: Under ``krun`` the vCPU count (must be set); otherwise the
             ``--cpus`` limit, omitted when None.
@@ -300,6 +355,10 @@ def run_argv(
         plannotator_port: Host port for the Plannotator plan UI, published to
             the same port in the container with ``PLANNOTATOR_REMOTE=1`` and
             ``PLANNOTATOR_PORT`` set; omitted when None.
+        signing_disabled: When true, inject ``commit.gpgsign=false`` via
+            ``GIT_CONFIG_*`` so commits succeed unsigned, and set
+            ``GIT_SIGNING_DISABLED=1`` in the container so ``agent-sandbox``
+            does not warn about the unset ssh-agent socket.
         extra_args: Additional ``podman run`` arguments, placed before the image.
         tty: Whether to attach an interactive terminal (``-i -t``).
         command: Command to run; empty for the image's default.
@@ -324,7 +383,8 @@ def run_argv(
             "-v",
             f"{agent_config_dir / host_rel}:{CONTAINER_HOME / container_rel}",
         ]
-    argv += ["-e", f"SSH_AUTH_SOCK={CONTAINER_SSH_SOCK}"]
+    if krun or ssh_sock is not None:
+        argv += ["-e", f"SSH_AUTH_SOCK={CONTAINER_SSH_SOCK}"]
     if krun:
         # virtio-fs passes files but not Unix-socket endpoints, so instead of
         # mounting the ssh-agent socket, forward guest connections to KRUN_SSH_PORT
@@ -339,11 +399,23 @@ def run_argv(
             f"krun.ram_mib={ram_mib}",
         ]
     else:
-        argv += ["-v", f"{ssh_sock}:{CONTAINER_SSH_SOCK}"]
+        if ssh_sock is not None:
+            argv += ["-v", f"{ssh_sock}:{CONTAINER_SSH_SOCK}"]
         if cpus is not None:
             argv += ["--cpus", str(cpus)]
         if ram_mib is not None:
             argv += ["--memory", f"{ram_mib}m"]
+    if signing_disabled:
+        argv += [
+            "-e",
+            "GIT_CONFIG_COUNT=1",
+            "-e",
+            "GIT_CONFIG_KEY_0=commit.gpgsign",
+            "-e",
+            "GIT_CONFIG_VALUE_0=false",
+            "-e",
+            "GIT_SIGNING_DISABLED=1",
+        ]
     if plannotator_port is not None:
         argv += [
             "-p",
@@ -388,8 +460,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="c",
         usage=(
             "%(prog)s [--dry-run] [-k] [--cpus N] [--ram-mib MIB] "
-            "[--plannotator-port PORT | --no-plannotator-port] [-a=ARG ...] "
-            "[--] [CMD ...]\n"
+            "[--plannotator-port PORT | --no-plannotator-port] [--no-git-signing] "
+            "[-a=ARG ...] [--] [CMD ...]\n"
             "       %(prog)s [--dry-run] -r [-c NAME] [--] CMD ..."
         ),
         description=(
@@ -440,6 +512,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-plannotator-port",
         action="store_true",
         help="do not expose the Plannotator plan UI port",
+    )
+    new.add_argument(
+        "--no-git-signing",
+        action="store_true",
+        help=(
+            "run without commit signing: no signing socket and commit signing "
+            "disabled in the container (env: GIT_SIGNING_DISABLED)"
+        ),
     )
     new.add_argument(
         "-a",
@@ -500,6 +580,7 @@ def usage_errors(args: argparse.Namespace) -> tuple[str, ...]:
         ("--ram-mib", args.ram_mib is not None),
         ("--plannotator-port", args.plannotator_port is not None),
         ("--no-plannotator-port", args.no_plannotator_port),
+        ("--no-git-signing", args.no_git_signing),
     )
     given = [flag for flag, on in new_only if on]
     if given:
@@ -520,7 +601,9 @@ def new_container(
         tty: Whether stdin is a terminal.
 
     Returns:
-        The argv and the banner printed before exec.
+        The argv and the banner printed before exec. Without an existing
+            signing socket, and not under ``krun``, a warning is printed to
+            stderr and no ssh-agent socket is mounted.
 
     Raises:
         Error: When a mount is refused, ``AGENT_CONFIG_DIR`` is unset, or no
@@ -533,6 +616,26 @@ def new_container(
     if not agent_config_dir:
         raise Error("AGENT_CONFIG_DIR must be set to create a new container")
     xdg_runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    signing_disabled = args.no_git_signing or bool(
+        os.environ.get("GIT_SIGNING_DISABLED")
+    )
+    ssh_sock = Path(xdg_runtime_dir) / "llm-agent.sock"
+    if args.krun:
+        if not signing_disabled and not probe_tcp_signer(SSH_PROBE_HOST, KRUN_SSH_PORT):
+            print(
+                f"c: warning: {SSH_PROBE_HOST}:{KRUN_SSH_PORT}: "
+                "no ssh-agent reachable; running without ssh-agent",
+                file=sys.stderr,
+            )
+    elif signing_disabled:
+        ssh_sock = None
+    elif not ssh_sock.is_socket():
+        print(
+            f"c: warning: {ssh_sock}: signing agent socket not found; "
+            "running without ssh-agent",
+            file=sys.stderr,
+        )
+        ssh_sock = None
     cpus, ram_mib = args.cpus, args.ram_mib
     if args.krun:
         cpus = KRUN_CPUS if cpus is None else cpus
@@ -547,11 +650,12 @@ def new_container(
         cwd=cwd,
         mounts=mounts,
         agent_config_dir=Path(agent_config_dir),
-        ssh_sock=Path(xdg_runtime_dir) / "llm-agent.sock",
+        ssh_sock=ssh_sock,
         krun=args.krun,
         cpus=cpus,
         ram_mib=ram_mib,
         plannotator_port=plannotator_port,
+        signing_disabled=signing_disabled,
         extra_args=args.arg,
         tty=tty,
         command=args.command,

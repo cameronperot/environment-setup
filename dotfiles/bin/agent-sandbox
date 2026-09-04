@@ -310,12 +310,16 @@ validate_workspace() {
 # accepted: its bind is the last filesystem op, so a rw bind of
 # anything else could shadow an earlier ro mount. Invalid or unset →
 # warn and continue without forwarding (signing fails at use time).
+# GIT_SIGNING_DISABLED (set by c for --no-git-signing containers)
+# marks the unset socket as deliberate: skip that warning.
 # Globals: ssh_sock (modified)
 # Outputs: warnings to stderr
 #######################################
 resolve_ssh_sock() {
     if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
-        warn "SSH_AUTH_SOCK unset: ssh-agent not forwarded"
+        if [[ -z "${GIT_SIGNING_DISABLED:-}" ]]; then
+            warn "SSH_AUTH_SOCK unset: ssh-agent not forwarded"
+        fi
         return 0
     fi
     if ! ssh_sock="$(realpath -e "${SSH_AUTH_SOCK}" 2>/dev/null)"; then
