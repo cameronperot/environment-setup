@@ -36,13 +36,14 @@ Patch the name in the module that *uses* it, not where it is defined.
 # app/pricing.py
 from services.fx import get_rate
 
+
 def price_in_usd(amount, ccy):
     return amount * get_rate(ccy)
 ```
 
 ```python
-mocker.patch("services.fx.get_rate", ...)   # wrong: pricing already imported its own ref
-mocker.patch("app.pricing.get_rate", ...)   # right: patches the name pricing looks up
+mocker.patch("services.fx.get_rate", ...)  # wrong: pricing already imported its own ref
+mocker.patch("app.pricing.get_rate", ...)  # right: patches the name pricing looks up
 ```
 
 ## Always spec your mocks

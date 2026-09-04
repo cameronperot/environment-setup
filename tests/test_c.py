@@ -35,9 +35,9 @@ def load_script() -> types.ModuleType:
             ``__pycache__`` lands in ``dotfiles/bin/``, which ``install.py`` rsyncs.
     """
     loader = SourceFileLoader("c", str(SCRIPT))
-    module = importlib.util.module_from_spec(
-        importlib.util.spec_from_loader("c", loader)
-    )
+    spec = importlib.util.spec_from_loader("c", loader)
+    assert spec is not None, f"failed to create import spec for {SCRIPT}"
+    module = importlib.util.module_from_spec(spec)
     dont_write_bytecode = sys.dont_write_bytecode
     sys.dont_write_bytecode = True
     try:
@@ -135,7 +135,7 @@ def bare_layout(tmp_path: Path) -> Path:
     return d
 
 
-def mount(source: str, destination: str = "/work") -> "c.Mount":
+def mount(source: str, destination: str = "/work") -> c.Mount:
     """Build a ``Mount`` from path strings.
 
     Args:
@@ -148,9 +148,7 @@ def mount(source: str, destination: str = "/work") -> "c.Mount":
     return c.Mount(source=Path(source), destination=Path(destination))
 
 
-def container(
-    name: str, *mounts: "c.Mount", id: str = "0123456789abcdef"
-) -> "c.Container":
+def container(name: str, *mounts: c.Mount, id: str = "0123456789abcdef") -> c.Container:
     """Build a ``Container`` from its name and mounts.
 
     Args:
@@ -333,14 +331,14 @@ def test_select_container_errors() -> None:
     mountless = container("x")
     containers = (mountless, container("y", mount("/srv")))
 
-    with pytest.raises(c.Error, match="^no running containers$"):
+    with pytest.raises(c.Error, match=r"^no running containers$"):
         c.select_container(cwd=Path("/srv"), containers=(), name=None)
-    with pytest.raises(c.Error, match="^no running container named 'nope'$"):
+    with pytest.raises(c.Error, match=r"^no running container named 'nope'$"):
         c.select_container(cwd=Path("/srv"), containers=containers, name="nope")
-    with pytest.raises(c.Error, match="^no bind mount in 'x' contains /srv$"):
+    with pytest.raises(c.Error, match=r"^no bind mount in 'x' contains /srv$"):
         c.select_container(cwd=Path("/srv"), containers=containers, name="x")
     with pytest.raises(
-        c.Error, match="^no bind mount in any running container contains /tmp$"
+        c.Error, match=r"^no bind mount in any running container contains /tmp$"
     ):
         c.select_container(cwd=Path("/tmp"), containers=containers, name=None)
 

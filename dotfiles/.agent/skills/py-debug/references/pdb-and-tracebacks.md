@@ -71,7 +71,10 @@ except Exception:
 - Prefer a temporary log line over print in threaded or async code; timestamps and thread names make interleaved output readable:
 
 ```python
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(threadName)s %(name)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(threadName)s %(name)s %(levelname)s %(message)s",
+)
 ```
 
 - Enable one library's logger instead of global DEBUG when only that library is suspect: `logging.getLogger("urllib3").setLevel(logging.DEBUG)`.

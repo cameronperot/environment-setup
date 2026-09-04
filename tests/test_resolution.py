@@ -4,6 +4,7 @@ import logging
 
 import pytest
 from conftest import build_env, make_syncer
+
 from sync_dotfiles import ConfigError, Manifest
 
 
@@ -577,12 +578,7 @@ def test_root_allow_orphan_exclude_keeps_untracked_repo_tree(tmp_path):
 def test_plain_exclude_repo_file_remains_orphan(tmp_path):
     env = build_env(
         tmp_path,
-        (
-            "include:\n"
-            "  - path: tool\n"
-            "    include: [a.conf]\n"
-            "    exclude: ['^cache$']\n"
-        ),
+        ("include:\n  - path: tool\n    include: [a.conf]\n    exclude: ['^cache$']\n"),
         home_files={"tool/a.conf": "a"},
         repo_files={"tool/cache/blob": "b"},
     )

@@ -161,7 +161,7 @@ class Include:
     parts: PathParts
     glob: bool
     optional: bool
-    scope: "Scope | None"
+    scope: Scope | None
 
 
 @dataclass(frozen=True)
@@ -192,7 +192,7 @@ class Manifest:
     path: Path
 
     @classmethod
-    def load(cls, path: Path) -> "Manifest":
+    def load(cls, path: Path) -> Manifest:
         """Load, parse, and validate the manifest at ``path``.
 
         Args:
@@ -531,8 +531,9 @@ def _check_include_against_excludes(
                 ancestor = "/".join(relative[:depth])
                 if exclude.pattern.search(ancestor):
                     raise ConfigError(
-                        f"{location}: include item {'/'.join(home_relative)!r} is nested "
-                        f"beneath excluded path {ancestor!r} (pattern {exclude.source!r})"
+                        f"{location}: include item {'/'.join(home_relative)!r} is "
+                        f"nested beneath excluded path {ancestor!r} "
+                        f"(pattern {exclude.source!r})"
                     )
 
 
@@ -1241,7 +1242,7 @@ class DotfilesSyncer:
             chain = (*chain, (dir_parts, scope.exclude))
 
         for child in self._sorted_children(dir_abs):
-            child_parts = dir_parts + (child.name,)
+            child_parts = (*dir_parts, child.name)
             if self._match_exclude(parts=child_parts, chain=chain) is not None:
                 continue
             if child.is_symlink():
@@ -1308,7 +1309,7 @@ class DotfilesSyncer:
             )
             if cur_abs.is_dir() and not cur_abs.is_symlink():
                 for child in self._sorted_children(cur_abs):
-                    child_parts = cur_parts + (child.name,)
+                    child_parts = (*cur_parts, child.name)
                     if self._match_exclude(parts=child_parts, chain=chain) is not None:
                         continue
                     if child.is_symlink() and index + 1 < len(parts):
@@ -1333,7 +1334,7 @@ class DotfilesSyncer:
             for child in self._sorted_children(cur_abs):
                 if not fnmatch.fnmatch(child.name, component):
                     continue
-                child_parts = cur_parts + (child.name,)
+                child_parts = (*cur_parts, child.name)
                 if self._match_exclude(parts=child_parts, chain=chain) is not None:
                     continue
                 if child.is_symlink() and index + 1 < len(parts):
@@ -1359,7 +1360,7 @@ class DotfilesSyncer:
             if not child.exists() and not child.is_symlink():
                 return
             if (
-                self._match_exclude(parts=cur_parts + (component,), chain=chain)
+                self._match_exclude(parts=(*cur_parts, component), chain=chain)
                 is not None
             ):
                 return
@@ -1368,7 +1369,7 @@ class DotfilesSyncer:
                     item=item,
                     next_index=index + 1,
                     link_abs=child,
-                    link_parts=cur_parts + (component,),
+                    link_parts=(*cur_parts, component),
                     chain=chain,
                     optional=optional,
                 )
@@ -1377,7 +1378,7 @@ class DotfilesSyncer:
                 item=item,
                 index=index + 1,
                 cur_abs=child,
-                cur_parts=cur_parts + (component,),
+                cur_parts=(*cur_parts, component),
                 chain=chain,
                 optional=optional,
             )
@@ -1645,7 +1646,7 @@ class DotfilesSyncer:
             for child in self._sorted_children(record.abs):
                 if self._name_is_covered(child.name, record.scope):
                     continue
-                child_parts = record.parts + (child.name,)
+                child_parts = (*record.parts, child.name)
                 if (
                     self._match_exclude(parts=child_parts, chain=child_chain)
                     is not None
@@ -1686,6 +1687,7 @@ class DotfilesSyncer:
         list[PurePosixPath],
         list[PurePosixPath],
         list[MissingCopy],
+        list[PurePosixPath],
         list[PurePosixPath],
     ]:
         """Classify every repository file against the resolved manifest set.
@@ -1943,7 +1945,8 @@ class DotfilesSyncer:
             probe = probe / part
             if probe.is_symlink():
                 self._errors.append(
-                    f"{rel}: repository ancestor {probe.relative_to(self._dotfiles_dir)} "
+                    f"{rel}: repository ancestor "
+                    f"{probe.relative_to(self._dotfiles_dir)} "
                     "is a symlink; refusing to write through it"
                 )
                 logger.error(
@@ -2098,7 +2101,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         The parsed arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Sync dotfiles from $HOME into the repository's dotfiles/ directory.",
+        description=(
+            "Sync dotfiles from $HOME into the repository's dotfiles/ directory."
+        ),
     )
     parser.add_argument(
         "--config",

@@ -8,6 +8,7 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 # mapping from ``platform.machine()`` values to the Neovim appimage architecture suffix
@@ -26,6 +27,8 @@ class EnvironmentInstaller:
         neovim_version: str = "stable",
         extract_appimage: bool = False,
         dry_run: bool = False,
+        home_dir: Path | None = None,
+        repo_dir: Path | None = None,
     ):
         """Initialize ``EnvironmentInstaller``.
 
@@ -36,26 +39,18 @@ class EnvironmentInstaller:
             extract_appimage: Extract the appimage (might be necessary if FUSE isn't
                 available).
             dry_run: Preview the dotfile changes without modifying anything.
+            home_dir: Directory to install into; defaults to the user's home.
+            repo_dir: Directory holding ``dotfiles/``; defaults to this file's parent.
         """
-        self._repo_dir = Path(__file__).parent
-        self._home_dir = Path().home()
+        self._repo_dir = repo_dir if repo_dir is not None else Path(__file__).parent
+        self._home_dir = home_dir if home_dir is not None else Path.home()
         self._logger = logging.getLogger(self.__class__.__name__)
         self._neovim_version = neovim_version
         self._extract_appimage = extract_appimage
         self._dry_run = dry_run
 
-        # configure the logger
-        logging.basicConfig(
-            level=logging.INFO,
-            format="[%(levelname)s %(asctime)s] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-
-        # change to the repo directory
-        os.chdir(self._repo_dir)
-
     def _run_command(
-        self, command: list[str], cwd: Path | None = None
+        self, command: Sequence[str | Path], cwd: Path | None = None
     ) -> subprocess.CompletedProcess:
         """Run the provided command, logging the command itself as well as the STDOUT.
 
@@ -94,7 +89,7 @@ class EnvironmentInstaller:
 
     def _comment_out_lines(self, file_path: Path, prefixes: tuple[str, ...]) -> None:
         """Comment out any lines starting with one of the given prefixes."""
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         lines = [
@@ -105,12 +100,16 @@ class EnvironmentInstaller:
         with open(file_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
 
-    def _replace_line_prefix(self, file_path: Path, prefix: str, replacement: str) -> None:
+    def _replace_line_prefix(
+        self, file_path: Path, prefix: str, replacement: str
+    ) -> None:
         """Replace any lines starting with ``prefix`` with ``replacement``."""
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
-        lines = [f"{replacement}\n" if line.startswith(prefix) else line for line in lines]
+        lines = [
+            f"{replacement}\n" if line.startswith(prefix) else line for line in lines
+        ]
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
@@ -207,6 +206,7 @@ class EnvironmentInstaller:
 
     def run(self) -> None:
         """Run all install methods in sequence."""
+        os.chdir(self._repo_dir)
         self._check_dependencies()
 
         try:
@@ -226,8 +226,15 @@ class EnvironmentInstaller:
             raise SystemExit(1) from error
 
 
-if __name__ == "__main__":
-    # configure the argument parser
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Args:
+        argv: Argument list; defaults to ``sys.argv[1:]``.
+
+    Returns:
+        The parsed arguments.
+    """
     parser = argparse.ArgumentParser(
         description="CLI for installing/configuring an Linux user environment.",
     )
@@ -237,7 +244,10 @@ if __name__ == "__main__":
         type=str,
         default="stable",
         metavar="<NVIM_VERSION>",
-        help="Version of Neovim to install, e.g., v0.11.0, stable, or nightly. Use 'none' to skip.",
+        help=(
+            "Version of Neovim to install, e.g., v0.11.0, stable, or nightly. "
+            "Use 'none' to skip."
+        ),
     )
     parser.add_argument(
         "--extract-appimage",
@@ -249,12 +259,33 @@ if __name__ == "__main__":
         action="store_true",
         help="Preview the dotfile changes without modifying anything.",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    # initialize and run the installer
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the CLI.
+
+    Args:
+        argv: Argument list; defaults to ``sys.argv[1:]``.
+
+    Returns:
+        Process exit code: 0 on success.
+    """
+    args = parse_args(argv)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(levelname)s %(asctime)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
     installer = EnvironmentInstaller(
         neovim_version=args.neovim_version,
         extract_appimage=args.extract_appimage,
         dry_run=args.dry_run,
     )
     installer.run()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

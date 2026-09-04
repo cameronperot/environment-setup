@@ -1,10 +1,7 @@
-"""Shared fixtures and builders for the sync_dotfiles test suite."""
+"""Shared builders for the sync_dotfiles test suite."""
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sync_dotfiles import DotfilesSyncer, Manifest
 
@@ -104,3 +101,15 @@ def snapshot(root: Path) -> dict[str, tuple[bytes, int, int]]:
             stat.st_mtime_ns,
         )
     return state
+
+
+def managed_keys(syncer: DotfilesSyncer) -> list[str]:
+    """Run a resolution and return the sorted managed home-relative paths.
+
+    Args:
+        syncer: The engine to resolve with.
+
+    Returns:
+        Sorted home-relative POSIX paths of managed files.
+    """
+    return sorted(syncer.assessment().managed)

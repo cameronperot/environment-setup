@@ -105,6 +105,7 @@ def dump_tasks(loop):
     for t in asyncio.all_tasks(loop):
         t.print_stack()
 
+
 # near startup, inside the running loop:
 loop = asyncio.get_running_loop()
 loop.add_signal_handler(signal.SIGUSR1, dump_tasks, loop)

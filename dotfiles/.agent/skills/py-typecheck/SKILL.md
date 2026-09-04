@@ -54,8 +54,8 @@ When a diagnostic contradicts runtime reality, verify (run the code path, read t
 ## Suppression syntax
 
 ```python
-x = f(arg)    # ty: ignore[invalid-argument-type]
-y = g()       # ty: ignore[missing-argument, invalid-argument-type]
+x = f(arg)  # ty: ignore[invalid-argument-type]
+y = g()  # ty: ignore[missing-argument, invalid-argument-type]
 z: int = h()  # type: ignore[ty:invalid-assignment]  (scopes to ty in multi-checker repos)
 ```
 
