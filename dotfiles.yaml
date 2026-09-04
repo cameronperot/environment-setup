@@ -24,8 +24,11 @@ secret_patterns:
 include:
   - .XCompose
   - .bash_aliases
+  - .bash_profile
+  - .bashrc
   - .bunfig.toml
   - .gitconfig
+  - .inputrc
   - .mamba_init.sh
   - .npmrc
   - .tmux.conf
@@ -373,8 +376,6 @@ exclude:
     optional: true
   - pattern: '^\.local_exports$'
     optional: true
-  - pattern: '^\.bash_profile$'
-    optional: true
   - pattern: '^\.xinitrc$'
     optional: true
   - pattern: '^\.dotfiles$'
@@ -402,8 +403,6 @@ exclude:
   - pattern: '^\.zsh_plugins\.zsh$'
     optional: true
   - pattern: '^\.bash_logout$'
-    optional: true
-  - pattern: '^\.bashrc$'
     optional: true
   - pattern: '^\.cache$'
     optional: true

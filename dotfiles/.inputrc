@@ -1,0 +1,25 @@
+# Readline counterpart to the vi-mode plugin and the bindkey lines in .zshrc
+
+set editing-mode vi
+set keyseq-timeout 1 # for esc in vi mode
+
+# No mode indicator, matching zsh: .zshrc sets RPROMPT="" after the vi-mode
+# plugin loads, which clears the RPS1 the plugin installed for MODE_INDICATOR
+set show-mode-in-prompt off
+
+# Completion (partial compensation for losing fzf-tab)
+set completion-ignore-case on
+set show-all-if-ambiguous on
+set colored-stats on
+
+# history-substring-search
+# Readline only matches a prefix, not a substring anywhere in the line
+set keymap vi-command
+"k": history-search-backward
+"j": history-search-forward
+
+# Key bindings (insert mode). The leading space keeps them out of history
+set keymap vi-insert
+"\C-r": " ranger\n" # ctrl-r -> ranger
+"\C-n": " nvim\n"   # ctrl-n -> nvim
+"\C-h": " hstr\n"   # ctrl-h -> hstr
