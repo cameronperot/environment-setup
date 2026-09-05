@@ -768,11 +768,11 @@ def test_parser_passes_command_flags_through() -> None:
 
 
 def test_usage_errors_lists_every_new_container_flag_given_with_running() -> None:
-    args = parse("-r", "-k", "-a=x", "--cpus", "1", "--no-git-signing", "bash")
+    args = parse("-r", "-k", "-a=x", "--cpus", "1", "--no-git-signing", "--ngr", "bash")
 
     assert c.usage_errors(args) == (
-        "-k/--krun, -a/--arg, --cpus, --no-git-signing"
-        " cannot be used with -r/--running",
+        "-k/--krun, -a/--arg, --cpus, --no-git-signing/--ngs, "
+        "--no-git-root/--ngr cannot be used with -r/--running",
     )
 
 
@@ -817,6 +817,15 @@ def test_parser_reads_no_git_signing_flag() -> None:
     opt_out = parse("--no-git-signing", "bash")
 
     assert (default.no_git_signing, opt_out.no_git_signing) == (False, True)
+    assert parse("--ngs", "bash").no_git_signing is True
+
+
+def test_parser_reads_no_git_root_flag() -> None:
+    default = parse("bash")
+    opt_out = parse("--no-git-root", "bash")
+
+    assert (default.no_git_root, opt_out.no_git_root) == (False, True)
+    assert parse("--ngr", "bash").no_git_root is True
 
 
 # --- main
@@ -857,6 +866,26 @@ def test_main_dry_run_prints_run_argv(
     )
     assert " -e SSH_AUTH_SOCK=/tmp/ssh-agent.sock " in read.out
     assert "warning" not in read.err
+
+
+def test_main_dry_run_no_git_root_mounts_cwd_only(
+    plain_repo: Path,
+    tmp_sock_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    batch_stdin: None,
+) -> None:
+    monkeypatch.chdir(plain_repo / "sub")
+    monkeypatch.setenv("AGENT_CONFIG_DIR", "/cfg")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_sock_dir))
+    monkeypatch.setattr(c, "pick_free_port", lambda: 19555)
+
+    c.main(["--dry-run", "--no-git-root", "bash"])
+
+    read = capsys.readouterr()
+    assert f" -w {plain_repo / 'sub'}" in read.out
+    assert f" -v {plain_repo / 'sub'}:{plain_repo / 'sub'} " in read.out
+    assert f" -v {plain_repo}:{plain_repo} " not in read.out
 
 
 def test_main_dry_run_missing_socket_warns(

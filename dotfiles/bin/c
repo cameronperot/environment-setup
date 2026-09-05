@@ -21,7 +21,8 @@ bind mount contains the current directory, translated to its container path.
 Mounted at its host path: the directory holding `.bare` for a `.bare` layout
 (plus the toplevel when it lies elsewhere), the toplevel and the common git dir
 for a linked worktree of a plain repository, otherwise the toplevel, or the
-current directory outside git.
+current directory outside git. With --no-git-root only the current directory
+is mounted and git metadata stays outside.
 
 The Plannotator plan UI port is exposed by default: a free loopback port is
 picked on the host and published one-to-one into the container, with
@@ -461,6 +462,7 @@ def build_parser() -> argparse.ArgumentParser:
         usage=(
             "%(prog)s [--dry-run] [-k] [--cpus N] [--ram-mib MIB] "
             "[--plannotator-port PORT | --no-plannotator-port] [--no-git-signing] "
+            "[--no-git-root] "
             "[-a=ARG ...] [--] [CMD ...]\n"
             "       %(prog)s [--dry-run] -r [-c NAME] [--] CMD ..."
         ),
@@ -515,10 +517,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     new.add_argument(
         "--no-git-signing",
+        "--ngs",
         action="store_true",
         help=(
             "run without commit signing: no signing socket and commit signing "
             "disabled in the container (env: GIT_SIGNING_DISABLED)"
+        ),
+    )
+    new.add_argument(
+        "--no-git-root",
+        "--ngr",
+        action="store_true",
+        help=(
+            "mount only the current directory instead of walking up to the git "
+            "root (git metadata stays unmounted)"
         ),
     )
     new.add_argument(
@@ -580,7 +592,8 @@ def usage_errors(args: argparse.Namespace) -> tuple[str, ...]:
         ("--ram-mib", args.ram_mib is not None),
         ("--plannotator-port", args.plannotator_port is not None),
         ("--no-plannotator-port", args.no_plannotator_port),
-        ("--no-git-signing", args.no_git_signing),
+        ("--no-git-signing/--ngs", args.no_git_signing),
+        ("--no-git-root/--ngr", args.no_git_root),
     )
     given = [flag for flag, on in new_only if on]
     if given:
@@ -609,7 +622,7 @@ def new_container(
         Error: When a mount is refused, ``AGENT_CONFIG_DIR`` is unset, or no
             free plannotator port can be found.
     """
-    mounts = resolve_mounts(cwd)
+    mounts = (cwd,) if args.no_git_root else resolve_mounts(cwd)
     for mount in mounts:
         check_mount_allowed(mount)
     agent_config_dir = os.environ.get("AGENT_CONFIG_DIR")

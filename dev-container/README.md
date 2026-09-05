@@ -25,8 +25,8 @@ GIT_SIGNING_KEY="$(cat ~/.ssh/llm_agent_ed25519.pub)" ./dev-container/build.sh  
 | `c -k CMD` | Like `c CMD`, inside a libkrun microVM via `--runtime=krun` (see [Isolation](#isolation)) |
 | `podman-compose -f compose.yml up` | JupyterLab at `http://127.0.0.1:8888/?token=dev`, Plannotator on port 8889 |
 
-`c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags: `-c NAME` to pick the running container, `--cpus`/`--ram-mib` for podman resource limits (or the microVM size under `-k`), `--plannotator-port PORT`/`--no-plannotator-port` for the Plannotator UI port, `--no-git-signing` to run without commit signing, `-a=ARG` for extra `podman run` arguments, and `--dry-run`. A throwaway container gets:
-- the repository root bind-mounted at its host path and used as the working directory; for a `.bare` layout that is the directory holding `.bare`, so every worktree resolves, and outside git it is the current directory
+`c` lives in `dotfiles/bin` and is deployed to `~/bin` on the host; `c --help` lists the remaining flags: `-c NAME` to pick the running container, `--cpus`/`--ram-mib` for podman resource limits (or the microVM size under `-k`), `--plannotator-port PORT`/`--no-plannotator-port` for the Plannotator UI port, `--no-git-signing` to run without commit signing, `--no-git-root`/`--ngr` to mount only the current directory instead of the git root, `-a=ARG` for extra `podman run` arguments, and `--dry-run`. A throwaway container gets:
+- the repository root bind-mounted at its host path and used as the working directory; for a `.bare` layout that is the directory holding `.bare`, so every worktree resolves, and outside git it is the current directory (with `--no-git-root` only the current directory is mounted)
 - `$AGENT_CONFIG_DIR/{.agent,.pi/agent,.omp/agent,.plannotator}` at the same paths under `/home/user` (`AGENT_CONFIG_DIR` must be set)
 - the isolated ssh-agent as `SSH_AUTH_SOCK`: socket bind-mount, or under `c -k` a TCP bridge to the host signer (see [Isolation](#isolation) and [Signing under `c -k`](#signing-under-c--k-pasta-bridge)); when the host socket is absent, `c` warns and starts the container without it, and signing fails at commit time unless `--no-git-signing`/`GIT_SIGNING_DISABLED` is used
 - a port for the Plannotator plan UI: a free loopback port is published one-to-one (`--plannotator-port PORT` to pin it, `--no-plannotator-port` to opt out), with `PLANNOTATOR_REMOTE=1` and `PLANNOTATOR_PORT` set inside
@@ -42,6 +42,8 @@ Three layers, each bounding something the previous one does not:
 
 ## Agents
 `pi`, `omp` and `opencode` resolve to shadows in `~/bin` that launch the real binary through `agent-sandbox` (the bubblewrap layer above) from every entry point: `c`, `c -r`, zsh, bash. Escape hatches: `AGENT_SANDBOX_DISABLE=1 pi …` runs one invocation unsandboxed, and an absolute path bypasses the shadow.
+
+If the agent fails with an error like `bwrap: open /proc/2/ns/ns failed: No such file or directory`, bubblewrap cannot cope with the container process being PID 1: pass `c -a=--init CMD` so podman injects an init process instead (see the `-a=ARG` flag under [Run](#run)).
 
 ## Commit Signing
 Commits made inside a container are signed with a dedicated SSH key that never enters the container: an isolated ssh-agent on the host holds it and only its socket is mounted (under `c -k` the agent is reached over TCP instead, see [Signing under `c -k`](#signing-under-c--k-pasta-bridge)). `dotfiles/.gitconfig` turns on SSH signing; the image build sets `user.signingkey` and `~/.ssh/allowed_signers` from `GIT_SIGNING_KEY`.
