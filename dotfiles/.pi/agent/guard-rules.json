@@ -28,10 +28,6 @@
   ],
 
   "readOnlyPaths": [
-    "/bin/",
-    "/etc/",
-    "/sbin/",
-    "/usr/"
   ],
 
   "noDeletePaths": [
